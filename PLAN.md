@@ -1,70 +1,78 @@
-# The Forge — Progress & Next Steps
+# The Forge — Progress & Resume Guide
 
-## Current Status: Phase 1-3 COMPLETE — High-Fidelity Pixel Art Office
+## Current Status: FULLY OPERATIONAL — v1.0 Published
 
-All scaffold files built, 5 agents hired, cozy retro office rendering with event-driven agent animations.
+**GitHub:** https://github.com/elden-studios/the-forge
+**Last session:** 2026-04-07
 
 ## What's Built
 
-### Core Files
-- **SKILL.md** (328 lines) — Orchestration brain
-- **references/agent-design-guide.md** (256 lines) — Agent creation spec
-- **references/collaboration-protocol.md** (279 lines) — Multi-agent protocol
-- **references/pixel-office-spec.md** (222 lines) — Visual spec
-- **assets/office-template.html** (~750 lines) — Self-contained Canvas pixel office (clean rewrite)
+### Core System
+- **SKILL.md** — Orchestration brain
+- **references/collaboration-protocol.md** — v2.1 elite multi-agent workflow (8 phases, 3 checkpoints, Red Team, confidence scoring, Eisenhower matrix, post-mortems)
+- **references/agent-design-guide.md** — Agent creation spec
+- **references/pixel-office-spec.md** — Visual spec
 
-### Design Specs
-- `docs/superpowers/specs/2026-04-06-cozy-retro-office-redesign.md` — Visual redesign spec
-- `docs/superpowers/specs/2026-04-06-agent-animation-system.md` — Animation system spec
+### Team: 9 Agents, 6 Departments
+| Agent | Title | Department |
+|-------|-------|------------|
+| Flint | Chief Ideation Architect | Strategy |
+| Vex | Market Intelligence Lead | Research |
+| Nyx | Saudi Market Strategist (routing lead on Saudi briefs) | Research |
+| Echo | User Research Lead | Research |
+| Ren | UX Alchemist | Design |
+| Sable | Brand Alchemist | Design |
+| Talon | Growth Architect | Growth |
+| Atlas | Technical Architect | Engineering |
+| Kira | Content Architect | Content |
 
-### Team Roster (5 agents, 4 departments)
-| Agent | Title | Department | Hairstyle | Outfit |
-|-------|-------|-----------|-----------|--------|
-| Flint | Chief Ideation Architect | Strategy (#E74C3C) | spiky | leather-jacket |
-| Vex | Market Intelligence Lead | Research (#9B59B6) | slicked-back | blazer |
-| Nyx | Saudi Market Strategist | Research (#9B59B6) | beanie | vest |
-| Ren | UX Alchemist | Design (#1ABC9C) | bob | turtleneck |
-| Talon | Growth Architect | Growth (#2ECC71) | mohawk | bomber-jacket |
+### Office Visualization
+- High-fidelity pixel art: 6 rooms (2x3 grid) + central hallway + break room
+- Distinct floor textures per department (carpet, wood, linoleum, concrete)
+- Thick walls with 3D depth, doors between rooms
+- Props: bookshelves, laptops, monitors, whiteboards, server rack, vending machine, water cooler
+- Chibi character sprites at CPX=3 with 4-tone shading, clothing folds, expressive eyes
+- Event-driven animation: coffee walks, agent conversations, meeting room gatherings
+- Walk routing through doors (no wall clipping)
+- Desks persist when agents walk
 
-### Visual System (High-Fidelity Pixel Art — Stardew Valley quality)
-- **Layout**: 2x3 grid floorplan with central hallway + break room. Thick 8px walls with 3D depth, doors with wood frames
-- **Floors**: 6 distinct textures — executive carpet (Strategy), linoleum (Research), wood plank (Design), green lino (Growth), concrete speckle (Engineering), soft carpet (Content), tile (hallway), kitchen tile (break room)
-- **Lighting**: Consistent top-left light source. 4-tone shadow system (highlight → midtone → shadow → deep shadow) on all surfaces
-- **Props**: 25+ unique props including bookshelves, monitors with sticky notes, whiteboards, server rack with blinking LEDs, vending machine, water cooler, coffee machine, bar charts, color swatches, rubber duck
-- **Environmental storytelling**: Coffee ring stains, sticky notes on monitors, magnets on fridge, salt/pepper on table
-- **Characters**: CPX=3 chibi sprites with 4-tone skin shading, iris-colored eyes, clothing folds, hair highlights
-- **Dithering**: Used for carpet weave, concrete speckle, ceiling light glow cones
+### Collaboration Protocol v2.1
+8 phases: Intake & Challenge → Intelligence (parallel) → War Room → Solution Architecture → GTM → Challenge Round → Final Delivery → Post-Mortem
+- 3 hard checkpoints (user consulted with options)
+- Red Team adversary (Flint argues against consensus)
+- Confidence scoring per agent (H/M/L with justification)
+- Eisenhower priority matrix for action items
+- Versioned briefs (diff tracking on iteration)
+- Auto-approve mode
+- Office visualization events per phase
 
-### Animation System
-- **Event-driven**: Agents sit at desks by default, move when triggered
-- **Auto-coffee**: Every ~20-32s a random agent walks to the break area coffee machine, pauses ~4s, walks back
-- **Auto-chat**: Every ~16-30s two agents have a conversation — one walks to the other's desk, stands beside them ~5s, walks back
-- **Walk speed**: 16px/frame at 200ms interval (~80px/sec)
-- **Walk paths**: Axis-aligned (horizontal then vertical)
-- **Standing sprite**: Full body with legs shown when walking
-- **Event triggers via forge-state.json**: meeting, working, chatting, hiring, firing
-- **prefers-reduced-motion**: Agents teleport instead of walking
-
-### Technical
-- Preview server: `python3 -m http.server 8765 -d assets`
-- Template hydration: Replace `__FORGE_STATE_PLACEHOLDER__` with forge-state.json
-- Canvas at CPX=3 for characters, T=16 tile grid for environment
-- All rendering procedural Canvas API — no external images
+### Documentation
+- **README.md** — Full project docs with quick start
+- **TEAM.md** — Detailed profiles for all 9 agents
+- **PLAN.md** — This file
 
 ## Completed Projects
-- **Digital Signature Product** — Full 5-agent analysis with meeting room debate (Ren vs Talon on mobile-first). Recommendation: Saudi-first AI-powered contract platform with Nafath integration.
+| # | Project | Date | Outcome |
+|---|---------|------|---------|
+| 1 | Digital Signature Product | 2026-04-06 | GO — Saudi-first AI contract platform with Nafath integration |
+| 2 | Pet Healthcare Platform | 2026-04-07 | GO (80%) — Scale existing pet ecosystem, clinic land-grab Riyadh, telehealth hook |
 
-## Next Steps (when resuming)
+## Resume Points (what to do next)
 
 ### Immediate Options
-1. **Re-run digital signature brief** with Nyx (Saudi market expert) on the team
-2. **Hire more agents** (Technical Architect was recommended)
-3. **Give a new project brief** to the full team
-4. **Visual tweaks** — further office enhancements
+1. **New project brief** — give any product idea to the full team
+2. **Re-run Pet Platform** with deeper Phase 4 (Atlas architecture) + Phase 5 (Talon growth plan details)
+3. **Hire more agents** — e.g., Legal/Compliance Specialist (flagged as gap)
+4. **Visual enhancements** — character sprite quality, more environmental detail
+5. **Plugin packaging** — convert to Claude Code plugin for marketplace distribution
 
-### Future Phases
-- Walk cycle leg animation (frame-by-frame leg movement during walking)
-- Meeting room visualization (agents gather in glass room during debates)
-- Hire/fire walk-in/walk-out animations
-- Speech bubbles during chatting state
-- Project history tracking in forge-state.json
+### Known Issues to Fix
+- Character sprites could be more detailed (more pixel-level features)
+- Walking agents sometimes clip room boundaries at edge cases
+- Office preview requires manual `python3 -m http.server 8765 -d assets`
+
+### Tech Stack
+- Preview server: `python3 -m http.server 8765 -d assets`
+- Template hydration: `__FORGE_STATE_PLACEHOLDER__` → forge-state.json
+- Canvas: CPX=3 characters, 16px tile grid environment
+- All rendering: procedural Canvas API, no external images
