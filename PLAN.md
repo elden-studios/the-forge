@@ -1,6 +1,6 @@
 # The Forge — Progress & Resume Guide
 
-## Current Status: FULLY OPERATIONAL — v1.0 Published
+## Current Status: v3.0 PUBLISHED — Elite Protocol Active
 
 **GitHub:** https://github.com/elden-studios/the-forge
 **Last session:** 2026-04-07
@@ -9,70 +9,72 @@
 
 ### Core System
 - **SKILL.md** — Orchestration brain
-- **references/collaboration-protocol.md** — v2.1 elite multi-agent workflow (8 phases, 3 checkpoints, Red Team, confidence scoring, Eisenhower matrix, post-mortems)
-- **references/agent-design-guide.md** — Agent creation spec
-- **references/pixel-office-spec.md** — Visual spec
+- **Collaboration Protocol v3.0** — 8 phases, 15 elite enhancements
+- **9 Agent Second Brain files** — Framework templates, hot takes, anti-patterns, rivalries
+- **Agent Design Guide** — Credential checks, persona standards, avatar specs
 
 ### Team: 9 Agents, 6 Departments
-| Agent | Title | Department |
-|-------|-------|------------|
-| Flint | Chief Ideation Architect | Strategy |
-| Vex | Market Intelligence Lead | Research |
-| Nyx | Saudi Market Strategist (routing lead on Saudi briefs) | Research |
-| Echo | User Research Lead | Research |
-| Ren | UX Alchemist | Design |
-| Sable | Brand Alchemist | Design |
-| Talon | Growth Architect | Growth |
-| Atlas | Technical Architect | Engineering |
-| Kira | Content Architect | Content |
+| Agent | Title | Department | Hot Take |
+|-------|-------|------------|----------|
+| Flint | Chief Ideation Architect | Strategy | "If your idea needs explaining, it's the wrong idea." |
+| Vex | Market Intelligence Lead | Research | "TAM is a vanity metric. Show me 10 paying customers." |
+| Nyx | Saudi Market Strategist | Research | "The Saudi market doesn't follow Silicon Valley playbooks." |
+| Echo | User Research Lead | Research | "Your persona is fiction until you've talked to 15 real humans." |
+| Ren | UX Alchemist | Design | "If the user needs onboarding, the design failed." |
+| Sable | Brand Alchemist | Design | "Brand isn't a logo. It's the feeling when the logo is removed." |
+| Talon | Growth Architect | Growth | "SEO is dead for startups. Paid + viral or nothing." |
+| Atlas | Technical Architect | Engineering | "If you can't build the MVP in 6 weeks, your scope is wrong." |
+| Kira | Content Architect | Content | "If your headline needs a subhead to make sense, rewrite it." |
+
+### Protocol v3.0 Enhancements (all 15 implemented)
+1. Second Brain knowledge files
+2. Show Your Work reasoning chains
+3. Disagree by Default mode
+4. Deliverable Templates (Lean Canvas, AARRR, C4, etc.)
+5. Quantify or Die rule
+6. One-Slide constraint
+7. Handoff Memos
+8. Cross-Examination protocol
+9. Signal tags ([FACT] [INFERENCE] [HYPOTHESIS] [OPINION])
+10. Agent Hot Takes
+11. Mentorship Chains (Flint→strategy, Atlas→feasibility, Nyx→Saudi)
+12. Agent Rivalries (5 creative tensions)
+13. Project Memory
+14. Skill Stacking
+15. Live Office Visualization events
 
 ### Office Visualization
-- High-fidelity pixel art: 6 rooms (2x3 grid) + central hallway + break room
-- Distinct floor textures per department (carpet, wood, linoleum, concrete)
-- Thick walls with 3D depth, doors between rooms
-- Props: bookshelves, laptops, monitors, whiteboards, server rack, vending machine, water cooler
-- Chibi character sprites at CPX=3 with 4-tone shading, clothing folds, expressive eyes
-- Event-driven animation: coffee walks, agent conversations, meeting room gatherings
-- Walk routing through doors (no wall clipping)
+- High-fidelity pixel art: 6 rooms, hallway, break room
+- Distinct floors, thick walls, doors, props
+- Chibi sprites with 4-tone shading at CPX=3
+- Event-driven animation (coffee walks, conversations, meetings)
+- Door routing (no wall clipping)
 - Desks persist when agents walk
 
-### Collaboration Protocol v2.1
-8 phases: Intake & Challenge → Intelligence (parallel) → War Room → Solution Architecture → GTM → Challenge Round → Final Delivery → Post-Mortem
-- 3 hard checkpoints (user consulted with options)
-- Red Team adversary (Flint argues against consensus)
-- Confidence scoring per agent (H/M/L with justification)
-- Eisenhower priority matrix for action items
-- Versioned briefs (diff tracking on iteration)
-- Auto-approve mode
-- Office visualization events per phase
-
 ### Documentation
-- **README.md** — Full project docs with quick start
-- **TEAM.md** — Detailed profiles for all 9 agents
-- **PLAN.md** — This file
+- README.md — Full showcase with diagrams and feature tables
+- TEAM.md — All 9 agent profiles with collaboration map
+- 3 design specs in docs/superpowers/specs/
 
 ## Completed Projects
-| # | Project | Date | Outcome |
-|---|---------|------|---------|
-| 1 | Digital Signature Product | 2026-04-06 | GO — Saudi-first AI contract platform with Nafath integration |
-| 2 | Pet Healthcare Platform | 2026-04-07 | GO (80%) — Scale existing pet ecosystem, clinic land-grab Riyadh, telehealth hook |
+| # | Project | Decision | Confidence |
+|---|---------|----------|------------|
+| 1 | Digital Signature Platform | GO | 75% |
+| 2 | Pet Healthcare Platform | GO | 80% |
 
-## Resume Points (what to do next)
+## NEXT SESSION: Task Visualization System
 
-### Immediate Options
-1. **New project brief** — give any product idea to the full team
-2. **Re-run Pet Platform** with deeper Phase 4 (Atlas architecture) + Phase 5 (Talon growth plan details)
-3. **Hire more agents** — e.g., Legal/Compliance Specialist (flagged as gap)
-4. **Visual enhancements** — character sprite quality, more environmental detail
-5. **Plugin packaging** — convert to Claude Code plugin for marketplace distribution
+**Spec:** `docs/superpowers/specs/2026-04-07-task-visualization-system.md`
+**Status:** APPROVED, implementation pending
 
-### Known Issues to Fix
-- Character sprites could be more detailed (more pixel-level features)
-- Walking agents sometimes clip room boundaries at edge cases
-- Office preview requires manual `python3 -m http.server 8765 -d assets`
+### What to Build
+1. **forge-tasks.json** — Real-time task tracking data model
+2. **Office overlays** — Task bubbles above agents, handoff arrows, room glow, phase bar
+3. **dashboard.html** — New 4-tab dashboard:
+   - Tab 1: Mission Control (status at a glance)
+   - Tab 2: Network Graph (animated force-directed)
+   - Tab 3: Kanban Board (task cards)
+   - Tab 4: Timeline (Gantt-style)
+4. **SKILL.md update** — Protocol sets task state during each phase
 
-### Tech Stack
-- Preview server: `python3 -m http.server 8765 -d assets`
-- Template hydration: `__FORGE_STATE_PLACEHOLDER__` → forge-state.json
-- Canvas: CPX=3 characters, 16px tile grid environment
-- All rendering: procedural Canvas API, no external images
+### Estimated: ~1000 lines across 3 files
