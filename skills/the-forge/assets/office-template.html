@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Forge — Office</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#121220;display:flex;flex-direction:column;align-items:center;min-height:100vh;font-family:'VT323',monospace;overflow:auto;color:#E8DCC8}
+#title{font-family:'Press Start 2P',monospace;color:#D4763A;font-size:18px;margin:20px 0 4px;letter-spacing:2px;text-shadow:2px 2px 0 #0A0A15}
+#subtitle{color:#B8A890;font-size:16px;margin-bottom:12px}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;border:2px solid #3A3A4E;border-radius:2px;box-shadow:0 4px 24px rgba(0,0,0,0.5)}
+#roster{font-family:'VT323',monospace;color:#B8A890;font-size:15px;margin-top:10px;text-align:center;max-width:900px;line-height:1.8}
+.dept-tag{display:inline-block;padding:2px 8px;border-radius:3px;font-family:'Press Start 2P',monospace;font-size:7px;margin:2px 3px;text-shadow:1px 1px 0 rgba(0,0,0,0.4)}
+.agent-name{font-family:'VT323',monospace;font-size:16px;margin:0 3px}
+@media(prefers-reduced-motion:reduce){.anim{animation:none}}
+</style>
+</head>
+<body>
+<div id="title">⚒ THE FORGE</div>
+<div id="subtitle"></div>
+<canvas id="office"></canvas>
+<div id="roster"></div>
+<script>
+window.FORGE_STATE = __FORGE_STATE_PLACEHOLDER__;
+window.FORGE_TASKS = null;
+// Load tasks data for overlays (auto-refresh every 3s)
+function loadTasks(){fetch('/forge-tasks.json?'+Date.now()).then(r=>r.json()).then(d=>{window.FORGE_TASKS=d}).catch(()=>{})}
+loadTasks(); setInterval(loadTasks, 3000);
+
+// ═══════════════════════════════════════════════════════
+// PIXEL ART ENGINE — Color math, dithering, lighting
+// ═══════════════════════════════════════════════════════
+const PA = {
+  // Parse hex to {r,g,b}
+  p(c){if(!c||c[0]!=='#')return{r:128,g:128,b:128};const v=parseInt(c.slice(1),16);return{r:(v>>16)&255,g:(v>>8)&255,b:v&255}},
+  // {r,g,b} to css
+  c(o){return `rgb(${o.r},${o.g},${o.b})`},
+  // Lighten
+  li(c,n){const o=PA.p(c);return PA.c({r:Math.min(255,o.r+n),g:Math.min(255,o.g+n),b:Math.min(255,o.b+n)})},
+  // Darken
+  dk(c,n){const o=PA.p(c);return PA.c({r:Math.max(0,o.r-n),g:Math.max(0,o.g-n),b:Math.max(0,o.b-n)})},
+  // 4-tone shadow set from base hex
+  s4(c){return{hi:PA.li(c,35),mid:c,sh:PA.dk(c,25),deep:PA.dk(c,50)}},
+  // Dither two colors in a rect
+  dither(ctx,x,y,w,h,cA,cB){
+    for(let py=0;py<h;py++)for(let px=0;px<w;px++){
+      ctx.fillStyle=((px+py)%2===0)?cA:cB;
+      ctx.fillRect(x+px,y+py,1,1);
+    }
+  },
+  // Draw a shadow on the floor (cast bottom-right from top-left light)
+  floorShadow(ctx,x,y,w,h,off){
+    off=off||4;
+    ctx.fillStyle='rgba(0,0,0,0.18)';
+    ctx.fillRect(x+off,y+h,w,off);
+    ctx.fillRect(x+w,y+off,off,h);
+  }
+};
+
+// ═══════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════
+const ROOM_W=220, ROOM_H=210, HALL_H=52, WALL=8, DOOR_W=32;
+const COLS=3, ROWS=2;
+const MARGIN=12; // outer margin
+const TOTAL_W = MARGIN*2 + COLS*ROOM_W + (COLS-1)*WALL;
+const BREAK_W=180, BREAK_H=130;
+const ROW0_Y = MARGIN;
+const HALL_Y = ROW0_Y + ROOM_H + WALL;
+const ROW1_Y = HALL_Y + HALL_H + WALL;
+const TOTAL_H = ROW1_Y + ROOM_H + MARGIN + WALL;
+const CPX=3, CH_W=16, CH_H=24;
+
+// Wall color
+const WALL_C = '#3A3A4E';
+const WALL_S = PA.s4(WALL_C);
+
+// Floor colors per department type
+const FLOORS = {
+  carpet:   {base:'#6B4040',alt:'#5E3838',hi:'#7A4E4E',line:'#553333'},
+  lino:     {base:'#909090',alt:'#888888',hi:'#A0A0A0',line:'#787878'},
+  linoG:    {base:'#889088',alt:'#808880',hi:'#98A098',line:'#707870'},
+  wood:     {base:'#8B7355',alt:'#7A6245',hi:'#9B8365',line:'#6A5235',knot:'#5A4225'},
+  concrete: {base:'#808088',alt:'#787880',hi:'#909098',line:'#686870'},
+  carpetS:  {base:'#5A4858',alt:'#504050',hi:'#6A5868',line:'#483848'},
+  tile:     {base:'#C8C0B0',alt:'#BEB8A8',hi:'#D8D0C0',line:'#A8A090'},
+  kitchen:  {base:'#E0D8C8',alt:'#D8D0C0',hi:'#E8E0D0',line:'#C0B8A8'}
+};
+
+// Department info (order maps to grid position)
+const DEPT_ORDER = ['dept-strt','dept-rsch','dept-dsgn','dept-grwt','dept-engr','dept-cont'];
+const DEPT_FLOOR = {
+  'dept-strt':'carpet','dept-rsch':'lino','dept-dsgn':'wood',
+  'dept-grwt':'linoG','dept-engr':'concrete','dept-cont':'carpetS'
+};
+
+// Prop colors
+const PC = {
+  desk:'#6B5230', deskHi:'#8B7250', deskSh:'#5A4220',
+  monitor:'#1E1E2E', screen:'#4488BB', screenHi:'#66AADD', code:'#55AA55',
+  chair:'#4A4050', chairHi:'#5A5060',
+  shelf:'#5B4530', shelfBk:'#3D2E1A', shelfHi:'#7A6240',
+  plant:'#4A8A4A', plantDk:'#3A7A3A', plantLt:'#5A9A5A', pot:'#8B5020', potSh:'#6B3810',
+  wb:'#E8E8E8', wbFrame:'#888888', wbSh:'#D0D0D0',
+  paper:'#F0EDE0', paperSh:'#D8D5C8',
+  metal:'#909098', metalHi:'#A8A8B0', metalSh:'#707078',
+  red:'#C04040', redSh:'#903030',
+  coffee:'#3A3A4A', coffeeHi:'#5A5A6A',
+  fridge:'#8A8A98', fridgeHi:'#A0A0B0',
+  vend:'#2A2A3A', vendHi:'#4A4A5A', vendScreen:'#88CC88',
+  bench:'#8B7355', benchHi:'#9B8365',
+  outline:'#2A1A10', brand:'#D4763A'
+};
+
+// ═══════════════════════════════════════════════════════
+// LAYOUT ENGINE
+// ═══════════════════════════════════════════════════════
+class Layout {
+  constructor(state) {
+    this.state = state;
+    this.depts = state.departments || [];
+    this.agents = (state.agents||[]).filter(a=>a.status==='active');
+    this.deptAgents = {};
+    this.depts.forEach(d=>{this.deptAgents[d.id]=this.agents.filter(a=>a.department_id===d.id)});
+
+    this.W = TOTAL_W;
+    this.H = TOTAL_H;
+
+    // Room positions (grid: col 0-2, row 0-1)
+    this.rooms = {};
+    DEPT_ORDER.forEach((did,i)=>{
+      const col=i%COLS, row=Math.floor(i/COLS);
+      const x = MARGIN + col*(ROOM_W+WALL);
+      const y = row===0 ? ROW0_Y : ROW1_Y;
+      this.rooms[did]={x,y,w:ROOM_W,h:ROOM_H,col,row};
+    });
+
+    // Hallway
+    this.hallX = MARGIN;
+    this.hallY = HALL_Y;
+    this.hallW = COLS*ROOM_W+(COLS-1)*WALL;
+    this.hallH = HALL_H;
+
+    // Break room (attached to bottom-right)
+    this.breakX = MARGIN + 2*(ROOM_W+WALL);
+    this.breakY = ROW1_Y + ROOM_H + WALL;
+    this.breakW = ROOM_W;
+    this.breakH = BREAK_H;
+    this.H = Math.max(this.H, this.breakY + this.breakH + MARGIN);
+
+    // Agent positions within rooms
+    this.agentPos = {};
+    this.depts.forEach(d=>{
+      const room = this.rooms[d.id];
+      if(!room) return;
+      const agents = this.deptAgents[d.id]||[];
+      agents.forEach((a,i)=>{
+        const col=i%2, row=Math.floor(i/2);
+        const ax = room.x + 20 + col*100;
+        const ay = room.y + 90 + row*80;
+        this.agentPos[a.id]={x:ax,y:ay,roomId:d.id};
+      });
+    });
+
+    // Coffee position (break room)
+    this.coffeePos = {x:this.breakX+20, y:this.breakY+30};
+    // Hallway center
+    this.hallCenter = {x:this.hallX+this.hallW/2, y:this.hallY+this.hallH/2};
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// SPRITE ENGINE — Enhanced characters
+// ═══════════════════════════════════════════════════════
+class SpriteEngine {
+  constructor(ctx){this.ctx=ctx}
+  px(x,y,c){this.ctx.fillStyle=c;this.ctx.fillRect(x*CPX,y*CPX,CPX,CPX)}
+  rr(x,y,w,h,c){this.ctx.fillStyle=c;this.ctx.fillRect(x*CPX,y*CPX,w*CPX,h*CPX)}
+
+  drawAgent(sx,sy,avatar,frame,animState,seated){
+    const ox=Math.round(sx/CPX),oy=Math.round(sy/CPX);
+    const skin=avatar.skin_tone||'#C68642';
+    const skH=PA.li(skin,35),skM=skin,skD=PA.dk(skin,30),skDD=PA.dk(skin,55);
+    const out=this.outfitC(avatar.outfit_style);
+    const outH=PA.li(out,30),outM=out,outD=PA.dk(out,30),outDD=PA.dk(out,55);
+    const acc=avatar.department_accent_color||'#D4763A';
+    const accH=PA.li(acc,20);
+    const hair=avatar.hair_color||this.hairC(avatar.hairstyle);
+    const hairH=PA.li(hair,30),hairD=PA.dk(hair,25);
+    const ol='#140800'; // stronger outline for better visibility
+
+    // ═══ OUTLINE (warm brown, shaped to body) ═══
+    this.rr(ox+2,oy+0,12,12,ol);
+    this.rr(ox+1,oy+2,14,8,ol);
+    this.rr(ox+5,oy+10,6,3,ol);
+    if(seated){this.rr(ox+1,oy+12,14,10,ol)}
+    else{this.rr(ox+1,oy+12,14,9,ol);this.rr(ox+3,oy+19,10,7,ol)}
+
+    // ═══ HEAD (4-tone: highlight → mid → shadow → deep) ═══
+    // Base head shape
+    this.rr(ox+3,oy+1,10,10,skM);
+    this.rr(ox+2,oy+3,12,6,skM);
+    // Top-left light: highlight on forehead + left cheek
+    this.rr(ox+4,oy+1,5,1,skH);
+    this.rr(ox+3,oy+2,3,2,skH);
+    this.px(ox+2,oy+4,skH);this.px(ox+2,oy+5,skH); // left cheek glow
+    // Shadow: right side face
+    this.rr(ox+12,oy+3,1,6,skD);
+    this.rr(ox+11,oy+3,1,4,skD);
+    // Under-features shadows
+    this.rr(ox+4,oy+10,8,1,skD); // under chin
+    this.px(ox+3,oy+9,skD); // jaw shadow
+    this.px(ox+12,oy+9,skD);
+    // Nose bridge highlight (top-left light catches it)
+    this.px(ox+7,oy+7,skH);
+    // Cheek blush (subtle warmth)
+    this.px(ox+5,oy+8,PA.li(skin,10));
+    this.px(ox+10,oy+8,PA.dk(skin,5));
+    // Deep shadow: neck
+    this.rr(ox+6,oy+11,4,2,skM);
+    this.px(ox+6,oy+11,skD);this.px(ox+9,oy+11,skD);
+    this.rr(ox+6,oy+12,4,1,skDD);
+
+    // ═══ EYEBROWS (expressive, angled) ═══
+    this.rr(ox+4,oy+4,3,1,hairD);
+    this.px(ox+4,oy+3,hairD); // left brow arch
+    this.rr(ox+9,oy+4,3,1,hairD);
+    this.px(ox+11,oy+3,hairD); // right brow arch
+
+    // ═══ EYES (detailed: eyelid → white → iris → pupil → shine → under-shadow) ═══
+    const blink=Math.floor(Date.now()/3500)%20;
+    const irisC=PA.dk(acc,15);
+    const irisDk=PA.dk(acc,40);
+    if(blink!==0){
+      // Left eye
+      this.rr(ox+4,oy+5,3,1,ol); // eyelid line (expression!)
+      this.rr(ox+4,oy+5,3,3,'#FFF'); // white sclera
+      this.px(ox+4,oy+5,PA.dk('#FFF',20)); // corner shadow
+      this.rr(ox+5,oy+5,2,2,irisC); // iris
+      this.px(ox+5,oy+6,irisDk); // iris bottom darker
+      this.px(ox+6,oy+6,'#111'); // pupil
+      this.px(ox+4,oy+5,'#F0F8FF'); // shine (bright!)
+      this.rr(ox+4,oy+7,3,1,skD); // under-eye shadow
+      // Right eye
+      this.rr(ox+9,oy+5,3,1,ol);
+      this.rr(ox+9,oy+5,3,3,'#FFF');
+      this.px(ox+11,oy+5,PA.dk('#FFF',20));
+      this.rr(ox+9,oy+5,2,2,irisC);
+      this.px(ox+9,oy+6,irisDk);
+      this.px(ox+9,oy+6,'#111');
+      this.px(ox+11,oy+5,'#F0F8FF');
+      this.rr(ox+9,oy+7,3,1,skD);
+    }else{
+      // Blink — closed eyes with expression
+      this.rr(ox+4,oy+6,3,1,ol);
+      this.rr(ox+9,oy+6,3,1,ol);
+      this.px(ox+4,oy+7,skD);this.px(ox+9,oy+7,skD); // under-eye
+    }
+
+    // ═══ NOSE (subtle, with light catch) ═══
+    this.px(ox+7,oy+8,skD);
+    this.px(ox+8,oy+8,skDD);
+    this.px(ox+7,oy+7,skH); // nose bridge light catch
+
+    // ═══ MOUTH (subtle smile) ═══
+    this.rr(ox+6,oy+9,4,1,skDD);
+    this.px(ox+6,oy+9,skD); // corner
+    this.px(ox+9,oy+9,skD); // corner
+    this.px(ox+7,oy+9,PA.dk(skin,40)); // center darker for depth
+
+    // ═══ BODY ═══
+    if(seated){
+      // Shoulders (broad, with light direction)
+      this.rr(ox+2,oy+13,12,2,outM);
+      this.rr(ox+2,oy+13,3,2,outH); // left lit by top-left light
+      this.rr(ox+11,oy+13,3,2,outD); // right shadow
+      this.px(ox+2,oy+13,outH); // highlight edge
+      // Collar V-neckline
+      this.rr(ox+6,oy+13,4,1,skM);
+      this.px(ox+7,oy+13,skD); // collar shadow
+      // Torso with 4-tone shading
+      this.rr(ox+4,oy+15,8,6,outM);
+      this.rr(ox+4,oy+15,2,6,outH); // left lit
+      this.rr(ox+10,oy+15,2,6,outD); // right shadow
+      this.px(ox+4,oy+15,outH); // top-left corner highlight
+      this.px(ox+11,oy+20,outDD); // bottom-right deep shadow
+      // Department accent (subtle, integrated)
+      this.rr(ox+4,oy+16,8,1,acc);
+      this.rr(ox+4,oy+16,4,1,accH); // left half lighter (light source)
+      // Clothing fold lines (the "wow" detail)
+      this.px(ox+6,oy+17,outD); // fold under accent stripe
+      this.px(ox+8,oy+18,outD); // diagonal fold
+      this.px(ox+7,oy+19,outDD); // deep crease
+      this.px(ox+5,oy+20,outD); // lower fold
+      // Button detail
+      this.px(ox+7,oy+18,outDD);this.px(ox+7,oy+20,outDD);
+      // Arms (typing, with sleeve highlight)
+      this.rr(ox+2,oy+14,2,4,outM);
+      this.px(ox+2,oy+14,outH);this.px(ox+2,oy+15,outH); // sleeve highlight
+      this.rr(ox+12,oy+14,2,4,outM);
+      this.px(ox+13,oy+15,outD);this.px(ox+13,oy+16,outDD); // sleeve shadow
+      // Forearms angled inward
+      this.rr(ox+3,oy+18,2,2,outM);
+      this.rr(ox+11,oy+18,2,2,outM);
+      this.px(ox+3,oy+18,outH); // forearm light catch
+      // Hands on keyboard (finger detail)
+      this.rr(ox+5,oy+19,2,2,skM);
+      this.rr(ox+9,oy+19,2,2,skM);
+      this.px(ox+5,oy+19,skH); // left hand lit
+      this.px(ox+10,oy+19,skD); // right hand shadow
+      // Typing animation (finger movement)
+      if(frame%4<2){this.px(ox+5,oy+20,skD);this.px(ox+6,oy+20,skDD)}
+      else{this.px(ox+9,oy+20,skD);this.px(ox+10,oy+20,skDD)}
+      // Lap
+      this.rr(ox+4,oy+21,8,1,'#2A2A3A');
+      this.px(ox+4,oy+21,'#353545'); // lap light edge
+    }else{
+      // ═══ STANDING BODY ═══
+      this.rr(ox+2,oy+13,12,2,outM);
+      this.rr(ox+2,oy+13,3,2,outH);this.rr(ox+11,oy+13,3,2,outD);
+      this.rr(ox+6,oy+13,4,1,skM);this.px(ox+7,oy+13,skD);
+      this.rr(ox+4,oy+15,8,6,outM);
+      this.rr(ox+4,oy+15,2,6,outH);this.rr(ox+10,oy+15,2,6,outD);
+      this.rr(ox+4,oy+16,8,1,acc);this.rr(ox+4,oy+16,4,1,accH);
+      // Folds
+      this.px(ox+6,oy+17,outD);this.px(ox+8,oy+18,outD);this.px(ox+7,oy+19,outDD);
+      this.px(ox+7,oy+18,outDD);this.px(ox+7,oy+20,outDD); // buttons
+      // Arms with light
+      this.rr(ox+2,oy+14,2,6,outM);
+      this.px(ox+2,oy+14,outH);this.px(ox+2,oy+15,outH);
+      this.rr(ox+12,oy+14,2,6,outM);
+      this.px(ox+13,oy+15,outD);this.px(ox+13,oy+16,outDD);
+      // Hands
+      this.rr(ox+2,oy+20,2,1,skM);this.rr(ox+12,oy+20,2,1,skM);
+      this.px(ox+2,oy+20,skH);
+      // Legs (4-tone pants)
+      this.rr(ox+4,oy+21,3,4,'#2A2A3A');
+      this.rr(ox+9,oy+21,3,4,'#353545');
+      this.px(ox+4,oy+21,'#3A3A4A'); // left leg light
+      this.px(ox+11,oy+21,'#1E1E2E'); // right leg deep shadow
+      this.px(ox+7,oy+21,'#1A1A2A'); // inner shadow between legs
+      // Shoes with highlight
+      this.rr(ox+3,oy+25,4,1,'#1A1A1A');
+      this.rr(ox+9,oy+25,4,1,'#252525');
+      this.px(ox+3,oy+25,'#333'); // shoe highlight
+    }
+
+    // Hair (with highlights and volume)
+    this.drawHair(ox,oy,avatar.hairstyle,hair,hairH,hairD);
+    // Accessory
+    this.drawAcc(ox,oy,avatar.accessory,acc);
+    // Idle animation
+    if(animState==='idle')this.drawIdle(ox,oy,avatar.idle_animation,frame,skM,skD);
+    // Working state (lightbulb + sparkles)
+    if(animState==='working'){
+      if(frame%6<3){
+        this.ctx.fillStyle='rgba(251,191,36,0.1)';
+        this.ctx.fillRect((ox+4)*CPX,(oy-8)*CPX,8*CPX,6*CPX); // glow
+        this.rr(ox+6,oy-5,3,3,'#FBBF24');
+        this.rr(ox+7,oy-4,1,1,'#FFF');
+        this.px(ox+7,oy-2,'#92400E'); // filament
+      }
+      if(frame%3===0)this.px(ox+14,oy-1,'#FBBF24'); // sparkle
+      if(frame%5===0)this.px(ox+1,oy+4,'#FBBF24');
+    }
+  }
+
+  drawHair(ox,oy,s,c,ch,cd){
+    switch(s){
+      case'spiky':this.rr(ox+3,oy+0,10,2,c);this.rr(ox+3,oy-3,2,4,c);this.rr(ox+6,oy-4,2,5,c);this.rr(ox+9,oy-3,2,4,c);this.px(ox+11,oy-1,c);this.px(ox+7,oy-4,ch);this.px(ox+4,oy-2,cd);break;
+      case'mohawk':this.rr(ox+5,oy-4,5,5,c);this.rr(ox+6,oy-6,3,2,c);this.rr(ox+3,oy+0,10,2,cd);this.px(ox+7,oy-5,ch);break;
+      case'ponytail':this.rr(ox+3,oy+0,10,2,c);this.rr(ox+2,oy+1,2,4,cd);this.rr(ox+12,oy+1,2,4,c);this.rr(ox+13,oy+4,2,6,c);this.px(ox+14,oy+6,cd);this.px(ox+4,oy+0,ch);break;
+      case'buzz-cut':this.rr(ox+3,oy+0,10,2,c);this.px(ox+2,oy+1,cd);this.px(ox+5,oy+0,ch);break;
+      case'curly':this.rr(ox+2,oy-1,12,3,c);this.rr(ox+1,oy+0,2,5,c);this.rr(ox+13,oy+0,2,5,c);this.px(ox+4,oy-1,cd);this.px(ox+10,oy-1,cd);this.px(ox+3,oy-1,ch);break;
+      case'headphones':this.rr(ox+3,oy+0,10,2,c);this.rr(ox+2,oy-1,12,2,'#555');this.rr(ox+1,oy+2,3,3,'#666');this.px(ox+2,oy+3,'#888');this.rr(ox+12,oy+2,3,3,'#666');this.px(ox+13,oy+3,'#888');break;
+      case'beanie':this.rr(ox+2,oy-2,12,4,c);this.rr(ox+2,oy+1,12,2,cd);this.rr(ox+7,oy-3,2,1,c);this.px(ox+4,oy-1,ch);break;
+      case'long-flowing':this.rr(ox+3,oy+0,10,2,c);this.rr(ox+1,oy+1,3,12,c);this.rr(ox+12,oy+1,3,12,c);this.rr(ox+1,oy+3,2,8,cd);this.px(ox+13,oy+2,ch);break;
+      case'braids':this.rr(ox+3,oy+0,10,2,c);this.rr(ox+2,oy+1,2,10,c);this.rr(ox+12,oy+1,2,10,c);this.px(ox+2,oy+4,cd);this.px(ox+13,oy+6,cd);this.px(ox+2,oy+8,cd);break;
+      case'afro':this.rr(ox+1,oy-4,14,6,c);this.rr(ox+0,oy-2,16,4,c);this.rr(ox+1,oy+1,14,2,c);this.px(ox+4,oy-3,cd);this.px(ox+10,oy-2,cd);this.px(ox+3,oy-3,ch);break;
+      case'side-shave':this.rr(ox+7,oy-2,6,4,c);this.rr(ox+3,oy+0,10,2,c);this.px(ox+2,oy+1,cd);this.px(ox+8,oy-2,ch);break;
+      case'bob':this.rr(ox+2,oy-1,12,3,c);this.rr(ox+2,oy+1,3,6,c);this.rr(ox+11,oy+1,3,6,c);this.rr(ox+2,oy+2,2,4,cd);this.px(ox+4,oy-1,ch);break;
+      case'topknot':this.rr(ox+3,oy+0,10,2,c);this.rr(ox+6,oy-4,4,4,c);this.px(ox+5,oy-3,cd);this.px(ox+8,oy-4,ch);break;
+      case'slicked-back':this.rr(ox+3,oy-1,10,3,c);this.rr(ox+11,oy+1,3,3,c);this.rr(ox+5,oy+0,6,1,ch);break;
+      case'messy-bun':this.rr(ox+3,oy+0,10,2,c);this.rr(ox+5,oy-4,6,4,c);this.px(ox+8,oy-5,c);this.px(ox+6,oy-3,cd);this.px(ox+10,oy-2,cd);this.px(ox+7,oy-4,ch);break;
+      case'dreadlocks':this.rr(ox+3,oy+0,10,2,c);for(let i=0;i<5;i++){this.rr(ox+2+i*2,oy+2,2,6+(i%3)*2,c);if(i%2)this.px(ox+2+i*2,oy+4+i,cd)}break;
+      case'pixie-cut':this.rr(ox+2,oy-1,12,3,c);this.rr(ox+2,oy+0,2,4,c);this.rr(ox+12,oy+1,2,2,c);this.px(ox+4,oy-1,ch);break;
+      case'bald':this.px(ox+7,oy+1,PA.li(skin||'#C68642',30));break;
+      default:this.rr(ox+3,oy+0,10,2,c);
+    }
+  }
+
+  drawAcc(ox,oy,a,acc){
+    switch(a){
+      case'oversized-glasses':this.rr(ox+3,oy+4,4,3,'rgba(180,200,255,0.5)');this.rr(ox+9,oy+4,4,3,'rgba(180,200,255,0.5)');this.px(ox+7,oy+5,'#666');break;
+      case'round-glasses':this.rr(ox+4,oy+4,3,3,'rgba(200,220,255,0.35)');this.rr(ox+9,oy+4,3,3,'rgba(200,220,255,0.35)');this.px(ox+7,oy+5,'#777');break;
+      case'scarf':this.rr(ox+2,oy+10,12,2,acc);this.rr(ox+2,oy+12,3,3,acc);break;
+      case'earbuds':this.px(ox+2,oy+4,'#FFF');this.px(ox+13,oy+4,'#FFF');break;
+      case'bandana':this.rr(ox+2,oy+0,12,2,acc);this.rr(ox+13,oy+1,2,2,acc);this.px(ox+6,oy+0,PA.li(acc,25));break;
+      case'eyepatch':this.rr(ox+3,oy+4,4,3,'#1a1a1a');break;
+      case'snapback-cap':this.rr(ox+2,oy-1,12,3,acc);this.rr(ox+1,oy+1,4,2,acc);this.rr(ox+3,oy-1,10,1,PA.li(acc,15));break;
+      case'pendant':this.px(ox+7,oy+12,'#FFD700');this.px(ox+7,oy+13,'#FFA500');break;
+      case'visor':this.rr(ox+2,oy+1,12,2,acc);break;
+      case'tattoo-sleeve':this.px(ox+2,oy+15,'#4338CA');this.px(ox+1,oy+17,'#7C3AED');break;
+      case'watch':this.rr(ox+1,oy+19,2,2,'#C0C0C0');this.px(ox+1,oy+19,'#FFD700');break;
+      case'wrist-cuff':this.rr(ox+12,oy+18,2,2,'#8B4513');break;
+      case'feather-earring':this.px(ox+14,oy+4,'#FFD700');this.px(ox+14,oy+5,'#E74C3C');this.px(ox+14,oy+6,'#B91C1C');break;
+      case'nose-ring':this.px(ox+9,oy+8,'#C0C0C0');break;
+      case'collar-pin':this.px(ox+7,oy+13,'#FFD700');this.px(ox+8,oy+13,'#FFA500');break;
+    }
+  }
+
+  drawIdle(ox,oy,a,f,skin,skD){
+    const fr=f%8;
+    switch(a){
+      case'scribbles-notepad':this.rr(ox-2,oy+18,4,4,'#FFFFF0');if(fr%2===0)this.px(ox-1,oy+20,'#333');else this.px(ox+0,oy+21,'#333');break;
+      case'sips-mug':if(fr===2||fr===3){this.rr(ox+13,oy+5,3,3,'#8B4513');this.rr(ox+13,oy+5,3,1,'#D2691E')}break;
+      case'drums-fingers':if(fr<2)this.px(ox+5,oy+20,skin);else if(fr<4)this.px(ox+4,oy+20,skin);else this.px(ox+3,oy+20,skin);break;
+      case'leans-back-thinking':if(fr>=4)this.rr(ox+12,oy+2,2,2,skin);break;
+      case'adjusts-glasses':if(fr===2)this.rr(ox+12,oy+5,2,2,skin);break;
+      case'spins-pen':const px2=[0,1,1,0,-1,-1,0,1],py2=[0,0,1,1,1,0,-1,-1];this.px(ox+13+px2[fr],oy+16+py2[fr],'#555');break;
+      case'checks-phone':if(fr>=4){this.rr(ox+13,oy+14,3,4,'#222');this.rr(ox+13,oy+14,3,3,'#4A90D9')}break;
+      case'taps-foot':if(fr%2===0)this.px(ox+3,oy+26,'#1a1a1a');break;
+      case'bounces-leg':if(fr%2===0)this.rr(ox+4,oy+20,3,1,'#353545');break;
+      case'stretches':if(fr===4||fr===5){this.rr(ox+1,oy+5,2,2,skin);this.rr(ox+13,oy+5,2,2,skin)}break;
+      case'fidgets-with-pen':this.px(ox+13+(fr%3),oy+19,'#555');break;
+      case'cracks-knuckles':if(fr===3||fr===4)this.px(ox+3,oy+19,'#FFF');break;
+      case'twirls-hair':if(fr>=4)this.px(ox+13,oy+3,skin);break;
+      case'air-drums':if(fr%2===0)this.rr(ox+1,oy+16,2,2,skin);else this.rr(ox+13,oy+16,2,2,skin);break;
+    }
+  }
+
+  outfitC(s){return{'hoodie':'#475569','blazer':'#2A2A3A','turtleneck':'#1E1E2E','leather-jacket':'#5A3820','lab-coat':'#C8C8D0','flannel':'#8B3030','tank-top':'#6D28D9','kimono-inspired':'#207070','vest':'#6B6B7B','bomber-jacket':'#4A4A5A','denim-jacket':'#4A70A0','cape':'#6030A0','cardigan':'#A08030','polo':'#308030','henley':'#8A8A9A'}[s]||'#475569'}
+  hairC(s){return{'mohawk':'#C04040','ponytail':'#3B2314','buzz-cut':'#1A1A1A','curly':'#8B6914','headphones':'#1A1A1A','beanie':'#3060B0','long-flowing':'#C4A265','spiky':'#6030A0','braids':'#3B2314','bald':'#C68642','afro':'#1A1A1A','side-shave':'#208080','bob':'#A03030','topknot':'#3B2314','slicked-back':'#1A1A1A','messy-bun':'#E8D5A3','dreadlocks':'#5B3A1A','pixie-cut':'#C04040'}[s]||'#3B2314'}
+}
+
+// ═══════════════════════════════════════════════════════
+// SCENE RENDERER — High fidelity pixel art
+// ═══════════════════════════════════════════════════════
+class Scene {
+  constructor(canvas,ctx,layout,sprite){
+    this.canvas=canvas;this.ctx=ctx;this.L=layout;this.sprite=sprite;
+    this.frame=0;
+    this.reducedMotion=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    // Animation states
+    this.anims={};
+    layout.agents.forEach(a=>{
+      const p=layout.agentPos[a.id];if(!p)return;
+      const hx=p.x+8, hy=p.y-30;
+      this.anims[a.id]={state:'sitting',sx:hx,sy:hy,hx:hx,hy:hy,tx:0,ty:0,wf:0,timer:0,phase:'h',after:null};
+    });
+    this.coffeeTimer=60+Math.floor(Math.random()*60);
+    this.chatTimer=90+Math.floor(Math.random()*60);
+  }
+
+  // Compute door position for a room
+  doorPos(roomId){
+    const room=this.L.rooms[roomId];if(!room)return null;
+    const row=room.row;
+    const doorX=room.x+room.w/2;
+    // Row 0 rooms: door is at bottom (into hallway)
+    // Row 1 rooms: door is at top (into hallway)
+    const doorY=row===0 ? HALL_Y+4 : HALL_Y+HALL_H-4;
+    return {x:doorX, y:doorY};
+  }
+
+  sendWalk(id,tx,ty,after,timer){
+    const a=this.anims[id];if(!a||a.state!=='sitting')return;
+    const ap=this.L.agentPos[id];if(!ap)return;
+    // Build waypoint path: current pos → room door → hallway → target door → target
+    const srcDoor=this.doorPos(ap.roomId);
+    a.state='walking';
+    a.after=after;
+    a.timer=timer||20;
+    // Multi-waypoint path: walk to door first, then to target via hallway
+    a.waypoints=[];
+    if(srcDoor){
+      a.waypoints.push({x:srcDoor.x, y:srcDoor.y}); // walk to own door
+      a.waypoints.push({x:tx, y:srcDoor.y}); // walk along hallway
+    }
+    a.waypoints.push({x:tx, y:ty}); // final target
+    // Start walking to first waypoint
+    const wp=a.waypoints.shift();
+    a.tx=wp.x;a.ty=wp.y;a.phase='h';
+  }
+
+  updateAnims(){
+    const L=this.L,sitters=L.agents.filter(a=>this.anims[a.id]?.state==='sitting');
+    this.coffeeTimer--;
+    if(this.coffeeTimer<=0&&sitters.length>0){
+      const p=sitters[Math.floor(Math.random()*sitters.length)];
+      this.sendWalk(p.id,L.coffeePos.x,L.coffeePos.y,'coffee',20);
+      this.coffeeTimer=100+Math.floor(Math.random()*80);
+    }
+    this.chatTimer--;
+    if(this.chatTimer<=0&&sitters.length>=2){
+      const sh=sitters.sort(()=>Math.random()-0.5);
+      const sa=this.anims[sh[0].id];
+      this.sendWalk(sh[1].id,sa.hx+50,sa.hy+15,'chatting',25);
+      this.chatTimer=80+Math.floor(Math.random()*70);
+    }
+    L.agents.forEach(a=>{
+      const an=this.anims[a.id];if(!an)return;
+      if(an.state==='walking'){
+        const sp=this.reducedMotion?999:14;
+        an.wf=(an.wf+1)%4;
+        if(an.phase==='h'){
+          if(Math.abs(an.sx-an.tx)>sp)an.sx+=an.sx<an.tx?sp:-sp;
+          else{an.sx=an.tx;an.phase='v'}
+        }
+        if(an.phase==='v'){
+          if(Math.abs(an.sy-an.ty)>sp)an.sy+=an.sy<an.ty?sp:-sp;
+          else{
+            an.sy=an.ty;
+            // Check for more waypoints
+            if(an.waypoints&&an.waypoints.length>0){
+              const wp=an.waypoints.shift();
+              an.tx=wp.x;an.ty=wp.y;an.phase='h';
+            }else{
+              an.state=an.after||'sitting';an.after=null;an.phase='h';
+            }
+          }
+        }
+      }
+      if(an.state==='coffee'||an.state==='chatting'){
+        an.timer--;
+        if(an.timer<=0){
+          // Walk back home via hallway → door
+          const ap=L.agentPos[a.id];
+          const homeDoor=ap?this.doorPos(ap.roomId):null;
+          an.state='walking';
+          an.waypoints=[];
+          if(homeDoor){
+            an.waypoints.push({x:an.sx, y:homeDoor.y}); // go to hallway Y first
+            an.waypoints.push({x:homeDoor.x, y:homeDoor.y}); // walk to door X
+          }
+          an.waypoints.push({x:an.hx, y:an.hy}); // final: desk position
+          const wp=an.waypoints.shift();
+          an.tx=wp.x;an.ty=wp.y;an.phase='h';an.after='sitting';
+        }
+      }
+    });
+  }
+
+  render(){
+    const ctx=this.ctx,L=this.L;
+    ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+    this.updateAnims();
+
+    // 1. Floors
+    this.drawAllFloors();
+    // 2. Wall shadows on floor
+    this.drawWallShadows();
+    // 3. Walls
+    this.drawAllWalls();
+    // 4. Doors
+    this.drawDoors();
+    // 5. Hallway props
+    this.drawHallwayProps();
+    // 6. Break room
+    this.drawBreakRoom();
+    // 7. Room props (wall decorations, bookshelves, ceiling lights, dept props, floor plants — NOT desks/chairs)
+    this.drawRoomDecor();
+    // 8. Agents drawn ON TOP of furniture, clearly visible
+    this.drawAgentsAtDesks();
+    // 9. Labels
+    this.drawLabels();
+    // 10. Task overlays (bubbles, room glow, phase bar)
+    this.drawTaskOverlays();
+
+    this.frame++;
+  }
+
+  // ── TASK OVERLAYS (bubbles above agents, room glow, phase bar) ──
+  drawTaskOverlays() {
+    const ctx = this.ctx, L = this.L;
+    const T = window.FORGE_TASKS;
+    if (!T || !T.current_project) return;
+
+    const PHASE_COLORS = ['#C04040','#9B59B6','#D4763A','#4080C0','#2ECC71','#C04040','#D4763A','#8A8070'];
+    const phase = T.current_phase || 0;
+
+    // ── PHASE PROGRESS BAR (top of canvas) ──
+    const barY = 2, barH = 5, barPad = 4;
+    const barW = (L.W - barPad * 2) / 8;
+    (T.phase_status || []).forEach((s, i) => {
+      const x = barPad + i * barW;
+      if (s === 'done') {
+        ctx.fillStyle = '#40A040';
+        ctx.fillRect(x, barY, barW - 2, barH);
+      } else if (s === 'active') {
+        const pulse = Math.sin(Date.now() / 300) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(212,118,58,${pulse})`;
+        ctx.fillRect(x, barY, barW - 2, barH);
+      } else {
+        ctx.fillStyle = 'rgba(60,60,80,0.5)';
+        ctx.fillRect(x, barY, barW - 2, barH);
+      }
+    });
+
+    // ── ROOM GLOW (subtle color overlay on active department rooms) ──
+    const activeTasks = (T.tasks || []).filter(t => t.status === 'in_progress');
+    const activeDepts = new Set();
+    activeTasks.forEach(t => {
+      const agent = L.agents.find(a => a.id === t.agent);
+      if (agent) activeDepts.add(agent.department_id);
+    });
+    const DEPT_GLOW = {
+      'dept-strt': 'rgba(231,76,60,0.06)',
+      'dept-rsch': 'rgba(155,89,182,0.06)',
+      'dept-dsgn': 'rgba(26,188,156,0.06)',
+      'dept-grwt': 'rgba(46,204,113,0.06)',
+      'dept-engr': 'rgba(52,152,219,0.06)',
+      'dept-cont': 'rgba(241,196,15,0.06)'
+    };
+    activeDepts.forEach(did => {
+      const room = L.rooms[did];
+      if (room && DEPT_GLOW[did]) {
+        ctx.fillStyle = DEPT_GLOW[did];
+        ctx.fillRect(room.x, room.y, room.w, room.h);
+        ctx.fillRect(room.x, room.y, room.w, room.h); // double for visibility
+        ctx.fillRect(room.x, room.y, room.w, room.h);
+      }
+    });
+
+    // ── TASK BUBBLES (above working agents) ──
+    activeTasks.forEach(t => {
+      const an = this.anims[t.agent];
+      const ap = L.agentPos[t.agent];
+      if (!an || !ap) return;
+
+      const seated = (an.state === 'sitting' || an.state === 'working');
+      const bx = seated ? ap.x + 8 : an.sx;
+      const by = seated ? ap.y - 38 : an.sy - 8;
+
+      // Bubble background
+      const label = (t.name || '').substring(0, 18);
+      ctx.font = '8px "JetBrains Mono", "Press Start 2P", monospace';
+      const tw = ctx.measureText(label).width;
+      const bw = tw + 10, bh = 14;
+      const bubbleX = bx + 12, bubbleY = by - bh - 4;
+
+      // Bubble shape
+      ctx.fillStyle = 'rgba(26,26,46,0.85)';
+      ctx.fillRect(bubbleX - 2, bubbleY, bw + 4, bh);
+      // Bubble border (phase color)
+      const phaseColor = PHASE_COLORS[phase - 1] || '#8A8070';
+      ctx.fillStyle = phaseColor;
+      ctx.fillRect(bubbleX - 2, bubbleY, bw + 4, 2);
+      // Bubble tail
+      ctx.fillStyle = 'rgba(26,26,46,0.85)';
+      ctx.fillRect(bubbleX + 8, bubbleY + bh, 6, 4);
+      // Text
+      ctx.fillStyle = '#E8DCC8';
+      ctx.font = '8px "JetBrains Mono", monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, bubbleX + 3, bubbleY + 10);
+
+      // Progress dot
+      if (t.progress > 0) {
+        const dotW = Math.max(2, (t.progress / 100) * (bw - 4));
+        ctx.fillStyle = phaseColor;
+        ctx.fillRect(bubbleX, bubbleY + bh - 2, dotW, 2);
+      }
+    });
+  }
+
+  // ── FLOORS ──
+  drawAllFloors(){
+    const ctx=this.ctx,L=this.L;
+    // Background
+    ctx.fillStyle='#121220';
+    ctx.fillRect(0,0,L.W,L.H);
+
+    // Room floors
+    DEPT_ORDER.forEach(did=>{
+      const room=L.rooms[did];if(!room)return;
+      const fl=FLOORS[DEPT_FLOOR[did]]||FLOORS.tile;
+      this.drawFloorPattern(room.x,room.y,room.w,room.h,fl);
+    });
+
+    // Hallway floor
+    this.drawFloorPattern(L.hallX,L.hallY,L.hallW,L.hallH,FLOORS.tile);
+
+    // Break room floor
+    this.drawFloorPattern(L.breakX,L.breakY,L.breakW,L.breakH,FLOORS.kitchen);
+  }
+
+  drawFloorPattern(x,y,w,h,fl){
+    const ctx=this.ctx;
+    // Base fill
+    ctx.fillStyle=fl.base;
+    ctx.fillRect(x,y,w,h);
+    // Tile pattern
+    for(let ty=0;ty<h;ty+=16){
+      for(let tx=0;tx<w;tx+=16){
+        const alt=((Math.floor(tx/16)+Math.floor(ty/16))%2===0);
+        ctx.fillStyle=alt?fl.base:fl.alt;
+        ctx.fillRect(x+tx,y+ty,16,16);
+        // Highlight top-left corner (light source)
+        ctx.fillStyle=fl.hi;
+        ctx.fillRect(x+tx,y+ty,16,1);
+        ctx.fillRect(x+tx,y+ty,1,16);
+        // Grid line (shadow)
+        ctx.fillStyle=fl.line;
+        ctx.fillRect(x+tx+15,y+ty,1,16);
+        ctx.fillRect(x+tx,y+ty+15,16,1);
+      }
+    }
+    // Extra texture for specific floor types
+    if(fl===FLOORS.wood){
+      for(let ty=0;ty<h;ty+=8){
+        const off=(Math.floor(ty/8)%2)*20;
+        ctx.fillStyle=fl.line;
+        ctx.fillRect(x,y+ty,w,1);
+        // Grain
+        ctx.fillStyle='rgba(0,0,0,0.04)';
+        ctx.fillRect(x+3,y+ty+3,w-6,1);
+        // Knot every ~80px
+        if(ty%80<8){ctx.fillStyle=fl.knot||fl.line;ctx.fillRect(x+40+off,y+ty+2,3,3)}
+      }
+    }
+    if(fl===FLOORS.carpet||fl===FLOORS.carpetS){
+      // Cross-hatch weave
+      for(let ty=0;ty<h;ty+=4){
+        ctx.fillStyle=fl.line;
+        ctx.fillRect(x,y+ty,w,1);
+      }
+      for(let tx=0;tx<w;tx+=4){
+        ctx.fillStyle=fl.line;
+        ctx.fillRect(x+tx,y,1,h);
+      }
+    }
+    if(fl===FLOORS.concrete){
+      // Speckle
+      for(let i=0;i<w*h*0.03;i++){
+        const px=x+Math.floor(Math.random()*w);
+        const py=y+Math.floor(Math.random()*h);
+        ctx.fillStyle=fl.hi;
+        ctx.fillRect(px,py,1,1);
+      }
+    }
+  }
+
+  // ── WALL SHADOWS ──
+  drawWallShadows(){
+    const ctx=this.ctx,L=this.L;
+    ctx.fillStyle='rgba(0,0,0,0.12)';
+    // Shadow cast from top walls (downward)
+    DEPT_ORDER.forEach(did=>{
+      const r=L.rooms[did];if(!r)return;
+      ctx.fillRect(r.x,r.y,r.w,6); // top wall shadow into room
+      ctx.fillRect(r.x,r.y,6,r.h); // left wall shadow into room
+    });
+    // Hallway shadows
+    ctx.fillRect(L.hallX,L.hallY,L.hallW,4);
+    ctx.fillRect(L.hallX,L.hallY,4,L.hallH);
+  }
+
+  // ── WALLS ──
+  drawAllWalls(){
+    const ctx=this.ctx,L=this.L;
+    const s=WALL_S;
+
+    // Outer border
+    this.drawThickWallH(MARGIN,ROW0_Y-WALL,L.hallW,WALL,s);
+    this.drawThickWallH(MARGIN,ROW1_Y+ROOM_H,L.hallW,WALL,s);
+    this.drawThickWallV(MARGIN-WALL,ROW0_Y-WALL,WALL,ROOM_H*2+HALL_H+WALL*4,s);
+    this.drawThickWallV(MARGIN+L.hallW,ROW0_Y-WALL,WALL,ROOM_H*2+HALL_H+WALL*4,s);
+
+    // Horizontal dividers (between row0/hallway and hallway/row1)
+    this.drawThickWallH(MARGIN,HALL_Y-WALL,L.hallW,WALL,s);
+    this.drawThickWallH(MARGIN,ROW1_Y-WALL,L.hallW,WALL,s);
+
+    // Vertical dividers between rooms
+    for(let c=1;c<COLS;c++){
+      const x=MARGIN+c*(ROOM_W+WALL)-WALL;
+      this.drawThickWallV(x,ROW0_Y-WALL,WALL,ROOM_H+WALL,s);
+      this.drawThickWallV(x,ROW1_Y-WALL,WALL,ROOM_H+WALL,s);
+    }
+
+    // Break room walls
+    this.drawThickWallH(L.breakX,L.breakY-WALL,L.breakW,WALL,s);
+    this.drawThickWallH(L.breakX,L.breakY+L.breakH,L.breakW,WALL,s);
+    this.drawThickWallV(L.breakX-WALL,L.breakY-WALL,WALL,L.breakH+WALL*2,s);
+    this.drawThickWallV(L.breakX+L.breakW,L.breakY-WALL,WALL,L.breakH+WALL*2,s);
+  }
+
+  drawThickWallH(x,y,w,h,s){
+    const ctx=this.ctx;
+    ctx.fillStyle=s.mid;ctx.fillRect(x,y,w,h);
+    ctx.fillStyle=s.hi;ctx.fillRect(x,y,w,2); // top lit edge
+    ctx.fillStyle=s.sh;ctx.fillRect(x,y+h-2,w,2); // bottom shadow
+    ctx.fillStyle=s.deep;ctx.fillRect(x,y+h,w,3); // cast shadow
+  }
+
+  drawThickWallV(x,y,w,h,s){
+    const ctx=this.ctx;
+    ctx.fillStyle=s.mid;ctx.fillRect(x,y,w,h);
+    ctx.fillStyle=s.hi;ctx.fillRect(x,y,2,h); // left lit edge
+    ctx.fillStyle=s.sh;ctx.fillRect(x+w-2,y,2,h); // right shadow
+    ctx.fillStyle=s.deep;ctx.fillRect(x+w,y,3,h); // cast shadow
+  }
+
+  // ── DOORS ──
+  drawDoors(){
+    const ctx=this.ctx,s=WALL_S;
+    // Doors from row0 rooms into hallway (south wall of row0)
+    DEPT_ORDER.slice(0,3).forEach((did,i)=>{
+      const r=this.L.rooms[did];
+      const dx=r.x+r.w/2-DOOR_W/2, dy=this.L.hallY-WALL;
+      // Clear wall where door is
+      ctx.fillStyle=FLOORS.tile.base;
+      ctx.fillRect(dx,dy,DOOR_W,WALL+3);
+      // Door frame
+      ctx.fillStyle='#6B5230';
+      ctx.fillRect(dx-2,dy,3,WALL+3);
+      ctx.fillRect(dx+DOOR_W-1,dy,3,WALL+3);
+      ctx.fillRect(dx-2,dy,DOOR_W+4,2);
+    });
+    // Doors from row1 rooms into hallway (north wall of row1)
+    DEPT_ORDER.slice(3,6).forEach((did,i)=>{
+      const r=this.L.rooms[did];
+      const dx=r.x+r.w/2-DOOR_W/2, dy=this.L.hallY+this.L.hallH;
+      ctx.fillStyle=FLOORS.tile.base;
+      ctx.fillRect(dx,dy,DOOR_W,WALL+3);
+      ctx.fillStyle='#6B5230';
+      ctx.fillRect(dx-2,dy,3,WALL+3);
+      ctx.fillRect(dx+DOOR_W-1,dy,3,WALL+3);
+      ctx.fillRect(dx-2,dy+WALL+1,DOOR_W+4,2);
+    });
+    // Break room door (from Content room's south wall)
+    const cr=this.L.rooms['dept-cont'];
+    if(cr){
+      const dx=cr.x+cr.w/2-DOOR_W/2, dy=cr.y+cr.h;
+      ctx.fillStyle=FLOORS.kitchen.base;
+      ctx.fillRect(dx,dy,DOOR_W,WALL+3);
+      ctx.fillStyle='#6B5230';
+      ctx.fillRect(dx-2,dy,3,WALL+3);
+      ctx.fillRect(dx+DOOR_W-1,dy,3,WALL+3);
+    }
+  }
+
+  // ── HALLWAY PROPS ──
+  drawHallwayProps(){
+    const ctx=this.ctx,L=this.L;
+    const hy=L.hallY, hx=L.hallX;
+    // Bench
+    const bx=hx+20,by=hy+8;
+    ctx.fillStyle=PC.bench;ctx.fillRect(bx,by,40,12);
+    ctx.fillStyle=PC.benchHi;ctx.fillRect(bx,by,40,3);
+    ctx.fillStyle=PC.metal;ctx.fillRect(bx+4,by+12,4,8);ctx.fillRect(bx+32,by+12,4,8);
+    PA.floorShadow(ctx,bx,by,40,20,3);
+
+    // Vending machine
+    const vx=hx+100,vy=hy+4;
+    ctx.fillStyle=PC.vend;ctx.fillRect(vx,vy,24,38);
+    ctx.fillStyle=PC.vendHi;ctx.fillRect(vx,vy,24,2);ctx.fillRect(vx,vy,2,38);
+    ctx.fillStyle=PC.vendScreen;ctx.fillRect(vx+4,vy+4,16,12);
+    // Product rows
+    for(let r=0;r<3;r++){ctx.fillStyle=['#C04040','#4070C0','#40A040'][r];ctx.fillRect(vx+6,vy+18+r*5,4,3);ctx.fillRect(vx+12,vy+18+r*5,4,3)}
+    ctx.fillStyle='#333';ctx.fillRect(vx+18,vy+30,4,3); // coin slot
+    PA.floorShadow(ctx,vx,vy,24,38,4);
+
+    // Water cooler
+    const wx=hx+160,wy=hy+6;
+    ctx.fillStyle='#AAD0E8';ctx.fillRect(wx+2,wy,10,10); // jug
+    ctx.fillStyle='#FFF';ctx.fillRect(wx+4,wy+2,2,2); // specular
+    ctx.fillStyle='#E0E0E8';ctx.fillRect(wx,wy+10,14,18); // body
+    ctx.fillStyle='#CCC';ctx.fillRect(wx+4,wy+14,6,3); // tap
+    PA.floorShadow(ctx,wx,wy,14,28,3);
+
+    // Directional sign
+    const sx=hx+220,sy=hy+10;
+    ctx.fillStyle=PC.metal;ctx.fillRect(sx+6,sy,2,28); // pole
+    ctx.fillStyle='#E8DCC8';ctx.fillRect(sx,sy+2,16,8); // sign plate
+    ctx.fillStyle='#333';ctx.font='6px "Press Start 2P"';ctx.textAlign='left';
+    ctx.fillText('→',sx+2,sy+8);
+
+    // Fire extinguisher (on wall)
+    ctx.fillStyle=PC.red;ctx.fillRect(hx+280,hy+4,6,14);
+    ctx.fillStyle=PC.redSh;ctx.fillRect(hx+280,hy+4,6,2);
+    ctx.fillStyle='#333';ctx.fillRect(hx+281,hy+2,4,3);
+  }
+
+  // ── BREAK ROOM ──
+  drawBreakRoom(){
+    const ctx=this.ctx,L=this.L;
+    const bx=L.breakX,by=L.breakY;
+
+    // Label
+    ctx.fillStyle=WALL_S.mid;ctx.fillRect(bx+4,by+2,50,12);
+    ctx.fillStyle='#E8DCC8';ctx.font='7px "Press Start 2P"';ctx.textAlign='left';
+    ctx.fillText('BREAK',bx+8,by+11);
+
+    // Coffee machine
+    const mx=bx+15,my=by+25;
+    ctx.fillStyle=PC.coffee;ctx.fillRect(mx,my,22,30);
+    ctx.fillStyle=PC.coffeeHi;ctx.fillRect(mx,my,22,3);ctx.fillRect(mx,my,3,30);
+    ctx.fillStyle='#555';ctx.fillRect(mx+3,my+4,16,12); // display
+    ctx.fillStyle=PC.red;ctx.fillRect(mx+5,my+20,4,3); // LED
+    // Steam
+    const sf=Math.floor(Date.now()/400)%3;
+    ctx.fillStyle='rgba(255,255,255,0.15)';
+    ctx.fillRect(mx+8,my-3-sf*3,2,3);ctx.fillRect(mx+12,my-1-sf*2,2,2);
+    PA.floorShadow(ctx,mx,my,22,30,4);
+
+    // Counter
+    ctx.fillStyle=PC.desk;ctx.fillRect(mx-4,my+30,32,8);
+    ctx.fillStyle=PC.deskHi;ctx.fillRect(mx-4,my+30,32,2);
+
+    // Fridge
+    const fx=bx+L.breakW-40,fy=by+20;
+    ctx.fillStyle=PC.fridge;ctx.fillRect(fx,fy,24,40);
+    ctx.fillStyle=PC.fridgeHi;ctx.fillRect(fx,fy,24,3);ctx.fillRect(fx,fy,3,40);
+    ctx.fillStyle=PC.metalSh;ctx.fillRect(fx+20,fy+15,2,10); // handle
+    // Magnets
+    ctx.fillStyle='#C04040';ctx.fillRect(fx+5,fy+8,3,3);
+    ctx.fillStyle='#4070C0';ctx.fillRect(fx+10,fy+6,3,3);
+    PA.floorShadow(ctx,fx,fy,24,40,4);
+
+    // Small table with chairs
+    const tx=bx+70,ty=by+50;
+    ctx.fillStyle=PC.desk;ctx.fillRect(tx,ty,30,20);
+    ctx.fillStyle=PC.deskHi;ctx.fillRect(tx,ty,30,2);ctx.fillRect(tx,ty,2,20);
+    // Chairs
+    ctx.fillStyle=PC.chair;
+    ctx.fillRect(tx-10,ty+4,8,12);ctx.fillRect(tx+32,ty+4,8,12);
+    ctx.fillRect(tx+8,ty-10,14,8);ctx.fillRect(tx+8,ty+22,14,8);
+    // Items on table
+    ctx.fillStyle='#ECF0F1';ctx.fillRect(tx+10,ty+6,4,4); // salt
+    ctx.fillStyle='#333';ctx.fillRect(tx+16,ty+6,4,4); // pepper
+    PA.floorShadow(ctx,tx,ty,30,20,3);
+
+    // Potted plant
+    this.drawPlant(bx+L.breakW-20,by+L.breakH-25);
+  }
+
+  // ── ROOM DECOR (wall decorations only — no desks/chairs) ──
+  drawRoomDecor(){
+    const ctx=this.ctx,L=this.L;
+    L.depts.forEach(d=>{
+      const room=L.rooms[d.id];if(!room)return;
+      const agents=L.deptAgents[d.id]||[];
+      const rx=room.x,ry=room.y;
+
+      // Ceiling light (glow cone on floor)
+      const lx=rx+room.w/2,ly=ry+20;
+      PA.dither(ctx,lx-20,ly,40,30,'rgba(255,240,200,0.04)','rgba(255,240,200,0.02)');
+      ctx.fillStyle='#888';ctx.fillRect(lx-8,ry+2,16,4); // fixture
+      ctx.fillStyle='#FFE8A0';ctx.fillRect(lx-4,ry+4,8,2); // bulb
+
+      // Bookshelf (back wall, right side)
+      const bsx=rx+room.w-42,bsy=ry+8;
+      ctx.fillStyle=PC.shelfBk;ctx.fillRect(bsx,bsy,36,50);
+      ctx.fillStyle=PC.shelf;
+      ctx.fillRect(bsx-2,bsy,40,3);ctx.fillRect(bsx-2,bsy+16,40,3);ctx.fillRect(bsx-2,bsy+32,40,3);ctx.fillRect(bsx-2,bsy+48,40,3);
+      ctx.fillStyle=PC.shelfHi;ctx.fillRect(bsx-2,bsy,40,1);ctx.fillRect(bsx-2,bsy+16,40,1);ctx.fillRect(bsx-2,bsy+32,40,1);
+      // Books
+      const bc=['#C04040','#4070C0','#40A040','#C0A030','#8050B0','#30A0A0'];
+      for(let i=0;i<5;i++){const bh=8+(i%3)*3;ctx.fillStyle=bc[i];ctx.fillRect(bsx+3+i*6,bsy+16-bh,5,bh);ctx.fillStyle='rgba(0,0,0,0.15)';ctx.fillRect(bsx+3+i*6,bsy+16-bh,1,bh)}
+      for(let i=0;i<4;i++){const bh=8+(i%2)*4;ctx.fillStyle=bc[(i+2)%6];ctx.fillRect(bsx+4+i*8,bsy+32-bh,6,bh);ctx.fillStyle='rgba(0,0,0,0.12)';ctx.fillRect(bsx+4+i*8,bsy+32-bh,1,bh)}
+      // Plant on shelf
+      ctx.fillStyle=PC.pot;ctx.fillRect(bsx+28,bsy+38,6,6);
+      ctx.fillStyle=PC.plant;ctx.fillRect(bsx+29,bsy+34,4,6);
+      PA.floorShadow(ctx,bsx,bsy,36,50,4);
+
+      // Desks + chairs drawn in drawAgentsAtDesks for correct layering
+
+      // Department-specific props
+      this.drawDeptProps(d.id,rx,ry,room.w,room.h);
+
+      // Floor plant
+      this.drawPlant(rx+8,ry+room.h-22);
+    });
+  }
+
+  drawDesk(x,y){
+    const ctx=this.ctx;
+    // Shadow
+    PA.floorShadow(ctx,x-4,y,60,24,4);
+    // Desk surface (top face - lit)
+    ctx.fillStyle=PC.deskHi;ctx.fillRect(x-4,y,60,4);
+    // Desk front face
+    ctx.fillStyle=PC.desk;ctx.fillRect(x-4,y+4,60,16);
+    ctx.fillStyle=PC.deskSh;ctx.fillRect(x-4,y+16,60,4);
+    // Legs
+    ctx.fillStyle=PC.deskSh;
+    ctx.fillRect(x,y+20,4,10);ctx.fillRect(x+48,y+20,4,10);
+    // Top edge highlight
+    ctx.fillStyle='#A08040';ctx.fillRect(x-4,y,60,1);
+    // Drawer handle
+    ctx.fillStyle='#A08040';ctx.fillRect(x+18,y+10,16,2);
+    // Wood grain on front
+    ctx.fillStyle='rgba(0,0,0,0.06)';
+    ctx.fillRect(x,y+8,52,1);ctx.fillRect(x+6,y+13,40,1);
+
+    // Monitor
+    ctx.fillStyle=PC.monitor;ctx.fillRect(x+14,y-16,24,16);
+    ctx.fillStyle=PC.screen;ctx.fillRect(x+16,y-14,20,12);
+    ctx.fillStyle=PC.screenHi;ctx.fillRect(x+34,y-13,1,3); // specular
+    ctx.fillStyle=PC.code;
+    ctx.fillRect(x+18,y-12,8,1);ctx.fillRect(x+18,y-10,12,1);ctx.fillRect(x+18,y-8,6,1);ctx.fillRect(x+18,y-6,14,1);
+    // Monitor stand
+    ctx.fillStyle=PC.metalSh;ctx.fillRect(x+22,y-1,8,2);ctx.fillRect(x+24,y+1,4,1);
+    // Sticky notes on monitor
+    ctx.fillStyle='#FFE060';ctx.fillRect(x+36,y-12,4,4);
+    ctx.fillStyle='#60C0FF';ctx.fillRect(x+36,y-7,4,4);
+
+    // Keyboard
+    ctx.fillStyle='#2A2A3A';ctx.fillRect(x+16,y-2,20,5);
+    ctx.fillStyle='#444';for(let i=0;i<5;i++)ctx.fillRect(x+17+i*4,y-1,3,2);
+
+    // Coffee mug
+    ctx.fillStyle='#ECF0F1';ctx.fillRect(x+44,y-6,6,6);
+    ctx.fillStyle='#8B4513';ctx.fillRect(x+45,y-4,4,3);
+    ctx.fillStyle='#ECF0F1';ctx.fillRect(x+50,y-4,2,3);
+    // Coffee ring stain
+    ctx.fillStyle='rgba(139,69,19,0.08)';ctx.fillRect(x+42,y-1,10,2);
+  }
+
+  drawChair(x,y){
+    const ctx=this.ctx;
+    ctx.fillStyle=PC.chairHi;ctx.fillRect(x,y,28,18);
+    ctx.fillStyle=PC.chair;ctx.fillRect(x+2,y+2,24,14);
+    ctx.fillStyle='rgba(255,255,255,0.05)';ctx.fillRect(x+4,y+4,20,6); // cushion highlight
+    // Stitching
+    ctx.fillStyle='rgba(0,0,0,0.1)';ctx.fillRect(x+6,y+8,16,1);
+    // Posts
+    ctx.fillStyle=PC.metalSh;ctx.fillRect(x+2,y+18,3,8);ctx.fillRect(x+23,y+18,3,8);
+    // Base
+    ctx.fillStyle=PC.metal;ctx.fillRect(x+8,y+26,12,3);
+    ctx.fillStyle='#222';ctx.fillRect(x+4,y+28,4,2);ctx.fillRect(x+20,y+28,4,2);
+  }
+
+  drawPlant(x,y){
+    const ctx=this.ctx;
+    // Pot (4-tone)
+    ctx.fillStyle=PC.pot;ctx.fillRect(x,y+10,12,10);
+    ctx.fillStyle=PC.potSh;ctx.fillRect(x,y+10,12,2); // rim
+    ctx.fillStyle=PA.dk(PC.pot,15);ctx.fillRect(x+10,y+12,2,8); // right shadow
+    ctx.fillStyle=PA.li(PC.pot,15);ctx.fillRect(x,y+12,2,8); // left highlight
+    // Soil
+    ctx.fillStyle='#4A3A2A';ctx.fillRect(x+2,y+10,8,2);
+    // Leaves
+    ctx.fillStyle=PC.plant;ctx.fillRect(x+3,y+2,6,10);
+    ctx.fillStyle=PC.plantDk;ctx.fillRect(x+1,y+4,4,6);
+    ctx.fillStyle=PC.plantLt;ctx.fillRect(x+7,y+3,4,6);
+    ctx.fillStyle=PC.plantDk;ctx.fillRect(x+4,y,2,4); // top leaf
+    PA.floorShadow(ctx,x,y+10,12,10,3);
+  }
+
+  drawDeptProps(did,rx,ry,rw,rh){
+    const ctx=this.ctx;
+    switch(did){
+      case'dept-strt': // Whiteboard
+        ctx.fillStyle=PC.wbFrame;ctx.fillRect(rx+8,ry+10,50,35);
+        ctx.fillStyle=PC.wb;ctx.fillRect(rx+10,ry+12,46,28);
+        ctx.fillStyle=PC.wbSh;ctx.fillRect(rx+10,ry+38,46,2); // tray
+        // Sticky notes
+        ctx.fillStyle='#FFE060';ctx.fillRect(rx+14,ry+16,6,6);
+        ctx.fillStyle='#FF8080';ctx.fillRect(rx+22,ry+14,6,6);
+        ctx.fillStyle='#80D0FF';ctx.fillRect(rx+30,ry+18,6,6);
+        ctx.fillStyle='#80FF80';ctx.fillRect(rx+18,ry+26,6,6);
+        // Markers in tray
+        ctx.fillStyle='#C04040';ctx.fillRect(rx+12,ry+39,3,1);
+        ctx.fillStyle='#4070C0';ctx.fillRect(rx+16,ry+39,3,1);
+        ctx.fillStyle='#40A040';ctx.fillRect(rx+20,ry+39,3,1);
+        break;
+      case'dept-rsch': // Data chart on wall
+        ctx.fillStyle='#E8E0D0';ctx.fillRect(rx+8,ry+10,40,30);
+        ctx.fillStyle='#6B5230';ctx.fillRect(rx+6,ry+8,44,2);ctx.fillRect(rx+6,ry+40,44,2);
+        // Bar chart
+        ctx.fillStyle='#4070C0';ctx.fillRect(rx+14,ry+30,5,8);
+        ctx.fillStyle='#C04040';ctx.fillRect(rx+21,ry+24,5,14);
+        ctx.fillStyle='#40A040';ctx.fillRect(rx+28,ry+20,5,18);
+        ctx.fillStyle='#C0A030';ctx.fillRect(rx+35,ry+28,5,10);
+        break;
+      case'dept-dsgn': // Color swatches + moodboard
+        // Swatches strip
+        const swc=['#C04040','#D4763A','#C0A030','#40A040','#4070C0','#6030A0','#333','#FFF'];
+        swc.forEach((c,i)=>{ctx.fillStyle=c;ctx.fillRect(rx+8+i*6,ry+10,5,5)});
+        ctx.fillStyle='#333';ctx.fillRect(rx+6,ry+8,50,2);ctx.fillRect(rx+6,ry+15,50,2);
+        break;
+      case'dept-grwt': // Metrics poster
+        ctx.fillStyle='#1E1E2E';ctx.fillRect(rx+8,ry+10,44,26);
+        ctx.fillStyle='#4070C0';ctx.fillRect(rx+6,ry+8,48,2);
+        // Up arrow + number
+        ctx.fillStyle='#40A040';
+        ctx.fillRect(rx+16,ry+16,2,12);ctx.fillRect(rx+12,ry+20,10,2);
+        ctx.fillRect(rx+14,ry+18,6,2);
+        ctx.fillStyle='#55AA55';ctx.font='8px "Press Start 2P"';ctx.textAlign='left';
+        ctx.fillText('+42%',rx+24,ry+26);
+        break;
+      case'dept-engr': // Server rack
+        const sx=rx+8,sy=ry+10;
+        ctx.fillStyle='#2A2A3A';ctx.fillRect(sx,sy,20,48);
+        ctx.fillStyle='#3A3A4A';ctx.fillRect(sx,sy,20,2);ctx.fillRect(sx,sy,2,48);
+        // Blinky LEDs
+        for(let r=0;r<6;r++){
+          ctx.fillStyle=(this.frame+r*3)%8<4?'#40C040':'#206020';
+          ctx.fillRect(sx+4,sy+6+r*7,3,2);
+          ctx.fillStyle='#555';ctx.fillRect(sx+9,sy+6+r*7,8,2);
+        }
+        // Rubber duck
+        ctx.fillStyle='#FFD040';ctx.fillRect(rx+100,ry+rh-30,6,5);
+        ctx.fillStyle='#FFA020';ctx.fillRect(rx+104,ry+rh-31,3,3);
+        PA.floorShadow(ctx,sx,sy,20,48,4);
+        break;
+      case'dept-cont': // Book pile + mic
+        // Book stack
+        const bks=['#C04040','#4070C0','#40A040','#C0A030','#8050B0'];
+        bks.forEach((c,i)=>{ctx.fillStyle=c;ctx.fillRect(rx+10,ry+44-i*4,14,4);ctx.fillStyle='rgba(0,0,0,0.1)';ctx.fillRect(rx+10,ry+44-i*4,14,1)});
+        // Microphone
+        ctx.fillStyle=PC.metal;ctx.fillRect(rx+34,ry+20,3,20);
+        ctx.fillStyle='#444';ctx.fillRect(rx+32,ry+16,7,6);
+        ctx.fillStyle=PC.metalHi;ctx.fillRect(rx+33,ry+17,2,2);
+        break;
+    }
+  }
+
+  // ── DRAW DESK+LAPTOP at a position (always, even when agent walks) ──
+  drawDeskUnit(ap){
+    const ctx=this.ctx;
+    // Chair
+    this.drawChair(ap.x+24, ap.y-12);
+    // Desk surface (top face)
+    ctx.fillStyle=PC.deskHi;ctx.fillRect(ap.x-4,ap.y,60,4);
+    ctx.fillStyle='#A08040';ctx.fillRect(ap.x-4,ap.y,60,1);
+    // === LAPTOP (clearly visible on desk surface) ===
+    // Laptop screen (angled up, ON the desk)
+    ctx.fillStyle='#1A1A2A';ctx.fillRect(ap.x+12,ap.y-14,28,14);
+    ctx.fillStyle='#2A2A3A';ctx.fillRect(ap.x+11,ap.y-15,30,1); // top bezel
+    ctx.fillStyle=PC.screen;ctx.fillRect(ap.x+14,ap.y-12,24,10);
+    // Screen glow
+    ctx.fillStyle='rgba(80,140,220,0.06)';ctx.fillRect(ap.x+8,ap.y-18,36,20);
+    // Code lines on screen
+    ctx.fillStyle='#55CC55';
+    ctx.fillRect(ap.x+16,ap.y-10,10,1);
+    ctx.fillRect(ap.x+16,ap.y-8,6,1);
+    ctx.fillRect(ap.x+16,ap.y-6,14,1);
+    ctx.fillRect(ap.x+16,ap.y-4,8,1);
+    // Specular highlight on screen
+    ctx.fillStyle='#FFF';ctx.fillRect(ap.x+36,ap.y-11,1,3);
+    // Webcam dot
+    ctx.fillStyle='#55CC55';ctx.fillRect(ap.x+25,ap.y-15,2,1);
+    // Laptop keyboard
+    ctx.fillStyle='#2A2A3A';ctx.fillRect(ap.x+14,ap.y-1,24,5);
+    ctx.fillStyle='#444';
+    for(let i=0;i<6;i++)ctx.fillRect(ap.x+15+i*4,ap.y,3,2);
+    ctx.fillStyle='#555';
+    for(let i=0;i<6;i++)ctx.fillRect(ap.x+15+i*4,ap.y+2,3,1);
+    // Trackpad
+    ctx.fillStyle='#353545';ctx.fillRect(ap.x+22,ap.y+3,8,1);
+    // Sticky notes on laptop screen
+    ctx.fillStyle='#FFE060';ctx.fillRect(ap.x+38,ap.y-10,4,4);
+    ctx.fillStyle='#60C0FF';ctx.fillRect(ap.x+38,ap.y-5,4,4);
+    // Coffee mug (right of laptop)
+    ctx.fillStyle='#ECF0F1';ctx.fillRect(ap.x+46,ap.y-6,7,7);
+    ctx.fillStyle='#DDD';ctx.fillRect(ap.x+48,ap.y-6,3,2);
+    ctx.fillStyle='#8B4513';ctx.fillRect(ap.x+47,ap.y-4,5,4);
+    ctx.fillStyle='#ECF0F1';ctx.fillRect(ap.x+53,ap.y-3,2,3); // handle
+    // Notepad (left of laptop)
+    ctx.fillStyle='#FFFFF0';ctx.fillRect(ap.x+2,ap.y-4,10,6);
+    ctx.fillStyle='#DDD';ctx.fillRect(ap.x+2,ap.y-4,10,1);
+    ctx.fillStyle='#999';ctx.fillRect(ap.x+3,ap.y-2,6,1);ctx.fillRect(ap.x+3,ap.y,8,1);
+    // Desk front panel
+    ctx.fillStyle=PC.desk;ctx.fillRect(ap.x-4,ap.y+4,60,16);
+    ctx.fillStyle=PC.deskSh;ctx.fillRect(ap.x-4,ap.y+16,60,4);
+    ctx.fillStyle=PC.deskHi;ctx.fillRect(ap.x-4,ap.y+4,60,2);
+    ctx.fillStyle='#A08040';ctx.fillRect(ap.x+14,ap.y+10,24,2); // drawer
+    ctx.fillStyle='rgba(0,0,0,0.06)';
+    ctx.fillRect(ap.x,ap.y+8,52,1);ctx.fillRect(ap.x+6,ap.y+13,40,1);
+    ctx.fillStyle=PC.deskSh;
+    ctx.fillRect(ap.x,ap.y+20,4,10);ctx.fillRect(ap.x+48,ap.y+20,4,10);
+    PA.floorShadow(ctx,ap.x-4,ap.y+4,60,24,4);
+  }
+
+  // ── AGENTS (desk always drawn, agent at animated position) ──
+  drawAgentsAtDesks(){
+    const ctx=this.ctx,L=this.L;
+
+    // PASS 1: Draw ALL desks at home positions (desks never move)
+    L.agents.forEach(a=>{
+      const ap=L.agentPos[a.id];
+      if(ap) this.drawDeskUnit(ap);
+    });
+
+    // PASS 2: Draw ALL agents at their animated positions
+    L.agents.forEach(a=>{
+      const an=this.anims[a.id];if(!an)return;
+      const ap=L.agentPos[a.id];
+      const seated=(an.state==='sitting'||an.state==='working');
+      const animS=an.state==='working'?'working':'idle';
+
+      if(seated && ap){
+        const agentX = ap.x + 8;
+        const agentY = ap.y - 30;
+        this.sprite.drawAgent(agentX, agentY, a.avatar, this.frame, animS, true);
+        this.drawName(agentX, ap.y + 34, a.name);
+      } else {
+        // Walking/coffee/chatting — standing sprite at animated position
+        this.sprite.drawAgent(an.sx, an.sy, a.avatar, this.frame, animS, false);
+        this.drawName(an.sx, an.sy + CH_H*CPX + 4, a.name);
+      }
+    });
+  }
+
+  // ── LABELS ──
+  drawLabels(){
+    const ctx=this.ctx,L=this.L;
+    L.depts.forEach(d=>{
+      const r=L.rooms[d.id];if(!r)return;
+      ctx.font='7px "Press Start 2P"';
+      const tw=ctx.measureText(d.name.toUpperCase()).width;
+      const lw=Math.max(tw+12,50);
+      ctx.fillStyle=d.color;ctx.fillRect(r.x+4,r.y+4,lw,14);
+      ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(r.x+4,r.y+4,lw,4);
+      ctx.fillStyle='rgba(0,0,0,0.2)';ctx.fillRect(r.x+4,r.y+16,lw,2);
+      ctx.fillStyle='#FFF';ctx.textAlign='left';ctx.fillText(d.name.toUpperCase(),r.x+8,r.y+14);
+    });
+  }
+
+  drawName(x,y,name){
+    const ctx=this.ctx;
+    ctx.font='12px "VT323"';ctx.textAlign='center';
+    const tw=ctx.measureText(name).width;
+    ctx.fillStyle='rgba(18,18,32,0.7)';ctx.fillRect(x+CH_W*CPX/2-tw/2-3,y-1,tw+6,14);
+    ctx.fillStyle='#E8DCC8';ctx.fillText(name,x+CH_W*CPX/2,y+9);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// MAIN
+// ═══════════════════════════════════════════════════════
+(function(){
+  const state=window.FORGE_STATE||{company:{name:'The Forge'},departments:[],agents:[]};
+  const canvas=document.getElementById('office');
+  const ctx=canvas.getContext('2d');
+
+  const layout=new Layout(state);
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=layout.W*dpr;canvas.height=layout.H*dpr;
+  canvas.style.width=layout.W+'px';canvas.style.height=layout.H+'px';
+  ctx.scale(dpr,dpr);
+
+  const sprite=new SpriteEngine(ctx);
+  const scene=new Scene(canvas,ctx,layout,sprite);
+  window._scene=scene;
+
+  // Events
+  if(state.active_event){
+    const ev=state.active_event;
+    if(ev.type==='working')(ev.agents||[]).forEach(id=>{if(scene.anims[id])scene.anims[id].state='working'});
+    if(ev.type==='meeting'){
+      const slots=[{x:layout.hallCenter.x-30,y:layout.hallCenter.y-10},{x:layout.hallCenter.x+30,y:layout.hallCenter.y-10},{x:layout.hallCenter.x-30,y:layout.hallCenter.y+10},{x:layout.hallCenter.x+30,y:layout.hallCenter.y+10}];
+      (ev.agents||[]).forEach((id,i)=>{if(scene.anims[id]&&slots[i])scene.sendWalk(id,slots[i].x,slots[i].y,'meeting',30)});
+    }
+  }
+
+  const ac=layout.agents.length,dc=layout.depts.length;
+  document.getElementById('subtitle').textContent=ac===0?'The office is empty — time to hire!':`${ac} agent${ac>1?'s':''} · ${dc} department${dc>1?'s':''}`;
+
+  if(ac>0){
+    let html='';
+    layout.depts.forEach(d=>{
+      const agents=layout.deptAgents[d.id]||[];if(!agents.length)return;
+      html+=`<span class="dept-tag" style="background:${d.color};color:#fff">${d.name}</span>`;
+      agents.forEach(a=>{html+=`<span class="agent-name" style="color:${d.color}">${a.name}</span>`});
+    });
+    document.getElementById('roster').innerHTML=html;
+  }
+
+  if(ac===0){
+    function drawEmpty(){
+      scene.render();
+      const sx=layout.W/2-70,sy=layout.H/2-24;
+      ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(sx-2,sy+2,144,48);
+      ctx.fillStyle=PC.brand;ctx.fillRect(sx-4,sy-4,148,52);
+      ctx.fillStyle=WALL_C;ctx.fillRect(sx,sy,140,44);
+      ctx.fillStyle=PC.brand;ctx.font='10px "Press Start 2P"';ctx.textAlign='center';
+      ctx.fillText('NOW HIRING',sx+70,sy+18);
+      ctx.fillStyle='#B8A890';ctx.font='12px "VT323"';ctx.fillText('Say "hire a [role]"',sx+70,sy+36);
+      requestAnimationFrame(drawEmpty);
+    }
+    drawEmpty();return;
+  }
+
+  let last=0;const INT=200;
+  const rm=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  function animate(ts){
+    if(ts-last>=(rm?1000:INT)){scene.render();last=ts}
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>
