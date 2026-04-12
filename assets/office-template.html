@@ -25,6 +25,10 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;border:2px solid #3
 <div id="roster"></div>
 <script>
 window.FORGE_STATE = __FORGE_STATE_PLACEHOLDER__;
+window.FORGE_TASKS = null;
+// Load tasks data for overlays (auto-refresh every 3s)
+function loadTasks(){fetch('/forge-tasks.json?'+Date.now()).then(r=>r.json()).then(d=>{window.FORGE_TASKS=d}).catch(()=>{})}
+loadTasks(); setInterval(loadTasks, 3000);
 
 // ═══════════════════════════════════════════════════════
 // PIXEL ART ENGINE — Color math, dithering, lighting
@@ -561,11 +565,106 @@ class Scene {
     this.drawRoomDecor();
     // 8. Agents drawn ON TOP of furniture, clearly visible
     this.drawAgentsAtDesks();
-    // 9. Front walls (south walls of row 1 rooms)
-    // 10. Labels
+    // 9. Labels
     this.drawLabels();
+    // 10. Task overlays (bubbles, room glow, phase bar)
+    this.drawTaskOverlays();
 
     this.frame++;
+  }
+
+  // ── TASK OVERLAYS (bubbles above agents, room glow, phase bar) ──
+  drawTaskOverlays() {
+    const ctx = this.ctx, L = this.L;
+    const T = window.FORGE_TASKS;
+    if (!T || !T.current_project) return;
+
+    const PHASE_COLORS = ['#C04040','#9B59B6','#D4763A','#4080C0','#2ECC71','#C04040','#D4763A','#8A8070'];
+    const phase = T.current_phase || 0;
+
+    // ── PHASE PROGRESS BAR (top of canvas) ──
+    const barY = 2, barH = 5, barPad = 4;
+    const barW = (L.W - barPad * 2) / 8;
+    (T.phase_status || []).forEach((s, i) => {
+      const x = barPad + i * barW;
+      if (s === 'done') {
+        ctx.fillStyle = '#40A040';
+        ctx.fillRect(x, barY, barW - 2, barH);
+      } else if (s === 'active') {
+        const pulse = Math.sin(Date.now() / 300) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(212,118,58,${pulse})`;
+        ctx.fillRect(x, barY, barW - 2, barH);
+      } else {
+        ctx.fillStyle = 'rgba(60,60,80,0.5)';
+        ctx.fillRect(x, barY, barW - 2, barH);
+      }
+    });
+
+    // ── ROOM GLOW (subtle color overlay on active department rooms) ──
+    const activeTasks = (T.tasks || []).filter(t => t.status === 'in_progress');
+    const activeDepts = new Set();
+    activeTasks.forEach(t => {
+      const agent = L.agents.find(a => a.id === t.agent);
+      if (agent) activeDepts.add(agent.department_id);
+    });
+    const DEPT_GLOW = {
+      'dept-strt': 'rgba(231,76,60,0.06)',
+      'dept-rsch': 'rgba(155,89,182,0.06)',
+      'dept-dsgn': 'rgba(26,188,156,0.06)',
+      'dept-grwt': 'rgba(46,204,113,0.06)',
+      'dept-engr': 'rgba(52,152,219,0.06)',
+      'dept-cont': 'rgba(241,196,15,0.06)'
+    };
+    activeDepts.forEach(did => {
+      const room = L.rooms[did];
+      if (room && DEPT_GLOW[did]) {
+        ctx.fillStyle = DEPT_GLOW[did];
+        ctx.fillRect(room.x, room.y, room.w, room.h);
+        ctx.fillRect(room.x, room.y, room.w, room.h); // double for visibility
+        ctx.fillRect(room.x, room.y, room.w, room.h);
+      }
+    });
+
+    // ── TASK BUBBLES (above working agents) ──
+    activeTasks.forEach(t => {
+      const an = this.anims[t.agent];
+      const ap = L.agentPos[t.agent];
+      if (!an || !ap) return;
+
+      const seated = (an.state === 'sitting' || an.state === 'working');
+      const bx = seated ? ap.x + 8 : an.sx;
+      const by = seated ? ap.y - 38 : an.sy - 8;
+
+      // Bubble background
+      const label = (t.name || '').substring(0, 18);
+      ctx.font = '8px "JetBrains Mono", "Press Start 2P", monospace';
+      const tw = ctx.measureText(label).width;
+      const bw = tw + 10, bh = 14;
+      const bubbleX = bx + 12, bubbleY = by - bh - 4;
+
+      // Bubble shape
+      ctx.fillStyle = 'rgba(26,26,46,0.85)';
+      ctx.fillRect(bubbleX - 2, bubbleY, bw + 4, bh);
+      // Bubble border (phase color)
+      const phaseColor = PHASE_COLORS[phase - 1] || '#8A8070';
+      ctx.fillStyle = phaseColor;
+      ctx.fillRect(bubbleX - 2, bubbleY, bw + 4, 2);
+      // Bubble tail
+      ctx.fillStyle = 'rgba(26,26,46,0.85)';
+      ctx.fillRect(bubbleX + 8, bubbleY + bh, 6, 4);
+      // Text
+      ctx.fillStyle = '#E8DCC8';
+      ctx.font = '8px "JetBrains Mono", monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, bubbleX + 3, bubbleY + 10);
+
+      // Progress dot
+      if (t.progress > 0) {
+        const dotW = Math.max(2, (t.progress / 100) * (bw - 4));
+        ctx.fillStyle = phaseColor;
+        ctx.fillRect(bubbleX, bubbleY + bh - 2, dotW, 2);
+      }
+    });
   }
 
   // ── FLOORS ──
