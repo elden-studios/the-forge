@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Forge — Mission Control</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0F0F1A;--card:#1A1A2E;--border:#2A2A3E;--text:#E8DCC8;--muted:#8A8070;--brand:#D4763A;--green:#40A040;--red:#C04040;--blue:#4080C0;--purple:#9B59B6;--teal:#1ABC9C;--yellow:#F1C40F}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;min-height:100vh}
+.header{background:var(--card);border-bottom:2px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:16px}
+.header h1{font-family:'Press Start 2P',monospace;color:var(--brand);font-size:14px;letter-spacing:1px}
+.header .phase-bar{flex:1;display:flex;gap:2px;max-width:500px}
+.header .phase-bar .seg{flex:1;height:8px;border-radius:2px;background:var(--border);transition:background .3s}
+.header .phase-bar .seg.done{background:var(--green)}
+.header .phase-bar .seg.active{background:var(--brand);animation:pulse 1.5s infinite}
+.header .project-name{color:var(--muted);font-size:12px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.tabs{display:flex;gap:0;background:var(--card);border-bottom:2px solid var(--border)}
+.tab{padding:10px 20px;cursor:pointer;color:var(--muted);font-size:12px;font-weight:600;border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--brand);border-bottom-color:var(--brand)}
+.content{padding:20px}
+.panel{display:none}
+.panel.active{display:block}
+
+/* Mission Control */
+.mc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.mc-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px}
+.mc-card h3{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+.mc-card.full{grid-column:1/-1}
+.agent-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)}
+.agent-row:last-child{border:none}
+.agent-dot{width:8px;height:8px;border-radius:50%}
+.agent-dot.working{background:var(--green);animation:pulse 1s infinite}
+.agent-dot.idle{background:var(--muted)}
+.agent-dot.meeting{background:var(--brand);animation:pulse .8s infinite}
+.agent-name-sm{font-weight:600;width:60px}
+.agent-task{color:var(--muted);flex:1;font-size:12px}
+.progress-bar{width:80px;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.progress-bar .fill{height:100%;border-radius:3px;transition:width .5s}
+.handoff-item{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px}
+.handoff-arrow{color:var(--brand)}
+.checkpoint-item{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px}
+.cp-icon{font-size:14px}
+.risk-item{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px}
+.risk-dot{width:8px;height:8px;border-radius:50%}
+
+/* Network Graph */
+.network-container{position:relative;width:100%;height:500px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.network-container canvas{width:100%;height:100%}
+
+/* Kanban */
+.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;min-height:400px}
+.kanban-col{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px}
+.kanban-col h3{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.kanban-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px;border-left:3px solid var(--muted)}
+.kanban-card .kc-agent{font-weight:600;font-size:12px}
+.kanban-card .kc-task{color:var(--muted);font-size:11px;margin-top:4px}
+.kanban-card .kc-time{color:var(--muted);font-size:10px;margin-top:6px}
+
+/* Timeline */
+.timeline-container{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto}
+.tl-row{display:flex;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)}
+.tl-row:last-child{border:none}
+.tl-label{width:80px;font-weight:600;font-size:12px;flex-shrink:0}
+.tl-track{flex:1;height:20px;position:relative;margin:0 8px}
+.tl-bar{position:absolute;height:16px;border-radius:3px;top:2px;min-width:4px}
+.tl-phases{display:flex;padding:4px 0;margin-bottom:8px}
+.tl-phases .tl-label{color:var(--muted)}
+.tl-phases .tl-track{display:flex;gap:0}
+.tl-phase-seg{flex:1;text-align:center;font-size:9px;color:var(--muted);border-right:1px solid var(--border);padding:2px}
+.tl-phase-seg:last-child{border:none}
+.tl-phase-seg.active{color:var(--brand);font-weight:600}
+
+/* Empty state */
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-state h2{font-family:'Press Start 2P',monospace;color:var(--brand);font-size:16px;margin-bottom:12px}
+.empty-state p{font-size:14px;max-width:400px;margin:0 auto}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚒ MISSION CONTROL</h1>
+  <div class="phase-bar" id="phaseBar"></div>
+  <span class="project-name" id="projectName">No active project</span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('mc')">Mission Control</div>
+  <div class="tab" onclick="switchTab('network')">Network Graph</div>
+  <div class="tab" onclick="switchTab('kanban')">Kanban Board</div>
+  <div class="tab" onclick="switchTab('timeline')">Timeline</div>
+</div>
+
+<div class="content">
+  <!-- Mission Control -->
+  <div class="panel active" id="panel-mc">
+    <div class="mc-grid" id="mcGrid"></div>
+  </div>
+
+  <!-- Network Graph -->
+  <div class="panel" id="panel-network">
+    <div class="network-container">
+      <canvas id="networkCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Kanban Board -->
+  <div class="panel" id="panel-kanban">
+    <div class="kanban" id="kanbanBoard"></div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="panel" id="panel-timeline">
+    <div class="timeline-container" id="timelineView"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// DATA LOADING
+// ═══════════════════════════════════════
+let STATE = null, TASKS = null;
+const PHASE_NAMES = ['Intake','Intelligence','War Room','Architecture','GTM','Challenge','Delivery','Retro'];
+const PHASE_COLORS = ['#C04040','#9B59B6','#D4763A','#4080C0','#2ECC71','#C04040','#D4763A','#8A8070'];
+
+async function loadData() {
+  try {
+    const [sr, tr] = await Promise.all([
+      fetch('/forge-state.json?' + Date.now()).catch(()=>null),
+      fetch('/forge-tasks.json?' + Date.now()).catch(()=>null)
+    ]);
+    if (sr) STATE = await sr.json();
+    if (tr) TASKS = await tr.json();
+  } catch(e) { console.error('Load error:', e); }
+  render();
+}
+
+function getAgentName(id) { return STATE?.agents?.find(a=>a.id===id)?.name || id; }
+function getDeptColor(agentId) {
+  const agent = STATE?.agents?.find(a=>a.id===agentId);
+  if (!agent) return '#8A8070';
+  const dept = STATE?.departments?.find(d=>d.id===agent.department_id);
+  return dept?.color || '#8A8070';
+}
+function getAgentStatus(id) {
+  const task = TASKS?.tasks?.find(t=>t.agent===id && t.status==='in_progress');
+  if (task) return { status: 'working', task: task.name, progress: task.progress || 0 };
+  return { status: 'idle', task: 'Idle', progress: 0 };
+}
+
+// ═══════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['mc','network','kanban','timeline'][i] === id);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  if (id === 'network') renderNetwork();
+}
+
+// ═══════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════
+function render() {
+  renderHeader();
+  renderMissionControl();
+  renderKanban();
+  renderTimeline();
+}
+
+// ── HEADER (Phase Bar) ──
+function renderHeader() {
+  const bar = document.getElementById('phaseBar');
+  const projEl = document.getElementById('projectName');
+  const phase = TASKS?.current_phase || 0;
+  const statuses = TASKS?.phase_status || Array(8).fill('pending');
+  const project = TASKS?.current_project;
+
+  projEl.textContent = project || 'No active project';
+  bar.innerHTML = statuses.map((s,i) =>
+    `<div class="seg ${s}" title="Phase ${i+1}: ${PHASE_NAMES[i]}"></div>`
+  ).join('');
+}
+
+// ── MISSION CONTROL ──
+function renderMissionControl() {
+  const grid = document.getElementById('mcGrid');
+  if (!STATE || !TASKS) {
+    grid.innerHTML = `<div class="empty-state full"><h2>Awaiting Orders</h2><p>Give the team a project brief to activate Mission Control.</p></div>`;
+    return;
+  }
+
+  const agents = STATE.agents || [];
+  const tasks = TASKS.tasks || [];
+  const handoffs = TASKS.handoffs || [];
+  const checkpoints = TASKS.checkpoints || [];
+  const risks = TASKS.risks_flagged || [];
+  const phase = TASKS.current_phase || 0;
+
+  // Agent Status Card
+  const agentHTML = agents.map(a => {
+    const s = getAgentStatus(a.id);
+    const dotClass = s.status;
+    const color = getDeptColor(a.id);
+    const progW = s.progress + '%';
+    const progColor = s.status === 'working' ? color : 'var(--border)';
+    return `<div class="agent-row">
+      <div class="agent-dot ${dotClass}"></div>
+      <span class="agent-name-sm" style="color:${color}">${a.name}</span>
+      <span class="agent-task">${s.task}</span>
+      <div class="progress-bar"><div class="fill" style="width:${progW};background:${progColor}"></div></div>
+    </div>`;
+  }).join('');
+
+  // Handoffs Card
+  const handoffHTML = handoffs.length > 0 ? handoffs.map(h =>
+    `<div class="handoff-item">
+      <span style="color:${getDeptColor(h.from)}">${getAgentName(h.from)}</span>
+      <span class="handoff-arrow">${h.status==='complete'?'✓ →':'⏳ →'}</span>
+      <span style="color:${getDeptColor(h.to)}">${getAgentName(h.to)}</span>
+      <span style="color:var(--muted);margin-left:auto;font-size:11px">${h.label}</span>
+    </div>`
+  ).join('') : '<div style="color:var(--muted)">No handoffs yet</div>';
+
+  // Checkpoints Card
+  const cpHTML = checkpoints.map(cp => {
+    const icon = cp.status==='answered'?'✅':cp.status==='pending'?'⏳':'⬜';
+    const dec = cp.decision ? ` — ${cp.decision}` : '';
+    return `<div class="checkpoint-item">
+      <span class="cp-icon">${icon}</span>
+      <span>CP${cp.id}: ${cp.name}${dec}</span>
+    </div>`;
+  }).join('');
+
+  // Risks Card
+  const riskHTML = risks.length > 0 ? risks.map(r => {
+    const color = r.severity==='high'?'var(--red)':r.severity==='medium'?'var(--brand)':'var(--muted)';
+    return `<div class="risk-item">
+      <div class="risk-dot" style="background:${color}"></div>
+      <span>${r.risk}</span>
+      <span style="color:var(--muted);margin-left:auto;font-size:11px">${getAgentName(r.agent)}</span>
+    </div>`;
+  }).join('') : '<div style="color:var(--muted)">No risks flagged</div>';
+
+  // Phase Card
+  const phaseHTML = `<div style="display:flex;align-items:center;gap:12px">
+    <span style="font-family:'Press Start 2P';font-size:24px;color:var(--brand)">${phase}</span>
+    <div>
+      <div style="font-size:16px;font-weight:600">${PHASE_NAMES[phase-1]||'Idle'}</div>
+      <div style="color:var(--muted);font-size:12px">Phase ${phase} of 8</div>
+    </div>
+  </div>`;
+
+  // Active Tasks Card
+  const activeTaskHTML = tasks.filter(t=>t.status==='in_progress').map(t =>
+    `<div class="agent-row">
+      <span class="agent-name-sm" style="color:${getDeptColor(t.agent)}">${getAgentName(t.agent)}</span>
+      <span class="agent-task">${t.name}</span>
+      <div class="progress-bar"><div class="fill" style="width:${t.progress||0}%;background:${getDeptColor(t.agent)}"></div></div>
+    </div>`
+  ).join('') || '<div style="color:var(--muted)">No active tasks</div>';
+
+  grid.innerHTML = `
+    <div class="mc-card"><h3>Current Phase</h3>${phaseHTML}</div>
+    <div class="mc-card"><h3>Checkpoints</h3>${cpHTML}</div>
+    <div class="mc-card"><h3>Risks Flagged</h3>${riskHTML}</div>
+    <div class="mc-card"><h3>Agent Status</h3>${agentHTML}</div>
+    <div class="mc-card"><h3>Active Tasks</h3>${activeTaskHTML}</div>
+    <div class="mc-card"><h3>Handoffs</h3>${handoffHTML}</div>
+  `;
+}
+
+// ── KANBAN BOARD ──
+function renderKanban() {
+  const board = document.getElementById('kanbanBoard');
+  const tasks = TASKS?.tasks || [];
+  const cols = {backlog:[],in_progress:[],review:[],done:[]};
+
+  tasks.forEach(t => {
+    if (t.status === 'done') cols.done.push(t);
+    else if (t.status === 'in_review') cols.review.push(t);
+    else if (t.status === 'in_progress') cols.in_progress.push(t);
+    else cols.backlog.push(t);
+  });
+
+  const renderCards = (arr) => arr.length > 0 ? arr.map(t => {
+    const color = getDeptColor(t.agent);
+    const elapsed = t.started ? Math.round((Date.now() - new Date(t.started).getTime())/60000) + 'm ago' : '';
+    return `<div class="kanban-card" style="border-left-color:${color}">
+      <div class="kc-agent" style="color:${color}">${getAgentName(t.agent)}</div>
+      <div class="kc-task">${t.name}</div>
+      ${t.deliverable?`<div class="kc-task" style="font-size:10px">→ ${t.deliverable}</div>`:''}
+      <div class="kc-time">${elapsed}</div>
+    </div>`;
+  }).join('') : '<div style="color:var(--muted);font-size:11px;padding:8px">Empty</div>';
+
+  board.innerHTML = `
+    <div class="kanban-col"><h3>Backlog (${cols.backlog.length})</h3>${renderCards(cols.backlog)}</div>
+    <div class="kanban-col"><h3>In Progress (${cols.in_progress.length})</h3>${renderCards(cols.in_progress)}</div>
+    <div class="kanban-col"><h3>In Review (${cols.review.length})</h3>${renderCards(cols.review)}</div>
+    <div class="kanban-col"><h3>Done (${cols.done.length})</h3>${renderCards(cols.done)}</div>
+  `;
+}
+
+// ── TIMELINE (Gantt) ──
+function renderTimeline() {
+  const container = document.getElementById('timelineView');
+  const agents = STATE?.agents || [];
+  const tasks = TASKS?.tasks || [];
+  const phases = TASKS?.phase_status || [];
+
+  if (tasks.length === 0) {
+    container.innerHTML = '<div class="empty-state"><h2>No Tasks Yet</h2><p>Start a project brief to see the timeline.</p></div>';
+    return;
+  }
+
+  // Find time bounds
+  const times = tasks.filter(t=>t.started).map(t=>new Date(t.started).getTime());
+  const minTime = Math.min(...times) || Date.now();
+  const maxTime = Math.max(Date.now(), ...times.map(t=>t+600000)); // at least 10min window
+  const duration = maxTime - minTime || 600000;
+
+  // Phase header
+  const phaseHeader = `<div class="tl-phases">
+    <div class="tl-label" style="color:var(--muted)">Phase</div>
+    <div class="tl-track" style="display:flex;gap:0">
+      ${PHASE_NAMES.map((n,i) => `<div class="tl-phase-seg ${phases[i]==='active'?'active':''}">${n.substring(0,3)}</div>`).join('')}
+    </div>
+  </div>`;
+
+  // Agent rows
+  const rows = agents.map(a => {
+    const agentTasks = tasks.filter(t=>t.agent===a.id);
+    const color = getDeptColor(a.id);
+    const bars = agentTasks.map(t => {
+      const start = t.started ? new Date(t.started).getTime() : Date.now();
+      const end = t.completed ? new Date(t.completed).getTime() : Date.now();
+      const left = ((start - minTime) / duration * 100).toFixed(1);
+      const width = Math.max(2, ((end - start) / duration * 100)).toFixed(1);
+      const opacity = t.status === 'done' ? '0.5' : '1';
+      return `<div class="tl-bar" style="left:${left}%;width:${width}%;background:${color};opacity:${opacity}" title="${t.name}"></div>`;
+    }).join('');
+    return `<div class="tl-row">
+      <div class="tl-label" style="color:${color}">${a.name}</div>
+      <div class="tl-track">${bars}</div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = phaseHeader + rows;
+}
+
+// ── NETWORK GRAPH ──
+function renderNetwork() {
+  const canvas = document.getElementById('networkCanvas');
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+
+  const agents = STATE?.agents || [];
+  const handoffs = TASKS?.handoffs || [];
+  if (agents.length === 0) return;
+
+  // Position nodes in a circle
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const radius = Math.min(cx, cy) * 0.6;
+  const nodes = agents.map((a, i) => {
+    const angle = (i / agents.length) * Math.PI * 2 - Math.PI / 2;
+    const s = getAgentStatus(a.id);
+    return {
+      id: a.id, name: a.name,
+      x: cx + Math.cos(angle) * radius,
+      y: cy + Math.sin(angle) * radius,
+      color: getDeptColor(a.id),
+      status: s.status,
+      size: s.status === 'working' ? 28 : 20
+    };
+  });
+
+  const nodeMap = {};
+  nodes.forEach(n => nodeMap[n.id] = n);
+
+  // Clear
+  ctx.fillStyle = '#1A1A2E';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw edges (handoffs)
+  handoffs.forEach(h => {
+    const from = nodeMap[h.from], to = nodeMap[h.to];
+    if (!from || !to) return;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.strokeStyle = h.status === 'complete' ? 'rgba(64,160,64,0.4)' : 'rgba(212,118,58,0.6)';
+    ctx.lineWidth = h.status === 'complete' ? 1 : 2;
+    ctx.stroke();
+
+    // Arrow head
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
+    ctx.fillStyle = h.status === 'complete' ? 'rgba(64,160,64,0.6)' : '#D4763A';
+    ctx.beginPath();
+    ctx.moveTo(mx + Math.cos(angle) * 8, my + Math.sin(angle) * 8);
+    ctx.lineTo(mx + Math.cos(angle + 2.5) * 6, my + Math.sin(angle + 2.5) * 6);
+    ctx.lineTo(mx + Math.cos(angle - 2.5) * 6, my + Math.sin(angle - 2.5) * 6);
+    ctx.fill();
+
+    // Label
+    ctx.fillStyle = '#8A8070';
+    ctx.font = '10px "JetBrains Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillText(h.label || '', mx, my - 8);
+  });
+
+  // Draw nodes
+  nodes.forEach(n => {
+    // Glow for working agents
+    if (n.status === 'working') {
+      ctx.fillStyle = n.color + '20';
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.size + 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Node circle
+    ctx.fillStyle = '#1A1A2E';
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.size + 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = n.color;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.size, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Name
+    ctx.fillStyle = '#E8DCC8';
+    ctx.font = '600 12px "JetBrains Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillText(n.name, n.x, n.y + 4);
+
+    // Status indicator
+    if (n.status === 'working') {
+      ctx.fillStyle = '#40A040';
+      ctx.beginPath();
+      ctx.arc(n.x + n.size - 4, n.y - n.size + 4, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+
+  // Title
+  ctx.fillStyle = '#8A8070';
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.textAlign = 'left';
+  ctx.fillText('Agent Network — edges show handoffs, size shows workload', 12, 18);
+}
+
+// ═══════════════════════════════════════
+// AUTO-REFRESH
+// ═══════════════════════════════════════
+loadData();
+setInterval(loadData, 3000); // refresh every 3 seconds
+</script>
+</body>
+</html>
