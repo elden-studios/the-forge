@@ -139,6 +139,84 @@ class TestValidateState(unittest.TestCase):
         self.assertTrue(ok, f"Inactive duplicate should pass, got: {errors}")
 
 
+    def test_routing_override_referencing_unknown_agent_fails(self):
+        """routing_overrides[*].lead_agent must reference an existing agent."""
+        state = {
+            "company": {"name": "Test", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-real",
+                    "name": "Real",
+                    "department_id": "dept-a",
+                    "status": "active",
+                }
+            ],
+            "routing_overrides": {
+                "saudi_lead": {
+                    "trigger_keywords": ["saudi"],
+                    "lead_agent": "agent-ghost",
+                    "description": "Broken",
+                }
+            },
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("agent-ghost" in e for e in errors),
+            f"Expected routing_overrides error about agent-ghost, got: {errors}",
+        )
+
+    def test_routing_override_with_valid_agent_passes(self):
+        """routing_overrides pointing to a real agent should pass."""
+        state = {
+            "company": {"name": "Test", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-real",
+                    "name": "Real",
+                    "department_id": "dept-a",
+                    "status": "active",
+                }
+            ],
+            "routing_overrides": {
+                "saudi_lead": {"lead_agent": "agent-real"}
+            },
+        }
+        ok, errors = validate_state(state)
+        self.assertTrue(ok, f"Valid routing override should pass, got: {errors}")
+
+    def test_project_history_agents_involved_referencing_unknown_agent_fails(self):
+        """project_history[*].agents_involved must reference existing agents."""
+        state = {
+            "company": {"name": "Test", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-real",
+                    "name": "Real",
+                    "department_id": "dept-a",
+                    "status": "active",
+                }
+            ],
+            "project_history": [
+                {
+                    "id": "proj-001",
+                    "title": "Old project",
+                    "date": "2026-01-01",
+                    "agents_involved": ["agent-real", "agent-ghost"],
+                    "outcome": "...",
+                }
+            ],
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("agent-ghost" in e for e in errors),
+            f"Expected project_history error about agent-ghost, got: {errors}",
+        )
+
     def test_duplicate_idle_animation_among_active_agents_fails(self):
         """Idle animations must be unique across active agents."""
         state = {
@@ -253,6 +331,50 @@ class TestValidateTasks(unittest.TestCase):
             f"Expected handoff error about agent-ghost, got: {errors}",
         )
 
+    def test_task_handoff_field_referencing_unknown_agent_fails(self):
+        """Per-task handoff_from/handoff_to fields must reference existing agents."""
+        tasks = {
+            "tasks": [
+                {
+                    "id": "t1",
+                    "agent": "agent-real",
+                    "status": "done",
+                    "handoff_from": "agent-ghost",
+                    "handoff_to": "agent-phantom",
+                }
+            ],
+            "handoffs": [],
+        }
+        state = {"agents": [{"id": "agent-real", "name": "Real", "status": "active"}]}
+        ok, errors = validate_tasks(tasks, state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("agent-ghost" in e for e in errors),
+            f"Expected handoff_from error about agent-ghost, got: {errors}",
+        )
+        self.assertTrue(
+            any("agent-phantom" in e for e in errors),
+            f"Expected handoff_to error about agent-phantom, got: {errors}",
+        )
+
+    def test_task_null_handoff_fields_are_ok(self):
+        """null handoff_from/handoff_to should not trigger errors — means no handoff."""
+        tasks = {
+            "tasks": [
+                {
+                    "id": "t1",
+                    "agent": "agent-real",
+                    "status": "in_progress",
+                    "handoff_from": None,
+                    "handoff_to": None,
+                }
+            ],
+            "handoffs": [],
+        }
+        state = {"agents": [{"id": "agent-real", "name": "Real", "status": "active"}]}
+        ok, errors = validate_tasks(tasks, state)
+        self.assertTrue(ok, f"Null handoff fields should pass, got: {errors}")
+
     def test_invalid_phase_number_fails(self):
         """current_phase must be 0-8 (0 = no active project, 1-8 = phases)."""
         tasks = {"tasks": [], "handoffs": [], "current_phase": 99}
@@ -290,6 +412,39 @@ class TestValidateProject(unittest.TestCase):
             os.makedirs(os.path.join(tmp, "references", "brains"))
             ok, errors = validate_project(tmp)
             self.assertTrue(ok, f"Expected pass, got: {errors}")
+
+    def test_malformed_forge_state_json_reports_error_cleanly(self):
+        """Malformed JSON in forge-state.json should produce a readable error, not a traceback."""
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "forge-state.json"), "w") as f:
+                f.write("{ not valid json ]")
+            ok, errors = validate_project(tmp)
+            self.assertFalse(ok)
+            self.assertTrue(
+                any("forge-state.json" in e and "json" in e.lower() for e in errors),
+                f"Expected JSON parse error mentioning forge-state.json, got: {errors}",
+            )
+
+    def test_malformed_forge_tasks_json_reports_error_cleanly(self):
+        """Malformed forge-tasks.json should produce a readable error, not a traceback."""
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "forge-state.json"), "w") as f:
+                json.dump(
+                    {
+                        "company": {"name": "T", "founded": "2026-01-01"},
+                        "departments": [],
+                        "agents": [],
+                    },
+                    f,
+                )
+            with open(os.path.join(tmp, "forge-tasks.json"), "w") as f:
+                f.write("{ still not json ]")
+            ok, errors = validate_project(tmp)
+            self.assertFalse(ok)
+            self.assertTrue(
+                any("forge-tasks.json" in e and "json" in e.lower() for e in errors),
+                f"Expected JSON parse error mentioning forge-tasks.json, got: {errors}",
+            )
 
     def test_detects_missing_forge_state(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -354,6 +509,30 @@ class TestMain(unittest.TestCase):
                 self.assertEqual(rc, 0)
             finally:
                 os.chdir(original_cwd)
+
+
+class TestRealProjectSmoke(unittest.TestCase):
+    """Smoke test: the shipped Forge project files must validate cleanly.
+
+    This test detects drift between the validator and the canonical state
+    files in the repo. If someone edits forge-state.json or forge-tasks.json
+    and introduces a typo, this test catches it in CI.
+    """
+
+    def test_real_project_validates_cleanly(self):
+        project_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..")
+        )
+        # Skip gracefully if the state file isn't here (so this test file
+        # remains runnable in isolation)
+        if not os.path.isfile(os.path.join(project_root, "forge-state.json")):
+            self.skipTest("No forge-state.json in repo root — not a Forge checkout")
+        ok, errors = validate_project(project_root)
+        self.assertTrue(
+            ok,
+            f"Real Forge project has integrity errors:\n"
+            + "\n".join(f"  - {e}" for e in errors),
+        )
 
 
 if __name__ == "__main__":

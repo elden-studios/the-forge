@@ -33,21 +33,26 @@ def validate_project(project_dir):
         errors.append(f"Missing forge-state.json in {project_dir}")
         return (False, errors)
 
-    with open(state_path) as f:
-        state = json.load(f)
+    try:
+        with open(state_path) as f:
+            state = json.load(f)
+    except json.JSONDecodeError as e:
+        errors.append(f"forge-state.json is not valid json: {e}")
+        return (False, errors)
 
-    ok, errs = validate_state(state)
-    errors.extend(errs)
+    errors.extend(validate_state(state)[1])
 
     if os.path.isdir(brains_dir):
-        ok, errs = validate_brain_files(state, brains_dir)
-        errors.extend(errs)
+        errors.extend(validate_brain_files(state, brains_dir)[1])
 
     if os.path.isfile(tasks_path):
-        with open(tasks_path) as f:
-            tasks = json.load(f)
-        ok, errs = validate_tasks(tasks, state)
-        errors.extend(errs)
+        try:
+            with open(tasks_path) as f:
+                tasks = json.load(f)
+        except json.JSONDecodeError as e:
+            errors.append(f"forge-tasks.json is not valid json: {e}")
+            return (False, errors)
+        errors.extend(validate_tasks(tasks, state)[1])
 
     return (len(errors) == 0, errors)
 
@@ -67,6 +72,13 @@ def validate_tasks(tasks, state):
                 f"Task {task.get('id', '(unnamed)')} references "
                 f"non-existent agent: {agent_id}"
             )
+        for side in ("handoff_from", "handoff_to"):
+            ref = task.get(side)
+            if ref and ref not in agent_ids:
+                errors.append(
+                    f"Task {task.get('id', '(unnamed)')} {side} references "
+                    f"non-existent agent: {ref}"
+                )
 
     for handoff in tasks.get("handoffs", []):
         for side in ("from", "to"):
@@ -149,6 +161,24 @@ def validate_state(state):
                         f"Agent {name} {link_key} references "
                         f"non-existent agent: {target}"
                     )
+
+    for key, override in (state.get("routing_overrides") or {}).items():
+        lead = (override or {}).get("lead_agent")
+        if lead and lead not in agent_ids:
+            errors.append(
+                f"routing_overrides.{key}.lead_agent references "
+                f"non-existent agent: {lead}"
+            )
+
+    for entry in state.get("project_history", []):
+        proj_id = entry.get("id", "(unnamed project)")
+        for target in entry.get("agents_involved", []):
+            if target and target not in agent_ids:
+                errors.append(
+                    f"project_history {proj_id} agents_involved references "
+                    f"non-existent agent: {target}"
+                )
+
     return (len(errors) == 0, errors)
 
 
