@@ -48,7 +48,10 @@ def render_markdown(items):
             out.append(f"- **[{it['id']}] {it['source_title']}**")
             out.append(f"  - URL: {it['source_url']}")
             out.append(f"  - Retrieved: {date} by {agents}")
-            out.append(f"  - Excerpt: {it['excerpt']!r}")
+            # Render excerpt as a Markdown blockquote — natural for VP/board reading,
+            # no Python repr noise. Multi-line excerpts are flattened with spaces.
+            excerpt = str(it.get("excerpt", "")).replace("\n", " ")
+            out.append(f"  - Excerpt: > {excerpt}")
             out.append("")
     return "\n".join(out)
 

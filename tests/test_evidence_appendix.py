@@ -51,6 +51,24 @@ class TestMarkdown(unittest.TestCase):
         out = render_markdown(items)
         self.assertIn("https://a.com", out)
 
+    def test_excerpt_rendered_naturally_not_as_python_repr(self):
+        """Excerpt should appear as natural Markdown, not Python repr."""
+        items = [_ev("a", "Source A")]
+        out = render_markdown(items)
+        # Must NOT contain Python repr's single-quote wrapping
+        self.assertNotIn("'excerpt text here'", out)
+        # MUST contain the raw excerpt text
+        self.assertIn("excerpt text here", out)
+
+    def test_excerpt_with_quotes_does_not_escape(self):
+        """An excerpt containing a quote should not be escaped as Python would."""
+        item = _ev("b", "Source B")
+        item["excerpt"] = 'She said "hello"'
+        out = render_markdown([item])
+        # Python repr would produce either 'She said "hello"' or "She said \"hello\""
+        # We want natural Markdown rendering
+        self.assertNotIn("\\", out)
+
 
 class TestSummaryBlock(unittest.TestCase):
     def test_reports_totals_and_averages(self):

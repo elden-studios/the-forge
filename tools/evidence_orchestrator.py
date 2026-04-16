@@ -5,7 +5,7 @@ No real network calls here. Consumes subagent return envelopes and
 produces a unified evidence bundle + meta stats.
 """
 import json as _json
-import re
+import os
 import re as _re
 
 
@@ -38,19 +38,29 @@ _RELEVANCE_KEYWORDS = {
     "agent-vexx": [
         "competitor", "market", "TAM", "tam", "pricing", "funding",
         "benchmarks", "landscape", "competitive",
+        # Fintech / industry keywords (Task 14 demo readiness)
+        "bank", "neobank", "fintech", "industry", "segment", "challenger",
+        "incumbent", "remittance", "insurance", "startup",
     ],
     "agent-nyxx": [
         "saudi", "ksa", "mena", "arabic", "vision 2030", "nafath",
         "absher", "tawakkalna", "mada", "stc pay", "riyadh",
+        # Additional Saudi/MENA signals
+        "expat", "expatriate", "gulf", "gcc", "dubai", "jeddah",
     ],
     "agent-echo": [
         "user", "persona", "interview", "research", "review", "feedback",
         "adoption", "behavior", "pain point", "jobs to be done",
+        # Research signals
+        "customer", "segment", "cohort", "survey", "usability",
     ],
     "agent-taln": [
         "growth", "aarrr", "funnel", "acquisition", "retention",
         "monetization", "distribution", "seo", "aso", "paid",
         "viral", "channel",
+        # Go-to-market & launch signals
+        "launch", "gtm", "go-to-market", "onboarding", "conversion",
+        "referral", "freemium", "pricing",
     ],
 }
 
@@ -140,7 +150,13 @@ def merge_returns(returns):
 
 
 def append_evidence(project_id, bundle, evidence_path):
-    """Persist merged bundle Evidence to forge-evidence.json."""
+    """Persist merged bundle Evidence to forge-evidence.json atomically.
+
+    Uses a tempfile + os.replace pattern so a mid-write interruption
+    leaves the original file intact. Important for protecting expensive
+    evidence (real WebSearch/Chrome MCP queries) from loss.
+    """
+    import tempfile
     with open(evidence_path) as f:
         doc = _json.load(f)
 
@@ -155,8 +171,21 @@ def append_evidence(project_id, bundle, evidence_path):
     current.update(e["id"] for e in bundle.get("evidence", []))
     index[project_id] = sorted(current)
 
-    with open(evidence_path, "w") as f:
-        _json.dump(doc, f, indent=2)
+    # Atomic write
+    dir_ = os.path.dirname(evidence_path) or "."
+    stem = os.path.basename(evidence_path).rsplit(".", 1)[0]
+    fd, tmp = tempfile.mkstemp(dir=dir_, prefix=f".{stem}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            _json.dump(doc, f, indent=2)
+        os.replace(tmp, evidence_path)
+    except Exception:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+        raise
 
 
 # Matches [FACT], [FACT: ev-*], [INFERENCE], [INFERENCE: ev-*]

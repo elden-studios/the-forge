@@ -30,6 +30,18 @@ class TestAgentScoring(unittest.TestCase):
         score = score_agent_relevance("agent-vexx", brief)
         self.assertGreaterEqual(score, 2)
 
+    def test_neobank_brief_activates_vex(self):
+        """Task 14's synthetic brief must activate Vex (score >= 2)."""
+        brief = "Launch a mobile-first neobank targeting Saudi expats remitting to South Asia."
+        score = score_agent_relevance("agent-vexx", brief)
+        self.assertGreaterEqual(score, 2, f"Vex scored {score} — won't activate for fintech brief")
+
+    def test_neobank_brief_activates_talon(self):
+        """Growth architect should also activate on a launch brief."""
+        brief = "Launch a mobile-first neobank targeting Saudi expats remitting to South Asia. Go-to-market strategy needed."
+        score = score_agent_relevance("agent-taln", brief)
+        self.assertGreaterEqual(score, 2, f"Talon scored {score} — won't activate for launch brief")
+
 
 class TestSubBrief(unittest.TestCase):
     def test_sub_brief_contains_required_sections(self):
@@ -133,6 +145,24 @@ class TestAppendEvidence(unittest.TestCase):
                 set(doc["project_evidence_index"]["proj-003"]),
                 {"ev-old", "ev-new"},
             )
+
+    def test_append_evidence_is_atomic(self):
+        """Persistence must survive mid-write failure — tempfile + rename pattern."""
+        import glob
+        from evidence_orchestrator import append_evidence
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "forge-evidence.json")
+            with open(path, "w") as f:
+                json.dump({"evidence": [], "project_evidence_index": {}}, f)
+            bundle = {"evidence": [{"id": "ev-atom1234", "source_url": "https://a.com"}]}
+            append_evidence("proj-atomic", bundle, path)
+            # After the write, there should be no leftover .tmp files in the directory
+            tmps = glob.glob(os.path.join(tmp, "*.tmp"))
+            self.assertEqual(tmps, [], f"stray tmp files after atomic write: {tmps}")
+            # And the file should be readable (non-empty, well-formed)
+            with open(path) as f:
+                doc = json.load(f)
+            self.assertEqual(len(doc["evidence"]), 1)
 
 
 class TestStripUnsupported(unittest.TestCase):
