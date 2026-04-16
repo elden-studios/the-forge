@@ -70,6 +70,30 @@ class TestReadWrite(unittest.TestCase):
         got = read_cache(self.tmp, key)
         self.assertEqual(got["hits"], 3)  # 3rd read reports hits incremented 3 times
 
+    def test_read_cache_tolerates_corrupt_json(self):
+        """A corrupted cache entry should be treated as a miss, not a crash."""
+        key = "corrupt-entry"
+        # Write garbage directly to the cache file
+        os.makedirs(self.tmp, exist_ok=True)
+        with open(os.path.join(self.tmp, f"{key}.json"), "w") as f:
+            f.write("{ not valid json")
+        result = read_cache(self.tmp, key)
+        self.assertIsNone(result)
+
+    def test_write_cache_is_atomic(self):
+        """Concurrent writes must not corrupt entries. Simulate via temp-file + rename check."""
+        import glob
+        key = "atomic-test"
+        entry = {"key": key, "query": "q", "results": [], "fetched_at": "2026-04-16T00:00:00Z", "hits": 0}
+        write_cache(self.tmp, key, entry)
+        # After write, no .tmp leftovers should exist in the cache dir
+        tmps = glob.glob(os.path.join(self.tmp, "*.tmp"))
+        self.assertEqual(tmps, [], f"found stray tmp files: {tmps}")
+        # Entry is readable
+        got = read_cache(self.tmp, key)
+        self.assertIsNotNone(got)
+        self.assertEqual(got["query"], "q")
+
 
 class TestStatsAndEvict(unittest.TestCase):
     def setUp(self):

@@ -38,7 +38,19 @@ def days_between(earlier_iso, later_iso):
 
 
 def classify_freshness(source_type, retrieved_at, now_iso):
-    """Return 'fresh', 'stale', or 'refetch'."""
+    """Return 'fresh', 'stale', or 'refetch'.
+
+    Raises ValueError with a clear message if retrieved_at or now_iso is
+    None, empty, or not a parseable ISO 8601 string.
+    """
+    if not retrieved_at or not isinstance(retrieved_at, str):
+        raise ValueError(
+            f"retrieved_at must be a non-empty ISO 8601 string, got: {retrieved_at!r}"
+        )
+    if not now_iso or not isinstance(now_iso, str):
+        raise ValueError(
+            f"now_iso must be a non-empty ISO 8601 string, got: {now_iso!r}"
+        )
     bands = FRESHNESS_RULES.get(source_type, _DEFAULT)
     age = days_between(retrieved_at, now_iso)
     if age >= bands["refetch"]:

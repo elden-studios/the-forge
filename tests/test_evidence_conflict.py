@@ -33,6 +33,37 @@ class TestExtractNumbers(unittest.TestCase):
         self.assertIn(14.0, extract_numbers("grew 14% YoY"))
         self.assertIn(18.0, extract_numbers("18% growth rate"))
 
+    def test_preserves_comma_thousands_separators(self):
+        # $1,340M is a single number, not two (1 and 340)
+        nums = extract_numbers("market is $1,340M in 2024")
+        self.assertIn(1340.0, nums)
+        self.assertNotIn(1.0, nums)
+
+    def test_ignores_year_tokens(self):
+        # Bare 4-digit 19xx/20xx numbers without units should not be extracted
+        # (they're almost always year references, not the claim's subject)
+        nums = extract_numbers("market was $340M in 2024, up from $280M in 2023")
+        self.assertIn(340.0, nums)
+        self.assertIn(280.0, nums)
+        self.assertNotIn(2024.0, nums)
+        self.assertNotIn(2023.0, nums)
+
+    def test_same_claim_different_formatting_does_not_conflict(self):
+        # $1,340M and $1340M are the same number — must not flag a conflict
+        items = [
+            {"id": "a", "excerpt": "market is $1,340M", "claim": "c",
+             "source_type": "analyst", "quality_score": 3,
+             "retrieved_at": "2026-01-01T00:00:00Z", "source_url": "",
+             "source_title": "", "retrieved_by": [], "queried_via": "",
+             "confidence": 0.8, "signal_tag": "FACT", "scope": "global"},
+            {"id": "b", "excerpt": "market is $1340M", "claim": "c",
+             "source_type": "analyst", "quality_score": 3,
+             "retrieved_at": "2025-01-01T00:00:00Z", "source_url": "",
+             "source_title": "", "retrieved_by": [], "queried_via": "",
+             "confidence": 0.8, "signal_tag": "FACT", "scope": "global"},
+        ]
+        self.assertEqual(detect_conflicts(items), [])
+
 
 class TestCluster(unittest.TestCase):
     def test_claims_sharing_keywords_cluster(self):
@@ -44,6 +75,19 @@ class TestCluster(unittest.TestCase):
         clusters = cluster_by_keywords(items)
         # a and b cluster together; c alone
         self.assertEqual(len(clusters), 2)
+
+    def test_clustering_is_order_independent(self):
+        items = [
+            _ev("a", "Saudi pet market size 340M", "primary_government", "2026-01-01T00:00:00Z", 5),
+            _ev("b", "Saudi pet market size 510M", "analyst", "2025-06-01T00:00:00Z", 3),
+            _ev("c", "Saudi pet sector revenue 400M", "blog", "2026-02-01T00:00:00Z", 1),
+        ]
+        clusters_forward = cluster_by_keywords(items)
+        clusters_reversed = cluster_by_keywords(list(reversed(items)))
+        # Representations may differ, but the grouping (sets of IDs per cluster) must be identical
+        def _cluster_id_sets(clusters):
+            return sorted([frozenset(c["id"] for c in cluster) for cluster in clusters])
+        self.assertEqual(_cluster_id_sets(clusters_forward), _cluster_id_sets(clusters_reversed))
 
 
 class TestDetectConflicts(unittest.TestCase):

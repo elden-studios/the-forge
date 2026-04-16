@@ -83,6 +83,17 @@ class TestClassifyFreshness(unittest.TestCase):
             self.assertIn(stype, FRESHNESS_RULES)
 
 
+    def test_none_retrieved_at_raises_clear_error(self):
+        with self.assertRaises((ValueError, TypeError)) as ctx:
+            classify_freshness("blog", None, "2026-04-16T00:00:00Z")
+        self.assertIn("retrieved_at", str(ctx.exception).lower())
+
+    def test_empty_retrieved_at_raises_clear_error(self):
+        with self.assertRaises(ValueError) as ctx:
+            classify_freshness("blog", "", "2026-04-16T00:00:00Z")
+        self.assertIn("retrieved_at", str(ctx.exception).lower())
+
+
 class TestDaysBetween(unittest.TestCase):
     def test_zero_days(self):
         self.assertEqual(days_between("2026-04-16T00:00:00Z", "2026-04-16T00:00:00Z"), 0)

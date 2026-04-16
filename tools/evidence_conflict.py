@@ -23,32 +23,65 @@ def _tokens(text):
 
 
 def cluster_by_keywords(items, overlap_threshold=0.4):
-    """Group items whose content-word sets overlap >= threshold (Jaccard)."""
+    """Group items whose content-word sets overlap >= threshold (Jaccard).
+
+    Deterministic given any input order: items are sorted by ID before
+    clustering, and a new item joins the cluster with the maximum
+    Jaccard overlap against ANY of its members (not just the first).
+    """
+    sorted_items = sorted(items, key=lambda it: it.get("id", ""))
     clusters = []
-    for it in items:
-        placed = False
+    for it in sorted_items:
         it_tokens = _tokens(it["excerpt"])
+        best_cluster = None
+        best_jaccard = 0.0
         for cluster in clusters:
-            ref_tokens = _tokens(cluster[0]["excerpt"])
-            union = it_tokens | ref_tokens
-            if not union:
-                continue
-            jaccard = len(it_tokens & ref_tokens) / len(union)
-            if jaccard >= overlap_threshold:
-                cluster.append(it)
-                placed = True
-                break
-        if not placed:
+            for member in cluster:
+                ref_tokens = _tokens(member["excerpt"])
+                union = it_tokens | ref_tokens
+                if not union:
+                    continue
+                jaccard = len(it_tokens & ref_tokens) / len(union)
+                if jaccard >= overlap_threshold and jaccard > best_jaccard:
+                    best_cluster = cluster
+                    best_jaccard = jaccard
+        if best_cluster is not None:
+            best_cluster.append(it)
+        else:
             clusters.append([it])
     return clusters
 
 
 def extract_numbers(text):
-    """Return a list of floats extracted from $, %, or bare numbers."""
+    """Return a list of floats extracted from $/%/unit-suffixed numerics.
+
+    Handles comma thousands separators ('$1,340M' → [1340.0]).
+    Excludes bare 4-digit year tokens (19xx/20xx) without a unit suffix
+    to prevent 'in 2024' from contaminating the numeric set.
+    """
     nums = []
-    for m in re.findall(r"\$?(\d+(?:\.\d+)?)\s*[MBK%]?", text):
+    # Require EITHER a $ prefix, OR a unit suffix (M/B/K/%),
+    # OR both. Plain numbers without context are ignored.
+    # Pattern: optional $, digits with optional commas, optional decimal, optional unit
+    pattern = r"(?:(\$)?([\d,]+(?:\.\d+)?)\s*([MBK%]))|(?:(\$)([\d,]+(?:\.\d+)?))"
+    for match in re.finditer(pattern, text):
+        # Two alternation branches — only one set of groups fires per match
+        dollar_suffix = match.group(1)
+        num_suffix = match.group(2)
+        unit_suffix = match.group(3)
+        dollar_only = match.group(4)
+        num_only = match.group(5)
+
+        if num_suffix is not None:
+            raw = num_suffix
+        elif num_only is not None:
+            raw = num_only
+        else:
+            continue
+
         try:
-            nums.append(float(m))
+            clean = raw.replace(",", "")
+            nums.append(float(clean))
         except ValueError:
             pass
     return nums

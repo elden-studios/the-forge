@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import tempfile
 
 
 def normalize_query(q):
@@ -29,22 +30,57 @@ def _path(cache_dir, key):
 
 
 def read_cache(cache_dir, key):
-    """Return the cache entry (dict) or None. Auto-increments 'hits'."""
+    """Return the cache entry (dict) or None. Auto-increments 'hits'.
+
+    Tolerates corrupt cache entries (returns None) and read-only files
+    (skips the hit-counter write-back). Cache hits are telemetry, not
+    load-bearing — losing a count is fine; crashing the subagent is not.
+    """
     p = _path(cache_dir, key)
     if not os.path.isfile(p):
         return None
-    with open(p) as f:
-        entry = json.load(f)
+    try:
+        with open(p) as f:
+            entry = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        # Corrupt or unreadable — treat as a miss so the caller re-fetches.
+        return None
+    # Best-effort hit-counter write-back; ignore read-only filesystems.
     entry["hits"] = entry.get("hits", 0) + 1
-    with open(p, "w") as f:
-        json.dump(entry, f)
+    try:
+        _atomic_write(p, entry)
+    except OSError:
+        pass
     return entry
 
 
 def write_cache(cache_dir, key, entry):
+    """Atomically write a cache entry (safe under concurrent writers).
+
+    Writes to a sibling .tmp file then os.replace() to the final path —
+    atomic on POSIX. Prevents torn reads under parallel subagent dispatch.
+    """
     os.makedirs(cache_dir, exist_ok=True)
-    with open(_path(cache_dir, key), "w") as f:
-        json.dump(entry, f)
+    _atomic_write(_path(cache_dir, key), entry)
+
+
+def _atomic_write(path, entry):
+    """Write JSON atomically: temp-file + rename."""
+    cache_dir = os.path.dirname(path) or "."
+    # Stem comes from the final filename (keeps tmp discoverable if interrupted)
+    stem = os.path.basename(path).rsplit(".", 1)[0]
+    fd, tmp = tempfile.mkstemp(dir=cache_dir, prefix=f".{stem}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(entry, f)
+        os.replace(tmp, path)
+    except Exception:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+        raise
 
 
 def cache_stats(cache_dir):
