@@ -92,5 +92,79 @@ class TestEvidenceAgentsTable(unittest.TestCase):
         )
 
 
+import json
+import tempfile
+
+
+class TestAppendEvidence(unittest.TestCase):
+    def test_appends_to_empty_file(self):
+        from evidence_orchestrator import append_evidence
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "forge-evidence.json")
+            with open(path, "w") as f:
+                json.dump({"evidence": [], "project_evidence_index": {}}, f)
+
+            bundle = {"evidence": [{"id": "ev-1", "source_url": "https://a.com"}]}
+            append_evidence("proj-003", bundle, path)
+
+            with open(path) as f:
+                doc = json.load(f)
+            self.assertEqual(len(doc["evidence"]), 1)
+            self.assertEqual(doc["project_evidence_index"]["proj-003"], ["ev-1"])
+
+    def test_existing_project_ids_extend_not_replace(self):
+        from evidence_orchestrator import append_evidence
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "forge-evidence.json")
+            with open(path, "w") as f:
+                json.dump({
+                    "evidence": [{"id": "ev-old"}],
+                    "project_evidence_index": {"proj-003": ["ev-old"]},
+                }, f)
+
+            bundle = {"evidence": [{"id": "ev-new"}]}
+            append_evidence("proj-003", bundle, path)
+
+            with open(path) as f:
+                doc = json.load(f)
+            self.assertEqual(
+                set(doc["project_evidence_index"]["proj-003"]),
+                {"ev-old", "ev-new"},
+            )
+
+
+class TestStripUnsupported(unittest.TestCase):
+    def test_fact_with_valid_evidence_id_is_kept(self):
+        from evidence_orchestrator import strip_unsupported_claims
+
+        text = "Market grew 14% YoY [FACT: ev-abc12345]."
+        out = strip_unsupported_claims(text, {"ev-abc12345"})
+        self.assertIn("[FACT: ev-abc12345]", out)
+
+    def test_fact_without_evidence_id_is_stripped(self):
+        from evidence_orchestrator import strip_unsupported_claims
+
+        text = "Market grew 14% YoY [FACT]."
+        out = strip_unsupported_claims(text, set())
+        self.assertIn("[UNSUPPORTED", out)
+        self.assertNotIn("[FACT]", out)
+
+    def test_fact_with_unknown_evidence_id_is_stripped(self):
+        from evidence_orchestrator import strip_unsupported_claims
+
+        text = "Market grew 14% YoY [FACT: ev-ghost123]."
+        out = strip_unsupported_claims(text, {"ev-real1234"})
+        self.assertIn("[UNSUPPORTED", out)
+
+    def test_opinion_tags_are_left_alone(self):
+        from evidence_orchestrator import strip_unsupported_claims
+
+        text = "The market feels underserved [OPINION]."
+        out = strip_unsupported_claims(text, set())
+        self.assertEqual(out, text)
+
+
 if __name__ == "__main__":
     unittest.main()

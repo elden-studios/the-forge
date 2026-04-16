@@ -4,7 +4,9 @@
 No real network calls here. Consumes subagent return envelopes and
 produces a unified evidence bundle + meta stats.
 """
+import json as _json
 import re
+import re as _re
 
 
 EVIDENCE_AGENTS = {
@@ -135,3 +137,45 @@ def merge_returns(returns):
         "avg_quality": sum(quality_vals) / len(quality_vals) if quality_vals else 0.0,
         "recommendations": recommendations,
     }
+
+
+def append_evidence(project_id, bundle, evidence_path):
+    """Persist merged bundle Evidence to forge-evidence.json."""
+    with open(evidence_path) as f:
+        doc = _json.load(f)
+
+    existing_ids = {e["id"] for e in doc.get("evidence", [])}
+    for ev in bundle.get("evidence", []):
+        if ev["id"] not in existing_ids:
+            doc["evidence"].append(ev)
+            existing_ids.add(ev["id"])
+
+    index = doc.setdefault("project_evidence_index", {})
+    current = set(index.get(project_id, []))
+    current.update(e["id"] for e in bundle.get("evidence", []))
+    index[project_id] = sorted(current)
+
+    with open(evidence_path, "w") as f:
+        _json.dump(doc, f, indent=2)
+
+
+# Matches [FACT], [FACT: ev-*], [INFERENCE], [INFERENCE: ev-*]
+# id pattern is intentionally broad: real ids are ev-<8hex> but we must
+# catch any ev-* string so unknown ids are checked against valid_evidence_ids.
+_CLAIM_RE = _re.compile(r"\[(FACT|INFERENCE)(?::\s*(ev-\w+))?\]")
+
+
+def strip_unsupported_claims(text, valid_evidence_ids):
+    """Enforce Standing Rule 7: no citation → no claim.
+
+    Replaces any [FACT] / [INFERENCE] without a valid Evidence ID
+    with [UNSUPPORTED — dropped by validator]. Leaves [OPINION] and
+    [HYPOTHESIS] alone.
+    """
+    def _sub(m):
+        tag, eid = m.group(1), m.group(2)
+        if eid and eid in valid_evidence_ids:
+            return m.group(0)
+        return "[UNSUPPORTED — dropped by validator]"
+
+    return _CLAIM_RE.sub(_sub, text)
