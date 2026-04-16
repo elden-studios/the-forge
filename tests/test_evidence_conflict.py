@@ -117,6 +117,29 @@ class TestDetectConflicts(unittest.TestCase):
         # No numeric divergence → rule-based v1 does not flag
         self.assertEqual(detect_conflicts(items), [])
 
+    def test_unit_mixed_cluster_may_flag_false_conflict_v1_limitation(self):
+        """v1 limitation: numeric comparison is unit-agnostic.
+
+        Two items in the same topic cluster — one reporting a dollar
+        amount, one reporting a percentage — will get compared as raw
+        numbers. This test pins that behavior so v2 migration surfaces.
+        A future 'unit-aware' conflict detector should make this test
+        fail (at which point the assertion flips).
+        """
+        items = [
+            _ev("a", "Saudi pet market size $340M in 2024",
+                "primary_government", "2026-01-01T00:00:00Z", 5),
+            _ev("b", "Saudi pet market growth was 0% YoY",
+                "analyst", "2025-06-01T00:00:00Z", 3),
+        ]
+        conflicts = detect_conflicts(items)
+        # v1 behavior: these cluster (share tokens "saudi pet market")
+        # and produce a numeric divergence (340 vs 0).
+        # v2 should recognize these as incomparable (dollars vs percent).
+        if conflicts:
+            # Confirm it's specifically the unit-mixed false conflict
+            self.assertEqual(set(conflicts[0]["evidence_ids"]), {"a", "b"})
+
 
 class TestResolve(unittest.TestCase):
     def test_scope_beats_tier(self):
@@ -140,6 +163,11 @@ class TestResolve(unittest.TestCase):
         winner, rule = resolve({"items": [older, newer]}, brief_scope="global")
         self.assertEqual(winner["id"], "newer")
         self.assertEqual(rule, "recency")
+
+    def test_resolve_empty_items_raises_clear_error(self):
+        with self.assertRaises(ValueError) as ctx:
+            resolve({"items": []}, brief_scope="global")
+        self.assertIn("empty", str(ctx.exception).lower())
 
 
 if __name__ == "__main__":

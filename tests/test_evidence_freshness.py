@@ -93,6 +93,19 @@ class TestClassifyFreshness(unittest.TestCase):
             classify_freshness("blog", "", "2026-04-16T00:00:00Z")
         self.assertIn("retrieved_at", str(ctx.exception).lower())
 
+    def test_fractional_seconds_iso_is_accepted(self):
+        """WebSearch/Chrome MCP commonly return timestamps with fractional seconds.
+
+        The freshness module must accept them (validator and conflict module
+        already do, via fromisoformat).
+        """
+        status = classify_freshness(
+            source_type="blog",
+            retrieved_at="2026-04-15T12:00:00.123Z",
+            now_iso="2026-04-16T12:00:00.456Z",
+        )
+        self.assertEqual(status, "fresh")
+
 
 class TestDaysBetween(unittest.TestCase):
     def test_zero_days(self):

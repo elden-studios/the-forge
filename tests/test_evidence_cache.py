@@ -61,14 +61,23 @@ class TestReadWrite(unittest.TestCase):
     def test_read_missing_returns_none(self):
         self.assertIsNone(read_cache(self.tmp, "does-not-exist"))
 
-    def test_read_increments_hits(self):
-        key = "test-key-abc"
-        entry = {"key": key, "query": "q", "results": [], "fetched_at": "2026-04-16T00:00:00Z", "hits": 0}
+    def test_read_does_not_mutate_entry(self):
+        """Reads no longer write back to the cache file.
+
+        Removed to guarantee determinism under parallel subagent dispatch:
+        every-read-updates-mtime was breaking LRU eviction ordering.
+        Hit counts are lost, which is acceptable (telemetry, not load-bearing).
+        """
+        key = "no-mutation-test"
+        entry = {"key": key, "query": "q", "results": [], "fetched_at": "2026-04-16T00:00:00Z", "hits": 42}
         write_cache(self.tmp, key, entry)
-        read_cache(self.tmp, key)
-        read_cache(self.tmp, key)
-        got = read_cache(self.tmp, key)
-        self.assertEqual(got["hits"], 3)  # 3rd read reports hits incremented 3 times
+        mtime_before = os.path.getmtime(os.path.join(self.tmp, f"{key}.json"))
+        # Read multiple times
+        for _ in range(5):
+            got = read_cache(self.tmp, key)
+            self.assertEqual(got["hits"], 42)  # unchanged
+        mtime_after = os.path.getmtime(os.path.join(self.tmp, f"{key}.json"))
+        self.assertEqual(mtime_before, mtime_after, "read_cache must not touch the file")
 
     def test_read_cache_tolerates_corrupt_json(self):
         """A corrupted cache entry should be treated as a miss, not a crash."""

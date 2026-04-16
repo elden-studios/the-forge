@@ -58,6 +58,12 @@ def extract_numbers(text):
     Handles comma thousands separators ('$1,340M' → [1340.0]).
     Excludes bare 4-digit year tokens (19xx/20xx) without a unit suffix
     to prevent 'in 2024' from contaminating the numeric set.
+
+    v1 LIMITATION: numbers are returned as raw floats, not paired with
+    their units. A cluster containing both dollar amounts and percentages
+    may flag false conflicts because divergence is computed over the raw
+    numeric set. Unit-aware comparison is deferred to v2. See
+    test_unit_mixed_cluster_may_flag_false_conflict_v1_limitation.
     """
     nums = []
     # Require EITHER a $ prefix, OR a unit suffix (M/B/K/%),
@@ -118,8 +124,11 @@ def resolve(conflict, brief_scope="global"):
     """Pick winner from conflict.items by scope > tier > recency.
 
     Returns (winner_item, rule_name).
+    Raises ValueError if conflict.items is empty.
     """
     items = conflict["items"]
+    if not items:
+        raise ValueError("resolve: conflict.items is empty — cannot pick winner")
 
     # 1. Scope: items matching the brief's scope win
     scoped = [it for it in items if _matches_brief_scope(it, brief_scope)]

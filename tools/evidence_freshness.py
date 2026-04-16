@@ -30,7 +30,12 @@ _DEFAULT = FRESHNESS_RULES["blog"]
 
 
 def _parse(iso):
-    return datetime.strptime(iso.replace("Z", "+0000"), "%Y-%m-%dT%H:%M:%S%z")
+    """Parse an ISO 8601 timestamp. Accepts fractional seconds and 'Z' suffix.
+
+    Kept consistent with tools/validator.py and tools/evidence_conflict.py —
+    all three modules use datetime.fromisoformat for Evidence.retrieved_at.
+    """
+    return datetime.fromisoformat(iso.replace("Z", "+00:00"))
 
 
 def days_between(earlier_iso, later_iso):

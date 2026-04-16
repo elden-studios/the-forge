@@ -15,7 +15,9 @@ import sys
 from datetime import datetime
 from urllib.parse import urlparse
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _TOOLS_DIR not in sys.path:
+    sys.path.insert(0, _TOOLS_DIR)
 
 from evidence_schema import SOURCE_TYPES, SIGNAL_TAGS  # noqa: E402
 

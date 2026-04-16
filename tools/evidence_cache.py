@@ -3,7 +3,8 @@
 
 Keys: sha256(normalized_query + '|' + url). Entries stored as <key>.json
 in a caller-supplied cache directory (typically assets/.forge-cache/).
-Reads auto-increment 'hits'. LRU eviction by mtime.
+LRU eviction by mtime. Reads do NOT mutate the file — mtime reflects
+last-write only, ensuring deterministic LRU ordering under parallel dispatch.
 """
 import hashlib
 import json
@@ -30,11 +31,12 @@ def _path(cache_dir, key):
 
 
 def read_cache(cache_dir, key):
-    """Return the cache entry (dict) or None. Auto-increments 'hits'.
+    """Return the cache entry (dict) or None.
 
-    Tolerates corrupt cache entries (returns None) and read-only files
-    (skips the hit-counter write-back). Cache hits are telemetry, not
-    load-bearing — losing a count is fine; crashing the subagent is not.
+    Tolerates corrupt cache entries (returns None) and missing files.
+    Does NOT mutate the entry on read — mtime-based LRU relies on
+    mtime reflecting last-write, not last-read. Hit counts are lost
+    (telemetry, not load-bearing).
     """
     p = _path(cache_dir, key)
     if not os.path.isfile(p):
@@ -43,14 +45,7 @@ def read_cache(cache_dir, key):
         with open(p) as f:
             entry = json.load(f)
     except (json.JSONDecodeError, OSError):
-        # Corrupt or unreadable — treat as a miss so the caller re-fetches.
         return None
-    # Best-effort hit-counter write-back; ignore read-only filesystems.
-    entry["hits"] = entry.get("hits", 0) + 1
-    try:
-        _atomic_write(p, entry)
-    except OSError:
-        pass
     return entry
 
 
