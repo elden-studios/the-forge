@@ -24,9 +24,9 @@ class TestEvidenceId(unittest.TestCase):
         self.assertEqual(len(ids), 50)
 
     def test_new_id_matches_format(self):
-        # ev- followed by 6 lowercase hex characters
+        # ev- followed by 8 lowercase hex characters
         eid = new_evidence_id()
-        self.assertRegex(eid, r"^ev-[0-9a-f]{6}$")
+        self.assertRegex(eid, r"^ev-[0-9a-f]{8}$")
 
 
 class TestEvidenceDataclass(unittest.TestCase):
