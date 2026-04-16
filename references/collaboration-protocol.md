@@ -1,4 +1,4 @@
-# Collaboration Protocol v3.0 — The Forge
+# Collaboration Protocol v3.1 — The Forge
 
 Elite multi-agent orchestration protocol with 15 enhancement layers.
 Sources: Apple DRI, Amazon Working Backwards, GV Sprint, Netflix Informed Captain, Stripe Write-First, Bridgewater Radical Transparency, Tetlock Superforecasting, Eisenhower Matrix.
@@ -13,6 +13,9 @@ Sources: Apple DRI, Amazon Working Backwards, GV Sprint, Netflix Informed Captai
 4. **Name the source.** Every best-practice reference names the company/framework.
 5. **Show your work.** Agents show reasoning chains, not just conclusions (opt-in via "show work" command).
 6. **One-slide constraint.** Each agent's contribution must fit one visual card. If it doesn't fit, it's not concise enough.
+7. **No citation, no claim.** Any `[FACT]` or `[INFERENCE]` without an Evidence ID gets stripped and replaced with `[UNSUPPORTED — dropped by validator]`. Agents must re-run the query or downgrade the claim to `[OPINION]`.
+8. **Quality floor for GO decisions.** Any GO recommendation citing ≥1 tier-1 (blog) source without tier-3+ backing is flagged `⚠ THIN EVIDENCE` in the deliverable.
+9. **Freshness gate.** Evidence beyond the source-type's `stale` threshold is flagged `⏰ STALE`. Beyond `refetch` threshold → `⏰ REFETCH REQUIRED` (must re-query before citing).
 
 ---
 
@@ -86,28 +89,24 @@ Gap: [missing role if any]
 
 ---
 
-## Phase 2: INTELLIGENCE (Parallel)
+## Phase 2 — Intelligence (parallel dispatch in v3.1)
 
-**Agents:** Vex + Nyx (if Saudi) + Echo
-**Templates:** Competitive Matrix (Vex), Saudi Entry Checklist (Nyx), User Pain Map (Echo)
+**Pre-condition:** `evidence_pipes.enabled: true` in `forge-state.json` (default).
 
-### Handoff Specs with Acceptance Criteria
+1. Flint scores all four evidence agents (Vex, Nyx, Echo, Talon) for relevance to the brief using `evidence_orchestrator.score_agent_relevance()`. Activated threshold: score ≥ 2.
+2. For each **activated** evidence agent, Flint generates a sub-brief (`evidence_orchestrator.generate_sub_brief(agent_id, brief)`).
+3. Flint dispatches the sub-briefs **in parallel** using `superpowers:dispatching-parallel-agents`. Fan-out width = number of activated agents (1-4).
+4. Each subagent loads its persona + Second Brain, executes its query plan, builds Evidence objects, self-critiques, and returns a structured bundle.
+5. Fan-in: Flint calls `evidence_orchestrator.merge_returns(returns)` (dedupes by source_url, grows `retrieved_by`).
+6. Conflicts: `evidence_conflict.detect_conflicts(bundle["evidence"])`. Surface into War Room (Phase 3).
+7. Persist: `evidence_orchestrator.append_evidence(project_id, bundle, "forge-evidence.json")`.
+8. Reasoning agents (Phase 3+) run sequentially over the unified bundle as before.
 
-| Agent | Deliverable | Format | Acceptance | Template |
-|---|---|---|---|---|
-| Vex | Competitive Landscape | Table, max 1 page | ≥3 competitors with data | Competitive Matrix |
-| Nyx | Saudi Market Brief | Checklist, max 1 page | Cites specific Saudi entities | Saudi Entry Checklist |
-| Echo | User Signals | Pain map, max 1 page | Each pain backed by evidence | User Pain Map |
+**Kill switch:** set `evidence_pipes.enabled: false` to revert to v3.0 sequential behavior.
 
-### Required Output Format (per agent)
-```
-[Agent] — [Domain]
-FINDING: [claim] [FACT/INFERENCE/HYPOTHESIS]
-CONFIDENCE: HIGH/MEDIUM/LOW — [justification] (Tetlock calibration)
-RISK: [why this could be wrong] [HYPOTHESIS]
-ASSUMPTION: [what needs verification]
-TEMPLATE: [filled framework from brain file]
-```
+**Budgets:** 40 total queries / 8 per agent / 4 min wall-clock (see SKILL.md).
+
+See `SKILL.md` "Evidence Pipes" section for the full operator protocol including failure modes and the subagent return envelope shape.
 
 **🎮 Office:** `working` event on activated research agents.
 
