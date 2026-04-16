@@ -193,6 +193,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       <button id="src-export-md">Export MD</button>
       <button id="src-export-csv">Export CSV</button>
       <button id="src-export-json">Export JSON</button>
+      <span id="src-count" style="color:var(--muted);font-size:11px;margin-left:auto;white-space:nowrap">0 results</span>
     </div>
     <table id="src-table">
       <thead>
@@ -643,6 +644,9 @@ function renderSourcesTab(doc) {
     if (fresh && freshnessBucket(it) !== fresh)                   return false;
     return true;
   });
+
+  const countEl = document.getElementById('src-count');
+  if (countEl) countEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
 
   const tbody = document.querySelector('#src-table tbody');
   if (!tbody) return;
