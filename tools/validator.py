@@ -12,6 +12,9 @@ Exits 0 on success, 1 on validation errors.
 import json
 import os
 import sys
+from urllib.parse import urlparse
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
 def validate_project(project_dir):
@@ -54,6 +57,16 @@ def validate_project(project_dir):
             return (False, errors)
         errors.extend(validate_tasks(tasks, state)[1])
 
+    ev_path = os.path.join(project_dir, "forge-evidence.json")
+    if os.path.isfile(ev_path):
+        try:
+            with open(ev_path) as f:
+                evidence_doc = json.load(f)
+        except json.JSONDecodeError as e:
+            errors.append(f"forge-evidence.json is not valid json: {e}")
+            return (False, errors)
+        errors.extend(validate_evidence(evidence_doc, state)[1])
+
     return (len(errors) == 0, errors)
 
 
@@ -91,6 +104,72 @@ def validate_tasks(tasks, state):
     phase = tasks.get("current_phase", 0)
     if not isinstance(phase, int) or phase < 0 or phase > 8:
         errors.append(f"Invalid phase number: {phase} (must be 0-8)")
+
+    return (len(errors) == 0, errors)
+
+
+def validate_evidence(evidence_doc, state):
+    """Validate forge-evidence.json against forge-state.json.
+
+    Returns (ok, errors).
+    """
+    from evidence_schema import SOURCE_TYPES, SIGNAL_TAGS
+    from datetime import datetime
+
+    errors = []
+    items = evidence_doc.get("evidence", [])
+    index = evidence_doc.get("project_evidence_index", {})
+    agent_ids = {a["id"] for a in state.get("agents", [])}
+
+    # Every ID unique
+    seen = {}
+    for it in items:
+        eid = it.get("id", "(unnamed)")
+        if eid in seen:
+            errors.append(f"Evidence duplicate id: {eid}")
+        seen[eid] = True
+
+    valid_ids = set(seen.keys())
+
+    # Index references point to real evidence
+    for proj, ids in index.items():
+        for ref in ids:
+            if ref not in valid_ids:
+                errors.append(
+                    f"project_evidence_index[{proj}] references non-existent Evidence: {ref}"
+                )
+
+    # Per-item field validation
+    for it in items:
+        eid = it.get("id", "(unnamed)")
+        for agent in it.get("retrieved_by", []) or []:
+            if agent not in agent_ids:
+                errors.append(f"Evidence {eid} retrieved_by references non-existent agent: {agent}")
+        q = it.get("quality_score")
+        if not isinstance(q, int) or isinstance(q, bool) or q < 1 or q > 5:
+            errors.append(f"Evidence {eid} quality_score out of range: {q}")
+        c = it.get("confidence")
+        if not isinstance(c, (int, float)) or isinstance(c, bool) or c < 0 or c > 1:
+            errors.append(f"Evidence {eid} confidence out of range: {c}")
+        if it.get("source_type") not in SOURCE_TYPES:
+            errors.append(f"Evidence {eid} invalid source_type: {it.get('source_type')}")
+        if it.get("signal_tag") not in SIGNAL_TAGS:
+            errors.append(f"Evidence {eid} invalid signal_tag: {it.get('signal_tag')}")
+        url = it.get("source_url", "") or ""
+        if url.startswith("local://"):
+            pass
+        else:
+            parsed = urlparse(url)
+            if not parsed.scheme or not parsed.netloc:
+                errors.append(f"Evidence {eid} invalid source_url: {url}")
+        ts = it.get("retrieved_at", "")
+        if not isinstance(ts, str) or not ts:
+            errors.append(f"Evidence {eid} malformed retrieved_at: {ts}")
+        else:
+            try:
+                datetime.strptime(ts.replace("Z", "+0000"), "%Y-%m-%dT%H:%M:%S%z")
+            except (ValueError, TypeError):
+                errors.append(f"Evidence {eid} malformed retrieved_at: {ts}")
 
     return (len(errors) == 0, errors)
 
@@ -188,10 +267,17 @@ def main(argv):
     Args:
         argv: list of CLI arguments (without program name). First positional
               argument (optional) is the project directory. Defaults to cwd.
+              Pass --cache-stats [dir] to display cache statistics.
 
     Returns:
         Exit code: 0 if valid, 1 if validation errors were found.
     """
+    if argv and argv[0] == "--cache-stats":
+        from evidence_cache import cache_stats
+        project_dir = argv[1] if len(argv) > 1 else os.getcwd()
+        stats = cache_stats(os.path.join(project_dir, "assets", ".forge-cache"))
+        print(f"Cache stats: {stats['entries']} entries, {stats['size_bytes']} bytes")
+        return 0
     project_dir = argv[0] if argv else os.getcwd()
     ok, errors = validate_project(project_dir)
     if ok:
