@@ -210,7 +210,7 @@ See `references/evidence-pipes-spec.md` for the full operator protocol.
    }
    ```
 5. Fan-in merge: `bundle = evidence_orchestrator.merge_returns(returns)`.
-6. Persist to disk: `evidence_orchestrator.append_evidence(project_id, bundle, "forge-evidence.json")`.
+6. Persist to disk: `evidence_orchestrator.append_evidence(project_id, bundle, "forge-evidence.json")`. The helper atomically writes to the project root AND mirrors to `assets/forge-evidence.json` so the live dashboard stays in sync.
 7. Detect conflicts: `evidence_conflict.detect_conflicts(bundle["evidence"])`. Surface any into Phase 3 (War Room) for resolution.
 8. Before writing the final deliverable, call `evidence_orchestrator.strip_unsupported_claims(draft_text, valid_ids)` on every agent contribution — `[FACT]` without a valid Evidence ID becomes `[UNSUPPORTED — dropped by validator]`.
 9. Render the deliverable with `evidence_appendix.render_summary_block(...)` above the recommendation and `evidence_appendix.render_compact(evidence)` as the Sources Appendix. Export via `render_markdown` when the user asks for a shareable version.

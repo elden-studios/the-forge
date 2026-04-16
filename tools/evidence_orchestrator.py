@@ -149,14 +149,36 @@ def merge_returns(returns):
     }
 
 
+def _atomic_write_json(path, doc):
+    """Write JSON atomically (tempfile + os.replace). Shared helper."""
+    import tempfile
+    dir_ = os.path.dirname(path) or "."
+    stem = os.path.basename(path).rsplit(".", 1)[0]
+    fd, tmp = tempfile.mkstemp(dir=dir_, prefix=f".{stem}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            _json.dump(doc, f, indent=2)
+        os.replace(tmp, path)
+    except Exception:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+        raise
+
+
 def append_evidence(project_id, bundle, evidence_path):
     """Persist merged bundle Evidence to forge-evidence.json atomically.
 
     Uses a tempfile + os.replace pattern so a mid-write interruption
-    leaves the original file intact. Important for protecting expensive
-    evidence (real WebSearch/Chrome MCP queries) from loss.
+    leaves the original file intact.
+
+    Also mirrors the result to <parent>/assets/<basename> when that
+    sibling path exists — the live dashboard reads from assets/ via
+    the local http.server, so the mirror prevents split-brain UX
+    where the backend writes evidence but the UI shows 0 sources.
     """
-    import tempfile
     with open(evidence_path) as f:
         doc = _json.load(f)
 
@@ -171,21 +193,18 @@ def append_evidence(project_id, bundle, evidence_path):
     current.update(e["id"] for e in bundle.get("evidence", []))
     index[project_id] = sorted(current)
 
-    # Atomic write
-    dir_ = os.path.dirname(evidence_path) or "."
-    stem = os.path.basename(evidence_path).rsplit(".", 1)[0]
-    fd, tmp = tempfile.mkstemp(dir=dir_, prefix=f".{stem}.", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w") as f:
-            _json.dump(doc, f, indent=2)
-        os.replace(tmp, evidence_path)
-    except Exception:
-        if os.path.exists(tmp):
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
-        raise
+    _atomic_write_json(evidence_path, doc)
+
+    # Mirror to assets/ sibling if present (dashboard reads from there)
+    parent = os.path.dirname(os.path.abspath(evidence_path)) or "."
+    assets_dir = os.path.join(parent, "assets")
+    if os.path.isdir(assets_dir):
+        mirror_path = os.path.join(assets_dir, os.path.basename(evidence_path))
+        try:
+            _atomic_write_json(mirror_path, doc)
+        except OSError:
+            # Mirror failure is non-fatal — the primary write succeeded
+            pass
 
 
 # Matches [FACT], [FACT: ev-*], [INFERENCE], [INFERENCE: ev-*]

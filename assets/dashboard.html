@@ -116,7 +116,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
   <div class="tab" onclick="switchTab('network')">Network Graph</div>
   <div class="tab" onclick="switchTab('kanban')">Kanban Board</div>
   <div class="tab" onclick="switchTab('timeline')">Timeline</div>
-  <div class="tab" onclick="switchTab('sources')">Sources</div>
+  <div class="tab" id="tab-sources" onclick="switchTab('sources')">Sources</div>
 </div>
 
 <div class="content">
@@ -222,6 +222,20 @@ let STATE = null, TASKS = null;
 const PHASE_NAMES = ['Intake','Intelligence','War Room','Architecture','GTM','Challenge','Delivery','Retro'];
 const PHASE_COLORS = ['#C04040','#9B59B6','#D4763A','#4080C0','#2ECC71','#C04040','#D4763A','#8A8070'];
 
+function applyEvidencePipesVisibility(state) {
+  const enabled = !(state && state.evidence_pipes && state.evidence_pipes.enabled === false);
+  // Evidence block on MC
+  const evBlock = document.querySelector('.evidence-block');
+  if (evBlock) evBlock.style.display = enabled ? '' : 'none';
+  // Sources tab button + panel
+  document.querySelectorAll('[data-tab="sources"], #tab-sources').forEach(el => {
+    el.style.display = enabled ? '' : 'none';
+  });
+  // Also handle a Sources panel wrapped differently
+  const sourcesTab = document.getElementById('panel-sources');
+  if (sourcesTab) sourcesTab.style.display = enabled ? '' : 'none';
+}
+
 async function loadData() {
   try {
     const [sr, tr] = await Promise.all([
@@ -231,6 +245,7 @@ async function loadData() {
     if (sr) STATE = await sr.json();
     if (tr) TASKS = await tr.json();
   } catch(e) { console.error('Load error:', e); }
+  applyEvidencePipesVisibility(STATE);
   render();
 }
 
@@ -630,6 +645,15 @@ function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 }
 
+function safeUrl(u) {
+  // Only allow http(s) and the local:// scheme used by the evidence cache.
+  // Anything else (javascript:, data:, file:, …) becomes '#' to prevent XSS.
+  const s = String(u ?? '').trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^local:\/\//i.test(s)) return s;
+  return '#';
+}
+
 function renderSourcesTab(doc) {
   const items = doc.evidence || [];
   const q     = (document.getElementById('src-search') || {}).value?.toLowerCase() || '';
@@ -656,7 +680,7 @@ function renderSourcesTab(doc) {
     tr.innerHTML = `
       <td style="font-family:monospace;color:var(--muted)">${escapeHtml(it.id)}</td>
       <td>${escapeHtml(it.claim)}</td>
-      <td><a href="${escapeHtml(it.source_url)}" target="_blank" rel="noopener">${escapeHtml(it.source_title || it.source_url)}</a></td>
+      <td><a href="${safeUrl(it.source_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.source_title || it.source_url)}</a></td>
       <td>${'★'.repeat(it.quality_score || 0)}</td>
       <td>${escapeHtml((it.retrieved_by || []).join(', '))}</td>
       <td style="color:var(--muted)">${escapeHtml((it.retrieved_at || '').slice(0, 10))}</td>

@@ -164,6 +164,54 @@ class TestAppendEvidence(unittest.TestCase):
                 doc = json.load(f)
             self.assertEqual(len(doc["evidence"]), 1)
 
+    def test_append_evidence_mirrors_to_assets_when_next_to_root(self):
+        """When forge-evidence.json lives next to an assets/ dir, writes mirror to assets/forge-evidence.json.
+
+        Rationale: the live dashboard is served from assets/ and fetches assets/forge-evidence.json.
+        Keeping the two in sync prevents split-brain where the backend writes
+        evidence but the UI shows 0 sources.
+        """
+        from evidence_orchestrator import append_evidence
+        with tempfile.TemporaryDirectory() as tmp:
+            root_path = os.path.join(tmp, "forge-evidence.json")
+            with open(root_path, "w") as f:
+                json.dump({"evidence": [], "project_evidence_index": {}}, f)
+            # Create a sibling assets/ directory with an existing forge-evidence.json
+            assets_dir = os.path.join(tmp, "assets")
+            os.makedirs(assets_dir)
+            assets_path = os.path.join(assets_dir, "forge-evidence.json")
+            with open(assets_path, "w") as f:
+                json.dump({"evidence": [], "project_evidence_index": {}}, f)
+
+            bundle = {"evidence": [{"id": "ev-mirror01", "source_url": "https://a.com"}]}
+            append_evidence("proj-mirror", bundle, root_path)
+
+            # Both files should reflect the new evidence
+            with open(root_path) as f:
+                root_doc = json.load(f)
+            with open(assets_path) as f:
+                assets_doc = json.load(f)
+            self.assertEqual(len(root_doc["evidence"]), 1)
+            self.assertEqual(len(assets_doc["evidence"]), 1)
+            self.assertEqual(
+                root_doc["project_evidence_index"],
+                assets_doc["project_evidence_index"],
+            )
+
+    def test_append_evidence_no_mirror_when_assets_missing(self):
+        """If no assets/ sibling exists, no mirror is attempted — must not crash."""
+        from evidence_orchestrator import append_evidence
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "forge-evidence.json")
+            with open(path, "w") as f:
+                json.dump({"evidence": [], "project_evidence_index": {}}, f)
+            bundle = {"evidence": [{"id": "ev-solo01", "source_url": "https://a.com"}]}
+            # Should not raise even though no assets/ dir exists
+            append_evidence("proj-solo", bundle, path)
+            with open(path) as f:
+                doc = json.load(f)
+            self.assertEqual(len(doc["evidence"]), 1)
+
 
 class TestStripUnsupported(unittest.TestCase):
     def test_fact_with_valid_evidence_id_is_kept(self):

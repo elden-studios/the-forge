@@ -26,7 +26,7 @@ All of these must be true:
 3. Dispatch all sub-briefs in parallel via `superpowers:dispatching-parallel-agents`
 4. Each subagent returns: `{ agent_id, evidence[], recommendation, confidence, queried_count, quality_avg, gaps[] }`
 5. Fan-in: `evidence_orchestrator.merge_returns(returns)` (dedupe by source_url)
-6. Persist: `evidence_orchestrator.append_evidence(project_id, bundle, "forge-evidence.json")`
+6. Persist: `evidence_orchestrator.append_evidence(project_id, bundle, "forge-evidence.json")` — atomically writes to project root AND mirrors to `assets/forge-evidence.json` so the live dashboard stays in sync
 7. Validate: `validator.validate_evidence(doc, state)` — re-prompt any subagent whose return fails
 8. Conflicts: `evidence_conflict.detect_conflicts` → feed into War Room if any
 9. Before final deliverable: `evidence_orchestrator.strip_unsupported_claims(text, valid_ids)` on every agent contribution

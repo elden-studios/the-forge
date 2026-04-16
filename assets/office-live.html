@@ -1298,7 +1298,8 @@ class Scene {
       const slots=[{x:layout.hallCenter.x-30,y:layout.hallCenter.y-10},{x:layout.hallCenter.x+30,y:layout.hallCenter.y-10},{x:layout.hallCenter.x-30,y:layout.hallCenter.y+10},{x:layout.hallCenter.x+30,y:layout.hallCenter.y+10}];
       (ev.agents||[]).forEach((id,i)=>{if(scene.anims[id]&&slots[i])scene.sendWalk(id,slots[i].x,slots[i].y,'meeting',30)});
     }
-    // Evidence Pipes v1 — dispatched: agents are out fetching evidence
+    // Evidence Pipes v1 — reset all evStates first, then apply current event
+    Object.values(scene.anims).forEach(a => { a.evState = null; });
     if(ev.type==='dispatched')(ev.agents||[]).forEach(id=>{if(scene.anims[id])scene.anims[id].evState='dispatched'});
     // Evidence Pipes v1 — evidence_arrived: evidence returned and merged
     if(ev.type==='evidence_arrived')(ev.agents||[]).forEach(id=>{if(scene.anims[id])scene.anims[id].evState='evidence_arrived'});
