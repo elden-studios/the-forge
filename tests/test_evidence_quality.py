@@ -65,6 +65,27 @@ class TestGradeDefaultRules(unittest.TestCase):
         self.assertEqual(stype, "unknown")
 
 
+class TestRegexAnchoring(unittest.TestCase):
+    def test_ir_subdomain_does_not_match_arbitrary_substring(self):
+        # 'fair.apple.com' contains 'ir' as part of 'fair' — must not match tier-4
+        score, stype = grade_url("https://fair.apple.com/path")
+        self.assertNotEqual(score, 4, f"unexpectedly graded as {stype} tier-{score}")
+
+    def test_hair_subdomain_does_not_match(self):
+        score, stype = grade_url("https://hair.example.com")
+        self.assertNotEqual(score, 4)
+
+    def test_real_ir_subdomain_still_matches(self):
+        # 'ir.apple.com' is a real IR page — must keep matching tier-4
+        score, stype = grade_url("https://ir.apple.com/annual")
+        self.assertEqual(score, 4)
+        self.assertEqual(stype, "primary_company")
+
+    def test_not_reddit_dot_com_does_not_match_reddit(self):
+        score, stype = grade_url("https://not-reddit.com/foo")
+        self.assertNotEqual(stype, "community", "anchor missing on reddit pattern — matched not-reddit.com")
+
+
 class TestOverrides(unittest.TestCase):
     def test_load_overrides_reads_file(self):
         rules = load_overrides(FIXTURE)
@@ -80,6 +101,48 @@ class TestOverrides(unittest.TestCase):
         score, stype = grade_url("https://westlaw.com/some-case", rules=merged)
         self.assertEqual(score, 4)
         self.assertEqual(stype, "primary_company")
+
+    def test_load_overrides_malformed_json_returns_empty(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write("{ not valid json ]")
+            path = f.name
+        try:
+            self.assertEqual(load_overrides(path), [])
+        finally:
+            os.unlink(path)
+
+    def test_load_overrides_missing_rules_key_returns_empty(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write('{"not_rules": []}')
+            path = f.name
+        try:
+            self.assertEqual(load_overrides(path), [])
+        finally:
+            os.unlink(path)
+
+    def test_load_overrides_non_list_rules_returns_empty(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write('{"rules": "not a list"}')
+            path = f.name
+        try:
+            self.assertEqual(load_overrides(path), [])
+        finally:
+            os.unlink(path)
+
+    def test_load_overrides_skips_rules_missing_required_keys(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write('{"rules": [{"pattern": "x", "score": 3}, {"pattern": "y", "score": 3, "type": "blog"}]}')
+            path = f.name
+        try:
+            rules = load_overrides(path)
+            self.assertEqual(len(rules), 1)
+            self.assertEqual(rules[0]["pattern"], "y")
+        finally:
+            os.unlink(path)
 
 
 if __name__ == "__main__":

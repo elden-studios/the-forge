@@ -16,7 +16,7 @@ DEFAULT_RULES = [
     (r"sec\.gov|esma\.europa\.eu", 5, "primary_government"),
 
     # Tier 4 — primary company
-    (r"/10-?k/|/10-?q/|/annual-?report/|/earnings/|ir\.[a-z]+\.com", 4, "primary_company"),
+    (r"/10-?k/|/10-?q/|/annual-?report/|/earnings/|//ir\.[a-z0-9-]+\.com", 4, "primary_company"),
     (r"\.com/pricing(/|$)|/pricing(/|$)", 4, "primary_company"),
 
     # Tier 3 — analyst / reputable media
@@ -25,7 +25,7 @@ DEFAULT_RULES = [
 
     # Tier 2 — user-generated / community
     (r"play\.google\.com/store|apps\.apple\.com", 2, "user_reviews"),
-    (r"reddit\.com|producthunt\.com|news\.ycombinator\.com", 2, "community"),
+    (r"//(www\.)?reddit\.com|//(www\.)?producthunt\.com|//news\.ycombinator\.com", 2, "community"),
 
     # Tier 1 — blog / low signal
     (r"medium\.com|substack\.com|\.blog(/|$)", 1, "blog"),
@@ -33,12 +33,32 @@ DEFAULT_RULES = [
 
 
 def load_overrides(path):
-    """Read a user overrides JSON file. Returns list of rule dicts. Missing → []."""
+    """Read a user overrides JSON file. Returns list of well-formed rule dicts.
+
+    Returns [] if:
+    - the file doesn't exist
+    - the JSON is malformed
+    - "rules" key is missing or not a list
+    Rules missing required keys (pattern, score, type) are silently skipped.
+    This keeps a typo in user overrides from crashing the orchestrator.
+    """
     if not os.path.isfile(path):
         return []
-    with open(path) as f:
-        data = json.load(f)
-    return data.get("rules", [])
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return []
+    rules = data.get("rules", [])
+    if not isinstance(rules, list):
+        return []
+    valid = []
+    for r in rules:
+        if not isinstance(r, dict):
+            continue
+        if all(k in r for k in ("pattern", "score", "type")):
+            valid.append(r)
+    return valid
 
 
 def merge_rules(defaults, overrides):
