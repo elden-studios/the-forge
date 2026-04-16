@@ -139,7 +139,6 @@ def resolve(conflict, brief_scope="global"):
 
     # 3. Recency
     def _at(it):
-        return datetime.strptime(it["retrieved_at"].replace("Z", "+0000"),
-                                  "%Y-%m-%dT%H:%M:%S%z")
+        return datetime.fromisoformat(it["retrieved_at"].replace("Z", "+00:00"))
     newest = max(items, key=_at)
     return newest, "recency"

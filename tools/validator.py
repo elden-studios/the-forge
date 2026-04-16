@@ -12,9 +12,12 @@ Exits 0 on success, 1 on validation errors.
 import json
 import os
 import sys
+from datetime import datetime
 from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from evidence_schema import SOURCE_TYPES, SIGNAL_TAGS  # noqa: E402
 
 
 def validate_project(project_dir):
@@ -113,23 +116,23 @@ def validate_evidence(evidence_doc, state):
 
     Returns (ok, errors).
     """
-    from evidence_schema import SOURCE_TYPES, SIGNAL_TAGS
-    from datetime import datetime
-
     errors = []
     items = evidence_doc.get("evidence", [])
     index = evidence_doc.get("project_evidence_index", {})
     agent_ids = {a["id"] for a in state.get("agents", [])}
 
-    # Every ID unique
-    seen = {}
-    for it in items:
-        eid = it.get("id", "(unnamed)")
+    # Every evidence item must have a non-empty id, and ids must be unique
+    seen = set()
+    for idx, it in enumerate(items):
+        eid = it.get("id")
+        if not eid:
+            errors.append(f"Evidence at index {idx} is missing required field: id")
+            continue
         if eid in seen:
             errors.append(f"Evidence duplicate id: {eid}")
-        seen[eid] = True
+        seen.add(eid)
 
-    valid_ids = set(seen.keys())
+    valid_ids = set(seen)
 
     # Index references point to real evidence
     for proj, ids in index.items():
@@ -140,11 +143,18 @@ def validate_evidence(evidence_doc, state):
                 )
 
     # Per-item field validation
-    for it in items:
-        eid = it.get("id", "(unnamed)")
-        for agent in it.get("retrieved_by", []) or []:
-            if agent not in agent_ids:
-                errors.append(f"Evidence {eid} retrieved_by references non-existent agent: {agent}")
+    for idx, it in enumerate(items):
+        eid = it.get("id") or f"(index {idx})"
+        # retrieved_by must be a list (or None/missing, treated as empty)
+        rb = it.get("retrieved_by")
+        if rb is None:
+            rb = []
+        if not isinstance(rb, list):
+            errors.append(f"Evidence {eid} retrieved_by must be a list, got: {type(rb).__name__}")
+        else:
+            for agent in rb:
+                if agent not in agent_ids:
+                    errors.append(f"Evidence {eid} retrieved_by references non-existent agent: {agent}")
         q = it.get("quality_score")
         if not isinstance(q, int) or isinstance(q, bool) or q < 1 or q > 5:
             errors.append(f"Evidence {eid} quality_score out of range: {q}")
@@ -166,8 +176,11 @@ def validate_evidence(evidence_doc, state):
         if not isinstance(ts, str) or not ts:
             errors.append(f"Evidence {eid} malformed retrieved_at: {ts}")
         else:
+            # Use fromisoformat (Python 3.7+) — accepts fractional seconds.
+            # Normalize 'Z' → '+00:00' for consistent handling across real sources
+            # (WebSearch, Chrome MCP returns often include fractional seconds).
             try:
-                datetime.strptime(ts.replace("Z", "+0000"), "%Y-%m-%dT%H:%M:%S%z")
+                datetime.fromisoformat(ts.replace("Z", "+00:00"))
             except (ValueError, TypeError):
                 errors.append(f"Evidence {eid} malformed retrieved_at: {ts}")
 

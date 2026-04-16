@@ -629,6 +629,61 @@ class TestValidateEvidence(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("ev-dup12345" in e and "duplicate" in e.lower() for e in errors), errors)
 
+    def test_retrieved_by_must_be_a_list(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(retrieved_by="agent-vexx")])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+        # Must produce ONE clear error, not N char-by-char errors
+        rb_errors = [e for e in errors if "retrieved_by" in e]
+        self.assertEqual(len(rb_errors), 1, f"expected one error, got: {rb_errors}")
+        self.assertIn("list", rb_errors[0].lower())
+
+    def test_retrieved_by_none_produces_clear_error(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(retrieved_by=None)])
+        ok, errors = validate_evidence(doc, self._state())
+        # None is acceptable — treated as empty (no agents attributed yet)
+        # OR produces exactly one clear error. Pin the current contract.
+        # Current code does `it.get("retrieved_by", []) or []` so None → empty → OK.
+        self.assertTrue(ok, f"None retrieved_by should be treated as empty, got: {errors}")
+
+    def test_missing_id_produces_clear_error(self):
+        from validator import validate_evidence
+        # Construct evidence dict without the 'id' key
+        ev = self._ev()
+        ev.pop("id", None)
+        doc = self._doc(evidence=[ev])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("missing" in e.lower() and "id" in e.lower() for e in errors),
+            f"expected clear 'missing id' error, got: {errors}",
+        )
+
+    def test_retrieved_at_with_fractional_seconds_is_accepted(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(retrieved_at="2026-04-16T14:32:00.123Z")])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertTrue(ok, f"fractional seconds should be accepted, got: {errors}")
+
+    def test_validate_project_validates_populated_evidence(self):
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "forge-state.json"), "w") as f:
+                json.dump({
+                    "company": {"name": "T", "founded": "2026-01-01"},
+                    "departments": [],
+                    "agents": [{"id": "agent-vexx", "name": "Vex", "status": "active"}],
+                }, f)
+            with open(os.path.join(tmp, "forge-evidence.json"), "w") as f:
+                json.dump({
+                    "evidence": [self._ev()],
+                    "project_evidence_index": {"proj-001": ["ev-abc12345"]},
+                }, f)
+            ok, errors = validate_project(tmp)
+            self.assertTrue(ok, errors)
+
     def test_validate_project_loads_evidence_file_when_present(self):
         from validator import validate_project
         with tempfile.TemporaryDirectory() as tmp:
@@ -671,7 +726,11 @@ class TestCacheStatsCli(unittest.TestCase):
             with redirect_stdout(buf):
                 rc = main(["--cache-stats", tmp])
             self.assertEqual(rc, 0)
-            self.assertIn("entries", buf.getvalue().lower())
+            output = buf.getvalue()
+            self.assertIn("entries", output.lower())
+            # Pin the actual count so a broken cache_stats() that always
+            # prints "0 entries" doesn't silently pass this test.
+            self.assertIn("1 entries", output)
 
 
 if __name__ == "__main__":
