@@ -4,6 +4,85 @@ All notable changes to The Forge are documented here. Format follows [Keep a Cha
 
 ---
 
+## [3.2.0-wave2] — 2026-04-17
+
+### Added — v3.2 Cabinet Wave 2 (Mechanics)
+
+The engine behind Wave 1's structure. Decision Log lifecycle + Pre-Mortem + Cabinet Framing schema validation + operator-level SKILL.md mechanics + reproducible Cabinet Framing simulation driver. Wave 3 (UI) is next.
+
+**Decision Log module** (`tools/decisions_orchestrator.py`)
+- `new_decision_id()` → `dec-<8 hex chars>` (8.2B address space, mirrors Evidence Pipes' `ev-` scheme)
+- `compute_review_at(decided_at_iso, reversibility)` — Type 1 = 90 days, Type 2 = 30 days. UTC-correct for explicit timezone offsets (`+03:00` Saudi time normalizes properly; previous behavior silently stripped offsets)
+- `append_decision(project_id, decision, path)` — atomic write via tempfile + os.replace; mirrors to `<parent>/assets/<basename>` sibling when present; extends `project_decision_index` without overwriting; dedupes by id
+- `review_decisions_due(doc, now_iso)` — returns open decisions whose review_at has passed
+- `close_decision(doc, id, new_status)` — open → reviewed/committed; rejects terminal-state transitions (committed → reviewed, reversed → anything)
+- `reverse_decision(doc, id, successor_id)` — marks reversed, links successor, adds `reversed_by` field; rejects self-reference and already-reversed
+- `DECISION_STATUSES = {open, reviewed, reversed, committed}`
+- `REVERSIBILITY = {type_1, type_2}`
+
+**Validator extensions** (`tools/validator.py`)
+- `validate_decisions(doc, state, evidence_doc=None)` — id format `dec-[0-9a-f]{8}`, uniqueness, agent references (decided_by + dissenting), enum constraints (reversibility + status), ISO 8601 timestamps (decided_at + review_at), project_decision_index referential integrity, related_evidence cross-ref (when evidence_doc supplied)
+- `validate_project()` auto-loads `forge-decisions.json` when present; graceful JSON error handling
+- `validate_tasks()` extended with `cabinet_framing` block schema (5 canonical lenses: strategic_kernel/product_shape/build_class/economic_shape/market_bet; framing_brief required) and `pre_mortem` block schema (likelihood/impact 1-5, owner_agent exists, mitigation_phase in {phase_4_arch, phase_5_gtm, phase_6_challenge, phase_7_delivery})
+- **Standing Rule 11 auto-enforced:** when `forge-tasks.cabinet_framing` is non-null and `current_project` is set, validator requires at least one decision in `project_decision_index[current_project]`. Catches "Cabinet ran but Decision Log forgotten" failure silently.
+
+**Kill switch reconciled**
+- Canonical v3.2 kill switch: `cabinet.enabled: false` in `forge-state.json` (matches Evidence Pipes' `evidence_pipes.enabled` convention for UI parity)
+- `cabinet.executives: []` (Wave 1 form) still accepted as a legacy alias for backward compat
+- Validator tests pin both forms
+
+**Initialized files**
+- `forge-decisions.json` (project root) — empty shell
+- `assets/forge-decisions.json` — auto-mirrored copy
+
+**Reproducible driver** (`scripts/cabinet_framing_simulate.py` + `scripts/sample_inputs/`)
+- Takes canned 5-lens input + 5 pre-mortem items from `scripts/sample_inputs/`
+- Writes cabinet_framing + pre_mortem + current_project to forge-tasks.json
+- Creates sample Cabinet Verdict (GO at 75% for Saudi PropTech, Cade decides, Prism dissents on unit econ, Type 1)
+- Persists to forge-decisions.json + mirror to assets/
+- Runs validate_project end-to-end (including the new Rule 11 check)
+- Mirrors the pattern established by Evidence Pipes' `run_pipeline.py`
+
+**SKILL.md mechanics** (operator-facing)
+- **Phase 1.5 mechanics** — per-exec lens production rules: Flint (Rumelt 3-part kernel, 3 sentences max), Cade (≥3 non-goals per Cagan), Helix (greenfield/retrofit + buy/build/partner + onboarding time), Prism (all 4 numbers: unit/fee/CAC/break-even), Dune (positioning + competitors + narrow category); pre-mortem 10-failure-mode ranking process; exact forge-tasks.json output shape
+- **Phase 3 two-floor mechanics** — IC Floor vs Cabinet Floor firing rules, escalation ladder (IC → owning exec → Cabinet → User), Type 1 vs Type 2 classification guidance ("If unsure: default to Type 1"), code example for invoking `append_decision` with a populated decision shape
+- **Phase 7 deliverable format** — Cabinet Verdict + Pre-Mortem Top Risks + 5 Cabinet Artifacts + Decision Log section structure, assembly pseudocode for operators, conditional section rules (Cabinet sections skip when no cabinet_framing fired), Standing Rule 11 invariant now auto-checked
+
+**Tests**
+- +70 new tests (11 decisions schema + 5 append + 10 lifecycle + 7 Task-15 review response + 12 validate_decisions + 4 validate_project auto-load + 8 pre_mortem + 6 cabinet_framing + 3 kill-switch + 4 rule 11)
+- 235 tests total (165 Wave 1 baseline + 70 new)
+- Backward compat preserved — all v3.1 Evidence Pipes + v3.2 Wave 1 tests still green
+
+### Fixed (via Code Review Gate + Review Response)
+
+**Task 2-4 review response (c7332b4)**
+- Critical C1: `compute_review_at` now correctly converts timezone offsets to UTC. Previously `+03:00` (Saudi time) inputs silently stripped the offset, producing review_at times 3 hours off.
+- Important I3: `close_decision` rejects terminal-state transitions (reviewed/committed/reversed → anything). Lifecycle is `open → terminal`, not any-to-any.
+- Important I4: `reverse_decision` rejects self-reference (decision_id == successor_id).
+- Spec amendment: `reversed_by` field documented in Decision Log schema.
+
+**Foundation Code Review Gate response (56a5b31)**
+- Important I3 (Foundation): kill-switch naming reconciled (`cabinet.enabled: false` canonical, `cabinet.executives: []` alias).
+- Important I5 (Foundation): Standing Rule 11 auto-enforced in validate_project.
+
+### Backward compat
+
+Every Wave 2 addition is optional in the data model: absent `forge-decisions.json`, absent `cabinet_framing` block, absent `pre_mortem` block — all continue to validate cleanly. Wave 1's `cabinet.executives: []` kill switch remains functional.
+
+### Out of scope (deferred to Wave 3)
+
+- Pixel office Executive Suite pixel room
+- Dashboard Cabinet block + Decisions tab + Pre-Mortem heatmap widget
+- Live end-to-end project run against a real brief
+- Chrome MCP pipes (separate roadmap item)
+
+**Wave 3 Task-0 items** (captured from Foundation review, deferred per reviewer guidance):
+- I1: Persistence wrappers (`close_decision_persistent`, `reverse_decision_persistent`) for dashboard buttons that write decisions
+- I2: Upsert semantics on `append_decision` (currently silently skips if id exists)
+- I4: Query helpers (`decisions_by_project`, `decisions_by_status`, `decisions_due_soon`, `decisions_sorted_by_review_at`) for dashboard tab rendering
+
+---
+
 ## [3.2.0-wave1] — 2026-04-17
 
 ### Added — v3.2 Cabinet Wave 1 (Roster & Protocol)

@@ -1,14 +1,14 @@
 # The Forge — Progress & Roadmap
 
-## Current Status: v3.2 Wave 1 SHIPPED — Cabinet roster & protocol live on main
+## Current Status: v3.2 Wave 2 SHIPPED — Cabinet mechanics live on main
 
 **GitHub:** https://github.com/elden-studios/the-forge
-**Last release:** 2026-04-17 (v3.2 Cabinet Wave 1 — Roster & Protocol)
-**Previous release:** 2026-04-17 (v3.1 — Evidence Pipes v1, merge `7c02d85`)
-**Tests:** 165/165 green
+**Last release:** 2026-04-17 (v3.2 Cabinet Wave 2 — Mechanics)
+**Previous releases:** Wave 1 (2026-04-17), v3.1 Evidence Pipes (2026-04-17 `7c02d85`)
+**Tests:** 235/235 green
 **Changelog:** see [`CHANGELOG.md`](CHANGELOG.md)
 
-**What's next:** Wave 2 (Cabinet Mechanics) — `forge-decisions.json` + Phase 1.5 artifact generation + two-floor War Room mechanics. See v3.2 Wave 2 section below.
+**What's next:** Wave 3 (Visual) — Executive Suite pixel office room + Dashboard Cabinet block + Decisions tab + Pre-Mortem heatmap widget + live end-to-end run. See v3.2 Wave 3 section below.
 
 ---
 
@@ -67,16 +67,20 @@ Backward compat preserved — v3.1 Evidence Pipes tests all green, kill switch v
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the full v3.2 Wave 1 entry and `docs/superpowers/plans/2026-04-17-v3.2-cabinet-wave1-roster.md` for the implementation log.
 
-### Wave 2 — Cabinet Mechanics (queued)
+### Wave 2 — Cabinet Mechanics (SHIPPED 2026-04-17) ✅
 
-- `tools/decisions_orchestrator.py` — append_decision, review_decisions_due, close_decision, reverse_decision (atomic write + assets mirror)
-- `tools/validator.py` — `validate_decisions()` + `validate_project()` auto-loads `forge-decisions.json`
-- `forge-decisions.json` schema: Amazon Type 1 / Type 2 reversibility, status lifecycle (open/reviewed/reversed/committed), review_at cadence (90d / 30d)
-- `forge-tasks.json` extended with `cabinet_framing` + `pre_mortem` blocks
-- Phase 1.5 mechanics — actual Cabinet Framing artifact generation (5 lenses, pre-mortem)
-- Phase 3 two-floor mechanics — IC floor + Cabinet floor escalation
-- Phase 7 deliverable format — Cabinet Verdict + 5 signature artifacts + Decision Log section
-- Python driver for end-to-end Cabinet Framing simulation (like `run_pipeline.py` for Evidence Pipes)
+Decision Log lifecycle + Pre-Mortem + Cabinet Framing schema validation + operator-level SKILL.md mechanics + reproducible Cabinet Framing driver. Standing Rule 11 auto-enforced.
+
+- `tools/decisions_orchestrator.py` — Decision Log module (lifecycle ops, atomic write, assets mirror; timezone-correct compute_review_at after review-response fix)
+- `tools/validator.py` — `validate_decisions()` + auto-load of `forge-decisions.json` + Standing Rule 11 cross-check (cabinet_framing → ≥1 decision) + `validate_tasks()` schemas for `cabinet_framing` (5 canonical lenses) and `pre_mortem` (likelihood × impact, owner, mitigation_phase enum)
+- `forge-decisions.json` + `assets/forge-decisions.json` mirror initialized
+- Canonical kill switch: `cabinet.enabled: false` (Wave 1 `cabinet.executives: []` still accepted as alias)
+- `scripts/cabinet_framing_simulate.py` — reproducible driver with canned Saudi PropTech inputs (matches Evidence Pipes' `run_pipeline.py` pattern)
+- SKILL.md — Phase 1.5 lens-production rules (per-exec formats), Phase 3 two-floor War Room mechanics + escalation ladder + Type 1/2 guidance + code example, Phase 7 deliverable format with Cabinet Verdict + 5 signature artifacts + Decision Log section
+
+**235 tests green** (+70 new: 26 orchestrator + 12 validate_decisions + 4 validate_project auto-load + 8 pre_mortem + 6 cabinet_framing + 3 kill-switch + 4 rule 11 + 7 review-response).
+
+See `docs/superpowers/plans/2026-04-17-v3.2-cabinet-wave2-mechanics.md`.
 
 ### Wave 3 — Visual (queued)
 
@@ -129,7 +133,7 @@ Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`.
 ## Key commands
 
 ```bash
-# Run full Python test suite (165 tests — 151 Evidence Pipes + 14 v3.2 Cabinet)
+# Run full Python test suite (235 tests — 151 Evidence Pipes + 14 v3.2 W1 + 70 v3.2 W2)
 python3 -m unittest discover tests -v
 
 # Validate all state/tasks/evidence files
