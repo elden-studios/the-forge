@@ -91,5 +91,74 @@ class TestOrgTreeLegend(unittest.TestCase):
             self.assertIn(label, self.src, f"legend label '{label}' missing")
 
 
+class TestOrgTreeLayoutAndEdges(unittest.TestCase):
+    """Task 3 — layout algorithm + bezier parent-child edges + rivalry lines."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(DASHBOARD) as f:
+            cls.src = f.read()
+
+    def test_layout_tree_function_defined(self):
+        self.assertRegex(
+            self.src,
+            r"function\s+layoutTree|layoutTree\s*=\s*function|const\s+layoutTree\s*=",
+            "layoutTree helper missing"
+        )
+
+    def test_bezier_path_helper_defined(self):
+        self.assertRegex(
+            self.src,
+            r"function\s+bezierPath|bezierPath\s*=\s*function|const\s+bezierPath\s*=",
+            "bezierPath helper missing"
+        )
+
+    def test_bezier_path_uses_cubic_form(self):
+        # A "M ... C ... " cubic Bezier path is what we emit
+        self.assertRegex(
+            self.src,
+            r"`M\s+\$\{[^}]+\}\s+\$\{[^}]+\}\s+C\s+\$\{",
+            "bezierPath should emit cubic Bezier (M ... C ...) path string"
+        )
+
+    def test_renderer_emits_org_node_groups(self):
+        # The SVG node emission uses `<g class="org-node tier-N">`
+        self.assertRegex(
+            self.src,
+            r'<g class="org-node tier-\$\{[^}]+\}"',
+            "renderOrgTree should emit <g class='org-node tier-N'> groups"
+        )
+
+    def test_renderer_emits_org_edge_paths(self):
+        self.assertRegex(
+            self.src,
+            r'<path class="org-edge"\s+d=',
+            "renderOrgTree should emit <path class='org-edge'> for parent-child edges"
+        )
+
+    def test_renderer_emits_rivalry_class(self):
+        self.assertRegex(
+            self.src,
+            r'<path class="org-edge rivalry"',
+            "renderOrgTree should emit <path class='org-edge rivalry'> for rivalry edges"
+        )
+
+    def test_renderer_filters_cross_tier_rivalries(self):
+        # Peer-only: skip edges where tiers differ
+        self.assertRegex(
+            self.src,
+            r"na\.tier\s*!==\s*nb\.tier",
+            "rivalry edge emission should skip cross-tier pairs"
+        )
+
+    def test_dept_strip_in_node(self):
+        # 4px colored strip on top of each node
+        self.assertRegex(
+            self.src,
+            r'class="dept-strip"\s+width="160"\s+height="4"',
+            "node cards should include a 4px department color strip"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

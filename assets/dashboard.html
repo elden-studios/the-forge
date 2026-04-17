@@ -1441,41 +1441,52 @@ function bezierPath(from, to) {
 }
 
 function layoutTree(root, containerW, nodes, edges, deptColor) {
-  // Breadth-first collection by tier
-  const tierBuckets = {};
-  function collect(node) {
-    if (!tierBuckets[node.tier]) tierBuckets[node.tier] = [];
-    tierBuckets[node.tier].push(node);
-    for (const c of (node.children || [])) collect(c);
-  }
-  collect(root);
+  // Layered tree layout (root-centered, parent-clustered children).
+  //
+  // Each leaf claims a horizontal "slot" of NODE_W + GAP pixels. A parent's
+  // x is the average of its children's slot centers (so parents hover above
+  // their subtree). Tier 0 (root) is pinned to the horizontal center of the
+  // rendered surface once slots are computed. This keeps ICs from overlapping
+  // even when one exec (e.g. Cade with 6 reports) has a wide fan-out.
+  const NODE_W = 160;
+  const GAP = 40;
+  const SLOT = NODE_W + GAP;
 
   const yBand = (tier) => 60 + tier * 180;
 
-  // Position tier-0 (root) centered, then for tier N > 0, cluster children
-  // under their parent's x when possible; fall back to even spread.
-  const positioned = {};  // id -> {x, y}
-  const tier0 = tierBuckets[0] || [];
-  tier0.forEach(m => {
-    positioned[m.id] = { x: containerW / 2 - 80, y: yBand(0) };
-  });
+  // First pass: assign leaf slots, then compute each internal node's x as
+  // the mean of its children's x.
+  const positioned = {};
+  let slotCursor = 0;
 
-  const tiers = Object.keys(tierBuckets).map(Number).sort((a, b) => a - b);
-  for (const t of tiers) {
-    if (t === 0) continue;
-    const members = tierBuckets[t];
-    const N = members.length;
-    if (N === 0) continue;
-    const spacing = Math.max(180, (containerW - 160) / N);
-    members.forEach((m, i) => {
-      positioned[m.id] = {
-        x: 80 + i * spacing,
-        y: yBand(t),
-      };
-    });
+  function place(node) {
+    const kids = node.children || [];
+    let x;
+    if (kids.length === 0) {
+      x = slotCursor * SLOT;
+      slotCursor += 1;
+    } else {
+      const kidXs = kids.map(c => place(c));
+      const first = kidXs[0];
+      const last = kidXs[kidXs.length - 1];
+      x = (first + last) / 2;
+    }
+    positioned[node.id] = { x, y: yBand(node.tier) };
+    return x;
+  }
+  place(root);
+
+  // Center the whole tree within containerW: shift all x by (containerW - treeW)/2.
+  const allX = Object.values(positioned).map(p => p.x);
+  const minX = Math.min(...allX);
+  const maxX = Math.max(...allX);
+  const treeW = (maxX - minX) + NODE_W;
+  const offset = Math.max(20, (containerW - treeW) / 2) - minX;
+  for (const id in positioned) {
+    positioned[id].x += offset;
   }
 
-  // Build node records
+  // Build node records (traversal order)
   function pushNode(node) {
     const p = positioned[node.id];
     nodes.push({
@@ -1491,15 +1502,15 @@ function layoutTree(root, containerW, nodes, edges, deptColor) {
   }
   pushNode(root);
 
-  // Build edges from parent->child relationships
+  // Edges from parent -> child
   function walkEdges(node) {
     const parent = nodes.find(n => n.id === node.id);
     for (const c of (node.children || [])) {
       const child = nodes.find(n => n.id === c.id);
       if (parent && child) {
         edges.push({
-          from: { x: parent.x + 80, y: parent.y + 60 },
-          to:   { x: child.x + 80,  y: child.y },
+          from: { x: parent.x + NODE_W / 2, y: parent.y + 60 },
+          to:   { x: child.x + NODE_W / 2,  y: child.y },
         });
       }
       walkEdges(c);
