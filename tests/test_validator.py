@@ -246,6 +246,270 @@ class TestValidateState(unittest.TestCase):
             f"Expected idle_animation duplicate error, got: {errors}",
         )
 
+    def test_invalid_role_value_fails(self):
+        """role must be 'executive' or 'ic' if present."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-bad",
+                    "name": "Bad",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "manager",
+                }
+            ],
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("role" in e.lower() and "manager" in e for e in errors),
+            f"Expected role enum error, got: {errors}",
+        )
+
+    def test_role_absent_is_ok(self):
+        """role field is optional during v3.1 -> v3.2 migration."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-legacy",
+                    "name": "Legacy",
+                    "department_id": "dept-a",
+                    "status": "active",
+                }
+            ],
+        }
+        ok, errors = validate_state(state)
+        self.assertTrue(ok, f"Absent role should pass, got: {errors}")
+
+    def test_reports_to_nonexistent_agent_fails(self):
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-ic",
+                    "name": "IC",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "ic",
+                    "reports_to": "agent-ghost",
+                }
+            ],
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("reports_to" in e and "agent-ghost" in e for e in errors),
+            f"Expected reports_to error, got: {errors}",
+        )
+
+    def test_ic_must_report_to_executive(self):
+        """reports_to must reference a role:executive agent when the reporter is role:ic."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-exec",
+                    "name": "Exec",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "ic",
+                },
+                {
+                    "id": "agent-ic",
+                    "name": "IC",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "ic",
+                    "reports_to": "agent-exec",
+                },
+            ],
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("reports_to" in e and "executive" in e.lower() for e in errors),
+            f"Expected 'must report to executive' error, got: {errors}",
+        )
+
+    def test_executive_reports_to_another_executive_is_ok(self):
+        """Executives CAN reports_to another executive (for CSO-under-CEO-style)."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-cso",
+                    "name": "CSO",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "executive",
+                },
+                {
+                    "id": "agent-cpo",
+                    "name": "CPO",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "executive",
+                    "reports_to": "agent-cso",
+                },
+            ],
+        }
+        ok, errors = validate_state(state)
+        self.assertTrue(ok, f"Exec-to-exec reports_to should pass, got: {errors}")
+
+    def test_cabinet_executives_must_exist(self):
+        """Every id in cabinet.executives must be an existing agent."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-real",
+                    "name": "Real",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "executive",
+                }
+            ],
+            "cabinet": {"executives": ["agent-real", "agent-ghost"]},
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("cabinet" in e and "agent-ghost" in e for e in errors),
+            f"Expected cabinet executive error, got: {errors}",
+        )
+
+    def test_cabinet_executives_must_have_role_executive(self):
+        """Every id in cabinet.executives must have role='executive'."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-notexec",
+                    "name": "NotExec",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "ic",
+                }
+            ],
+            "cabinet": {"executives": ["agent-notexec"]},
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("cabinet" in e.lower() and "role" in e.lower() for e in errors),
+            f"Expected role error for cabinet member, got: {errors}",
+        )
+
+    def test_cabinet_block_absent_is_ok(self):
+        """cabinet block is optional during v3.1 -> v3.2 migration."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [],
+        }
+        ok, errors = validate_state(state)
+        self.assertTrue(ok, f"No cabinet block should pass, got: {errors}")
+
+    def test_cabinet_block_non_dict_fails_cleanly(self):
+        """cabinet must be a dict, not a string or list."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [],
+            "agents": [],
+            "cabinet": "agent-flnt",
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("cabinet" in e.lower() and "dict" in e.lower() for e in errors),
+            f"Expected 'cabinet must be a dict' error, got: {errors}",
+        )
+
+    def test_cabinet_executives_null_fails_cleanly(self):
+        """cabinet.executives: null must not crash — readable error."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [],
+            "agents": [],
+            "cabinet": {"executives": None},
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("executives" in e.lower() and "list" in e.lower() for e in errors),
+            f"Expected 'executives must be a list' error, got: {errors}",
+        )
+
+    def test_cabinet_executives_non_list_fails_cleanly(self):
+        """cabinet.executives as a string must not crash."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [],
+            "agents": [],
+            "cabinet": {"executives": "agent-flnt"},
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("executives" in e.lower() and "list" in e.lower() for e in errors),
+            f"Expected 'executives must be a list' error, got: {errors}",
+        )
+
+    def test_reports_to_non_scalar_fails_cleanly(self):
+        """reports_to must be a string (agent id) or null, not a list or dict."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-a",
+                    "name": "A",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "ic",
+                    "reports_to": ["agent-b"],  # Bad: list instead of string
+                }
+            ],
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("reports_to" in e and "string" in e.lower() for e in errors),
+            f"Expected 'reports_to must be a string' error, got: {errors}",
+        )
+
+    def test_agent_reports_to_self_fails(self):
+        """An agent cannot report to themselves."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-narcissus",
+                    "name": "Narcissus",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "executive",
+                    "reports_to": "agent-narcissus",
+                }
+            ],
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("reports_to" in e and ("itself" in e.lower() or "self" in e.lower()) for e in errors),
+            f"Expected 'cannot report to self' error, got: {errors}",
+        )
+
 
 class TestValidateBrainFiles(unittest.TestCase):
     """validate_brain_files(state, brains_dir) -> (ok, errors)"""
@@ -731,6 +995,35 @@ class TestCacheStatsCli(unittest.TestCase):
             # Pin the actual count so a broken cache_stats() that always
             # prints "0 entries" doesn't silently pass this test.
             self.assertIn("1 entries", output)
+
+
+class TestV32PortfolioInvariants(unittest.TestCase):
+    """Pins the exact v3.2 Cabinet structure to catch future drift."""
+
+    def test_real_project_has_v32_cabinet_structure(self):
+        """Real forge-state.json has: 15 agents, 9 depts, 5 execs, 10 ICs, cabinet matches."""
+        repo = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        if not os.path.isfile(os.path.join(repo, 'forge-state.json')):
+            self.skipTest("No forge-state.json in repo root — not a Forge checkout")
+        with open(os.path.join(repo, 'forge-state.json')) as f:
+            s = json.load(f)
+        self.assertEqual(len(s['agents']), 15, "Expected 15 agents in v3.2 roster")
+        self.assertEqual(len(s['departments']), 9, "Expected 9 departments in v3.2")
+        execs = [a['id'] for a in s['agents'] if a.get('role') == 'executive']
+        ics = [a['id'] for a in s['agents'] if a.get('role') == 'ic']
+        self.assertEqual(len(execs), 5, f"Expected 5 executives, got {execs}")
+        self.assertEqual(len(ics), 10, f"Expected 10 ICs, got {ics}")
+        # Cabinet membership must match the executive set
+        self.assertEqual(
+            set(s['cabinet']['executives']),
+            set(execs),
+            "cabinet.executives must contain exactly the agents with role=executive"
+        )
+        # Every IC must have reports_to pointing to an executive
+        execs_set = set(execs)
+        for ic in [a for a in s['agents'] if a.get('role') == 'ic']:
+            self.assertIn(ic.get('reports_to'), execs_set,
+                         f"IC {ic['name']} reports_to {ic.get('reports_to')} which is not an executive")
 
 
 if __name__ == "__main__":

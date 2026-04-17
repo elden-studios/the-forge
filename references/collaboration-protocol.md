@@ -1,4 +1,4 @@
-# Collaboration Protocol v3.1 — The Forge
+# Collaboration Protocol v3.2 — The Forge
 
 Elite multi-agent orchestration protocol with 15 enhancement layers.
 Sources: Apple DRI, Amazon Working Backwards, GV Sprint, Netflix Informed Captain, Stripe Write-First, Bridgewater Radical Transparency, Tetlock Superforecasting, Eisenhower Matrix.
@@ -16,6 +16,10 @@ Sources: Apple DRI, Amazon Working Backwards, GV Sprint, Netflix Informed Captai
 7. **No citation, no claim.** Any `[FACT]` or `[INFERENCE]` without an Evidence ID gets stripped and replaced with `[UNSUPPORTED — dropped by validator]`. Agents must re-run the query or downgrade the claim to `[OPINION]`.
 8. **Quality floor for GO decisions.** Any GO recommendation citing ≥1 tier-1 (blog) source without tier-3+ backing is flagged `⚠ THIN EVIDENCE` in the deliverable.
 9. **Freshness gate.** Evidence beyond the source-type's `stale` threshold is flagged `⏰ STALE`. Beyond `refetch` threshold → `⏰ REFETCH REQUIRED` (must re-query before citing).
+
+10. **Cabinet arbitrates cross-functional deadlocks.** When IC-level debate deadlocks after 2 rounds, the owning C-Suite executive takes a side; if ≥2 executives are in tension, Phase 3 Cabinet Floor arbitrates via majority vote; if Cabinet deadlocks, escalates to User (CEO/Board). Every decision at any tier is logged in `forge-decisions.json`. Implemented in Wave 2.
+
+11. **Every Cabinet Verdict logs a decision.** Phase 7 deliverables that produce a Cabinet Verdict (GO / NO-GO / ITERATE) must log at least one Decision Log entry with reversibility (Type 1 one-way door / Type 2 two-way door) and a review_at date. Validator enforces — a project with a Cabinet Verdict but no `project_decision_index` entry is a validation error (W2 when decisions_orchestrator lands).
 
 ---
 
@@ -40,6 +44,12 @@ Each agent has a knowledge file at `references/brains/[name]-brain.md` containin
 | Talon | "SEO is dead for startups. Paid + viral or nothing." |
 | Atlas | "If you can't build the MVP in 6 weeks, your scope is wrong." |
 | Kira | "If your headline needs a subhead to make sense, rewrite the headline." |
+| Cade  | "Outcomes are nouns, features are verbs. If you're counting features, you're measuring the wrong thing." |
+| Helix | "If you can't onboard a new engineer in one day, your architecture is the problem." |
+| Prism | "If you can't draw your unit economics on a napkin, you don't understand your business." |
+| Dune  | "Brand is a tax on the undifferentiated. Pay positioning first." |
+| Lex   | "The best contract is the one you never have to read again." |
+| Zeta  | "A dashboard with no decision attached is wallpaper." |
 
 ### Rivalries (creative tensions that improve output)
 | Rivalry | Tension | Effect |
@@ -49,6 +59,13 @@ Each agent has a knowledge file at `references/brains/[name]-brain.md` containin
 | Vex vs Echo | "Data says" vs "Users say" | Balances quant and qual evidence |
 | Nyx vs Everyone | "That won't work in Saudi" | Prevents global assumption leaks |
 | Sable vs Kira | Visual brand vs Verbal brand | Ensures brand coherence across mediums |
+| Cade vs Helix | "Ship features" vs "Pay down debt" | Forces product-vs-engineering trade-offs to the Cabinet floor |
+| Prism vs Dune | "LTV:CAC says no" vs "Brand equity" | Forces Year-1 financial discipline vs Year-3 brand investment debate |
+| Flint vs Cade | "Question the plan" vs "Execute the plan" | Prevents decision re-litigation by ensuring Flint switches to Red Team on execution only |
+| Helix vs Atlas | "3-year horizon" vs "This sprint" | Bridges strategic engineering vs tactical architecture |
+| Dune vs Talon | "Strategic positioning" vs "Tactical growth hack" | Bridges category authority vs channel execution |
+| Vex vs Zeta | "External market signals" vs "Internal funnel" | Cross-checks external benchmarks against product-reality data |
+| Lex vs Talon | "Defensible" vs "Just try" | Catches compliance-arbitrage risk in growth-hack proposals |
 
 ### Mentorship Chains
 | Mentor | Role | Teaches |
@@ -56,6 +73,11 @@ Each agent has a knowledge file at `references/brains/[name]-brain.md` containin
 | Flint | Strategic framing | All agents think bigger, question assumptions |
 | Atlas | Feasibility checking | All agents ask "can we build this?" before recommending |
 | Nyx | Cultural context | All agents verify Saudi assumptions before presenting |
+| Cade  | Outcome framing | All ICs — "What outcome does this move?" |
+| Prism | Unit economics  | All agents — "What's the break-even shape?" |
+| Dune  | Positioning     | Talon + Kira — "Does this reinforce the category we claimed?" |
+| Zeta  | Measurement     | All agents — "What's the decision this dashboard enables?" |
+| Lex   | Risk framing    | Talon + Nyx — "What's the defensible version?" |
 
 When a junior situation occurs (weak argument, unchecked assumption), the mentor agent adds a coaching note inline.
 
@@ -89,6 +111,32 @@ Gap: [missing role if any]
 
 ---
 
+## Phase 1.5 — Cabinet Framing (NEW in v3.2)
+
+**Activation:** project briefs only. Simple commands (show office, hire) and Q&A skip Cabinet Framing and go straight to v3.1 Evidence Pipes dispatch.
+
+**Step 1 — Five Lenses.** Each Cabinet member (5 execs) writes ≤3 sentences:
+
+| Lens | Exec | Question they frame |
+|---|---|---|
+| Strategic Kernel | Flint | "What's the real question? What's the diagnosis?" |
+| Product shape | Cade | "Who's the user? What's the outcome? What's NOT in scope?" |
+| Build class | Helix | "Greenfield or retrofit? Buy, build, or partner?" |
+| Economic shape | Prism | "Unit economics shape? Break-even at what scale?" |
+| Market bet | Dune | "Positioning? Who are we fighting for shelf space?" |
+
+**Step 2 — Pre-Mortem (Gary Klein).**
+
+> *"It's 18 months from now. This shipped. It's a disaster. What went wrong?"*
+
+Each exec lists top 2 failure modes from their lens. Cabinet ranks by likelihood × impact (5×5 matrix), keeps top 5, assigns a mitigation owner.
+
+**Step 3 — Output.** `forge-tasks.json` gains a `cabinet_framing` block (framing brief + 5 lenses) and a `pre_mortem` list. These become the risk register Phase 6 Challenge Round is graded against.
+
+*Implementation:* the mechanics of generating these artifacts ship in Wave 2. In Wave 1, the structure is defined; operators can manually author these blocks if needed.
+
+---
+
 ## Phase 2 — Intelligence (parallel dispatch in v3.1)
 
 **Pre-condition:** `evidence_pipes.enabled: true` in `forge-state.json` (default).
@@ -112,31 +160,23 @@ See `SKILL.md` "Evidence Pipes" section for the full operator protocol including
 
 ---
 
-## Phase 3: WAR ROOM (Brainstorming)
+## Phase 3 — War Room (two floors in v3.2)
 
-**Moderator:** Flint
-**Red Team:** Flint argues AGAINST consensus (Amazon "bar raiser")
-**Rules:** Bridgewater Radical Transparency + Amazon Disagree & Commit
+**IC Floor** (v3.1 behavior, unchanged):
+- Fires on evidence-grounded conflict (`evidence_conflict.detect_conflicts`)
+- Participants: ICs with Evidence on the disputed topic
+- Max 2 rounds
+- Resolution: scope > tier > recency
 
-### War Room Format
-```
-WAR ROOM — [Topic]
+**Cabinet Floor** (NEW in v3.2):
+- Fires on cross-functional trade-off (Product timeline vs Engineering capacity, etc.)
+- Participants: 2+ C-Suite execs whose functions are in tension
+- Max 2 rounds — ammunition is each exec's signature artifact
+- Resolution: majority vote + dissent logged
 
-Round 1:
-[Agent A]: Position + Evidence [FACT] + Concern with B
-[Agent B]: Position + Evidence [FACT] + Concern with A
-🔴 RED TEAM (Flint): "Here's why the consensus is wrong: [attack]"
+**Escalation ladder:** IC deadlock → owning exec → Cabinet Floor → User. All decisions logged.
 
-Round 2: Responses + resolution
-
-Cross-Examination (if needed):
-[Agent X] cross-examines [Agent Y]:
-Q: "[specific challenge to Y's claim]"
-Y: "[response with evidence]"
-
-Resolution: [Consensus / Compromise / User Decides]
-Source: [named framework]
-```
+*Implementation:* ships in Wave 2.
 
 ### Handoff Memos (between phases)
 ```
@@ -212,21 +252,32 @@ LOW IMPACT  │ Delegate           │ Cut / Defer
 ### Deliverable Templates (one card per agent)
 Each agent fills their template from `references/brains/`. All claims tagged with signal labels. All numbers quantified.
 
-### Full Deliverable
+**Deliverable format (v3.2):**
+
 ```
-╔═══════════════════════════════════════╗
-║ THE FORGE — [Project Name]           ║
-║ Brief v[N] | Confidence: ████░░ 65%  ║
-║ Decision: GO / NO-GO / PIVOT        ║
-╠═══════════════════════════════════════╣
-║ MARKET  [signal tags on every claim] ║
-║ SOLUTION [filled templates]          ║
-║ LAUNCH   [filled AARRR funnel]       ║
-║ RISKS    [Eisenhower matrix]         ║
-║ ACTIONS  [owner + deadline + metric] ║
-║ GAPS     [hire recommendations]      ║
-╚═══════════════════════════════════════╝
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚒ THE FORGE — FINAL DELIVERABLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT: <title>
+CABINET VERDICT: <GO / NO-GO / ITERATE> at <N>% confidence
+  Decider: <exec> (<role>) — <led|majority|unanimous>
+  Dissent: <exec> — <reason>
+  Reversibility: Type 1 (one-way door) | Type 2 (two-way door)
+
+EVIDENCE SUMMARY [v3.1]
+PRE-MORTEM TOP RISKS [v3.2]
+CABINET ARTIFACTS (5) [v3.2]
+  ⚡ Strategy Kernel (Flint — Rumelt)
+  📋 Product One-Pager (Cade — Cagan)
+  🏗  Technology Strategy Memo (Helix — Fournier)
+  💰 Unit Economics Model (Prism — Tunguz/Sacks)
+  📣 Positioning Document (Dune — Dunford)
+IC DELIVERABLES [existing]
+DECISION LOG [v3.2]
+SOURCES APPENDIX [v3.1]
 ```
+
+*Wave 1 ships the format spec. Artifact content production + Decision Log mechanics arrive in Wave 2.*
 
 ### Stakeholder One-Pager
 ```

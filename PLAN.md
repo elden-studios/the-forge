@@ -1,12 +1,14 @@
 # The Forge — Progress & Roadmap
 
-## Current Status: v3.1 SHIPPED — Evidence Pipes live on main
+## Current Status: v3.2 Wave 1 SHIPPED — Cabinet roster & protocol live on main
 
 **GitHub:** https://github.com/elden-studios/the-forge
-**Last release:** 2026-04-17 (v3.1 — Evidence Pipes v1)
-**Merge commit:** `7c02d85`
-**Tests:** 151/151 green
+**Last release:** 2026-04-17 (v3.2 Cabinet Wave 1 — Roster & Protocol)
+**Previous release:** 2026-04-17 (v3.1 — Evidence Pipes v1, merge `7c02d85`)
+**Tests:** 165/165 green
 **Changelog:** see [`CHANGELOG.md`](CHANGELOG.md)
+
+**What's next:** Wave 2 (Cabinet Mechanics) — `forge-decisions.json` + Phase 1.5 artifact generation + two-floor War Room mechanics. See v3.2 Wave 2 section below.
 
 ---
 
@@ -53,50 +55,55 @@ See [`TEAM.md`](TEAM.md) for full profiles.
 
 ---
 
-## Next — possible v3.2 directions
+## v3.2 — Cabinet expansion (in flight)
 
-The foundation + orchestration + real-run proof are done. From here:
+### Wave 1 — Roster & Protocol (SHIPPED 2026-04-17) ✅
 
-### A. Chrome MCP pipes (phase 2 of Evidence Pipes)
-Currently all 4 agents use WebSearch. Chrome MCP is scaffolded in the orchestrator but stubbed. Wiring it up unlocks:
-- Echo → real app-store interaction (click through reviews, not just search snippets)
-- Talon → competitor landing page teardowns with DOM-level access
-- Nyx → authenticated SAMA documents via extension auth context
-- Vex → deep Crunchbase / PitchBook / Similarweb crawls
+Two-tier org: **15 agents across 9 departments**, 5 C-Suite + 10 ICs. Six new agents (Cade/Helix/Prism/Dune/Lex/Zeta) each with named practitioner playbooks (Cagan/Fournier/Tunguz/Dunford/pragmatic-legal/Stancil). Three new departments (Product/Legal/Finance). Protocol v3.1 → v3.2 with Phase 1.5 Cabinet Framing, two-floor Phase 3 War Room, new Phase 7 deliverable format, Standing Rules 10–11. Validator enforces role + reports_to + cabinet.executives with defensive type guards and self-reference detection.
 
-Approach: per-agent pipe selection in `EVIDENCE_AGENTS` metadata; subagent prompts choose the right tool; fixtures for tests.
+**165 tests green** (151 Evidence Pipes baseline + 14 new v3.2 tests). Full Foundation Code Review Gate passed with 0 Criticals, 3 Importants addressed, minor cleanups landed. 10 rivalries across 2 scales, all mirror-documented in both participants' brain files. Flint uplifted from flat-team strategist to CSO with Rumelt's Strategy Kernel as signature artifact.
 
-### B. Memory & Calibration (A+D from the v4.0 roadmap)
-The sequel to Evidence Pipes, explicitly deferred from v3.1 scope.
-- Track predictions → outcomes across project_history
-- Brier scores per agent
-- Post-mortem automation
-- Agent weights in debates reflect track record ("the agent who's been right more gets more airtime")
+Backward compat preserved — v3.1 Evidence Pipes tests all green, kill switch via `cabinet.executives: []` restores v3.1 behavior byte-for-byte.
 
-### C. Roster expansion
-The team keeps flagging the same gaps on new briefs: Pricing, Legal/Compliance, Data/Analytics, AI/ML specialist, Customer Success, Ops/Finance, Enterprise/Sales. v3.2 could hire 3–5 specialists. Each would benefit from the Evidence Pipes infrastructure already in place.
+See [`CHANGELOG.md`](CHANGELOG.md) for the full v3.2 Wave 1 entry and `docs/superpowers/plans/2026-04-17-v3.2-cabinet-wave1-roster.md` for the implementation log.
 
-### D. Domain templates
-Package the collaboration protocol for domains other than tech products:
-- **The Bar** — legal strategy team (litigator, corporate, IP, compliance)
-- **The Clinic** — medical product team (clinician, regulatory, bioethics, patient UX)
-- **The Lab** — academic research (methodologist, statistician, literature reviewer, reviewer-2)
+### Wave 2 — Cabinet Mechanics (queued)
 
-### E. Semantic conflict detection
-Current `evidence_conflict.detect_conflicts` is rule-based (numeric divergence only). v2 could use LLM-based semantic conflict detection for non-numeric contradictions ("Vex says Saudi pay is card-first"; "Nyx says Saudi pay is Mada-first" — these disagree semantically, no numeric trigger).
+- `tools/decisions_orchestrator.py` — append_decision, review_decisions_due, close_decision, reverse_decision (atomic write + assets mirror)
+- `tools/validator.py` — `validate_decisions()` + `validate_project()` auto-loads `forge-decisions.json`
+- `forge-decisions.json` schema: Amazon Type 1 / Type 2 reversibility, status lifecycle (open/reviewed/reversed/committed), review_at cadence (90d / 30d)
+- `forge-tasks.json` extended with `cabinet_framing` + `pre_mortem` blocks
+- Phase 1.5 mechanics — actual Cabinet Framing artifact generation (5 lenses, pre-mortem)
+- Phase 3 two-floor mechanics — IC floor + Cabinet floor escalation
+- Phase 7 deliverable format — Cabinet Verdict + 5 signature artifacts + Decision Log section
+- Python driver for end-to-end Cabinet Framing simulation (like `run_pipeline.py` for Evidence Pipes)
 
-### F. Dashboard polish
-- Network Graph / Kanban / Timeline tabs still show v3.0 behavior — wire them up to show Evidence-augmented task state
-- Agent performance mini-dashboard (quality_avg over time per agent)
-- "Replay" a past project from saved forge-state snapshots
+### Wave 3 — Visual (queued)
 
-My read on priority (if pressed):
-1. **B (Memory & Calibration)** — biggest compounding win, turns The Forge into a learning system, explicitly on the roadmap
-2. **C (Roster expansion)** — lowest cost, visible "team keeps growing" story
-3. **A (Chrome MCP)** — already scaffolded; slotting it in is follow-through
-4. **E (Semantic conflict)** — high value, harder to evaluate correctness
-5. **D (Domain templates)** — platformization; wait for more organic demand
-6. **F (Dashboard polish)** — nice to have, not load-bearing
+- Pixel office Executive Suite boardroom (new top-right room with 5-chair conference table)
+- Legal, Finance, Product pixel dept rooms
+- Cabinet block on Mission Control tab (verdict / artifacts / pre-mortem risks)
+- Decisions tab (tab 6) with filter by project/reversibility/status/decider, sort by review_at, export MD/CSV/JSON
+- Pre-Mortem 5×5 heatmap widget
+- C-Suite walk-to-boardroom animation (Cabinet-dispatched / Cabinet-arrived events)
+- Live end-to-end run — project brief through full v3.2 flow (Task 14-style), documented in `docs/superpowers/runs/`
+
+### After v3.2 — queued sub-projects per roadmap
+
+Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`.
+
+- **Sub-project A** — Hierarchy tree visualization (unblocked after W3 — data model is ready)
+- **Sub-project C** — Subagent delegation (biggest architectural change; two-tier structure from W1-W3 is prerequisite)
+- **Sub-project D** — Context system / project-level memory (Decision Log from W2 seeds this)
+- **Sub-project E** — Tools & platforms catalog (independent, can ship parallel to any wave)
+
+### Post-v3.2 — deferred from earlier roadmap
+
+- **Chrome MCP pipes** (phase 2 of Evidence Pipes) — per-agent pipe selection, Echo → app-store interaction, Talon → landing page teardowns, Nyx → authenticated SAMA docs
+- **Memory & Calibration** (originally A+D in v4.0 roadmap) — now partially absorbed into sub-project D; prediction → outcome tracking with Brier scores remains future work
+- **Domain templates** — The Bar (legal strategy), The Clinic (medical product), The Lab (academic research)
+- **Semantic conflict detection** — LLM-based non-numeric contradiction detection (current conflict detector is rule-based numeric-divergence only)
+- **Dashboard polish** — Network Graph / Kanban / Timeline tabs enriched with Evidence+Cabinet data; agent-performance over-time mini-dashboard; project-replay mode
 
 ---
 
@@ -122,7 +129,7 @@ My read on priority (if pressed):
 ## Key commands
 
 ```bash
-# Run full Python test suite (151 tests)
+# Run full Python test suite (165 tests — 151 Evidence Pipes + 14 v3.2 Cabinet)
 python3 -m unittest discover tests -v
 
 # Validate all state/tasks/evidence files

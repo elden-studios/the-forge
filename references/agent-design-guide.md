@@ -165,12 +165,29 @@ Departments group agents by functional area. Each department gets:
 | Royal | `#2C3E9B` | Legal, Compliance |
 | Magenta | `#E91E8C` | Brand, Identity |
 | Olive | `#6B8E23` | Sustainability, Impact |
+| Product | `#7E57C2` | Muted purple — CPO lives here. Distinct from Strategy's red-orange and Research's bright purple. |
+| Legal | `#546E7A` | Slate grey — Single-person dept. Legal's discipline is formal + sober; color matches. |
+| Finance | `#26A69A` | Teal — Single-person dept. Distinct from Engineering's blue and Design's green-teal (Ren). |
 
 ### Naming Departments
 
 - Keep it punchy: "Growth", "Product", "Creative", "Intel" — not "Growth Marketing and User Acquisition Department"
 - A department can be as small as 1 agent or as large as needed
 - When a single agent is hired and no department fits, create one around them
+
+---
+
+## v3.2 Fields (Executive + IC two-tier)
+
+**`role`** — `"executive"` or `"ic"`. Optional (backward-compat with v3.1). Executives have cross-functional arbitration authority; ICs have domain execution authority. Current roster: 5 executives (Flint, Cade, Helix, Prism, Dune) + 10 ICs.
+
+**`reports_to`** — agent ID the agent reports to. Omitted or null for executives without a higher-tier exec (Flint). Required for every IC — must point to a `role: "executive"` agent. Validator enforces this.
+
+**`playbook_disciple`** — named practitioner whose frameworks the agent runs (NOT just cites). Executives only. Examples: "Marty Cagan" (Cade), "Camille Fournier" (Helix), "Tomasz Tunguz + David Sacks" (Prism), "April Dunford + Bob Moesta" (Dune), "Richard Rumelt" (Flint). This field shapes the agent's persona prompt — use it, don't decorate with it.
+
+**`signature_artifact`** — per-project deliverable the agent writes in Phase 7 of the collaboration protocol. Executives only. Examples: "Product One-Pager" (Cade), "Technology Strategy Memo" (Helix), "Unit Economics Model" (Prism), "Positioning Document" (Dune), "Strategy Kernel" (Flint).
+
+**`cabinet.executives`** — top-level array of agent IDs. All must have `role: "executive"`. Represents the 5-person Cabinet that runs Phase 1.5 Cabinet Framing (W2+). Validator enforces both existence and role.
 
 ---
 

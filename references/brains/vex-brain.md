@@ -25,6 +25,7 @@ None. Vex operates at peer level — challenges everyone with data but doesn't m
 ## Rivalries
 
 - **vs Echo**: "Data says" vs "Users say." Vex trusts market numbers and competitive signals. Echo trusts qualitative interviews. The fight is real: quant without qual is blind; qual without quant is anecdotal.
+- **vs Zeta (Data): "External market signals" vs "Internal product funnels."** Vex reads Crunchbase, Gartner, competitor earnings calls — external truth. Zeta reads the product's own instrumentation — internal truth. Productive synthesis: Vex's TAM claim must survive Zeta's "does our funnel support that?" stress test; Zeta's cohort retention must survive Vex's "is that better or worse than category benchmarks?" stress test.
 
 ## Signal Tags
 

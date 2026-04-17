@@ -235,18 +235,58 @@ def validate_state(state):
     dept_ids = {d["id"] for d in state.get("departments", [])}
     agent_ids = {a["id"] for a in state.get("agents", [])}
     active_agents = [a for a in state.get("agents", []) if a.get("status") == "active"]
+    # v3.2: map each agent id to its role for reports_to checks
+    agent_roles = {a["id"]: a.get("role") for a in state.get("agents", [])}
 
     # Uniqueness checks for avatar attributes among active agents
     _check_avatar_uniqueness(active_agents, "hairstyle", errors)
     _check_avatar_uniqueness(active_agents, "idle_animation", errors)
 
+    ALLOWED_ROLES = {"executive", "ic"}
+
     for agent in state.get("agents", []):
         name = agent.get("name", agent.get("id"))
+        agent_id = agent.get("id")
         dep = agent.get("department_id")
         if dep and dep not in dept_ids:
             errors.append(
                 f"Agent {name} references non-existent department: {dep}"
             )
+
+        # v3.2: role enum check
+        if "role" in agent:
+            role = agent["role"]
+            if role not in ALLOWED_ROLES:
+                errors.append(
+                    f"Agent {name} role must be 'executive' or 'ic', got: {role}"
+                )
+
+        # v3.2: reports_to referential integrity
+        reports_to = agent.get("reports_to")
+        if reports_to is not None:
+            if not isinstance(reports_to, str):
+                errors.append(
+                    f"Agent {name} reports_to must be a string (agent id), "
+                    f"got {type(reports_to).__name__}"
+                )
+            elif reports_to == agent_id:
+                errors.append(
+                    f"Agent {name} reports_to cannot reference itself: {reports_to}"
+                )
+            elif reports_to not in agent_ids:
+                errors.append(
+                    f"Agent {name} reports_to references non-existent agent: {reports_to}"
+                )
+            else:
+                # If the reporter is an IC, its reports_to MUST be an executive
+                if agent.get("role") == "ic":
+                    target_role = agent_roles.get(reports_to)
+                    if target_role != "executive":
+                        errors.append(
+                            f"Agent {name} (ic) reports_to must be an executive, "
+                            f"got {reports_to} with role {target_role!r}"
+                        )
+
         links = agent.get("collaboration_links") or {}
         for link_key in ("hands_off_to", "requests_input_from", "debates_with"):
             for target in links.get(link_key, []):
@@ -272,6 +312,32 @@ def validate_state(state):
                     f"project_history {proj_id} agents_involved references "
                     f"non-existent agent: {target}"
                 )
+
+    # v3.2: cabinet.executives block
+    cabinet = state.get("cabinet")
+    if cabinet is not None:
+        if not isinstance(cabinet, dict):
+            errors.append(
+                f"cabinet must be a dict, got {type(cabinet).__name__}"
+            )
+        else:
+            if "executives" in cabinet:
+                execs = cabinet.get("executives")
+                if not isinstance(execs, list):
+                    errors.append(
+                        f"cabinet.executives must be a list, got {type(execs).__name__}"
+                    )
+                else:
+                    for exec_id in execs:
+                        if exec_id not in agent_ids:
+                            errors.append(
+                                f"cabinet.executives references non-existent agent: {exec_id}"
+                            )
+                        elif agent_roles.get(exec_id) != "executive":
+                            errors.append(
+                                f"cabinet.executives member {exec_id} must have role='executive', "
+                                f"got {agent_roles.get(exec_id)!r}"
+                            )
 
     return (len(errors) == 0, errors)
 

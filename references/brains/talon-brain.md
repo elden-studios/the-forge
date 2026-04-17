@@ -27,6 +27,8 @@ None.
 ## Rivalries
 
 - **vs Ren**: "Growth hack it" vs "Design it right." Talon will add a referral modal mid-flow if the data supports it. Ren will fight for user experience purity. The argument produces growth that doesn't feel desperate.
+- **vs Dune (CMO): "Tactical growth hack" vs "Strategic positioning."** Talon finds the channel and creative that converts today. Dune owns the positioning that makes tomorrow's channels work. Productive synthesis: Dune's positioning doc is Talon's creative brief — every tactical ad should reinforce the category Dune has claimed.
+- **vs Lex (Legal): "Just try" vs "Defensible."** Talon's growth-hack instinct is to ship the referral mechanic first and sort T&Cs later. Lex's risk register wants the defensible version shipped day one. Productive synthesis: Lex redlines the viral mechanic's user-consent path; Talon ships the mechanic with that path baked in, avoiding the "cease and desist from regulator" failure mode.
 
 ## Signal Tags
 

@@ -4,6 +4,116 @@ All notable changes to The Forge are documented here. Format follows [Keep a Cha
 
 ---
 
+## [3.2.0-wave1] — 2026-04-17
+
+### Added — v3.2 Cabinet Wave 1 (Roster & Protocol)
+
+The roster + data-model foundation of the v3.2 Cabinet expansion. Evolves The Forge from a flat 9-agent peer strike team into a two-tier org with a real executive judgment layer. Cabinet mechanics (Wave 2) and UI (Wave 3) are follow-up releases; this wave is data + docs.
+
+**6 new agents** — each with named practitioner playbooks and signature artifacts
+
+- **Cade** (CPO) — Marty Cagan disciple. Product One-Pager signature artifact. Reports to Flint. Heads new Product department. Owns product intel ICs (Vex/Nyx/Echo/Ren/Sable/Zeta).
+- **Helix** (CTO) — Camille Fournier (The Manager's Path) disciple. Technology Strategy Memo. Reports to Flint. Heads Engineering; Atlas now reports to Helix.
+- **Prism** (CFO) — Tomasz Tunguz + David Sacks disciple. Unit Economics Model. Reports to Flint. Solo in new Finance department.
+- **Dune** (CMO) — April Dunford + Bob Moesta disciple. Positioning Document. Reports to Flint. Heads Growth + Content; Talon + Kira now report to Dune.
+- **Lex** (Chief Legal Counsel) — pragmatic commercial lawyering (Reed Smith school + Pat McKenna). Risk Register + Contract Brief. Solo in new Legal department. Reports to Flint.
+- **Zeta** (Data Lead) — Benn Stancil + Emily Glassberg Sands disciples. Experiment Design Brief + KR Instrumentation Plan. IC in Research. Reports to Cade.
+
+**3 new departments**
+- **Product** (`dept-product`, #7E57C2 muted purple) — Cade
+- **Legal** (`dept-legal`, #546E7A slate grey) — Lex
+- **Finance** (`dept-finance`, #26A69A teal) — Prism
+
+**Two-tier org structure — 15 agents total**
+- 5 executives: Flint (CSO — now with Rumelt playbook disciple + Strategy Kernel signature artifact), Cade (CPO), Helix (CTO), Prism (CFO), Dune (CMO)
+- 10 ICs: Vex, Nyx, Echo, Zeta (Research); Ren, Sable (Design); Atlas (Engineering); Talon (Growth); Kira (Content); Lex (Legal)
+- Top-level `cabinet.executives` block names the Cabinet explicitly
+- Every IC has `reports_to` pointing to its owning executive — validator enforces
+
+**Protocol v3.1 → v3.2 (documented; mechanics implemented in Wave 2)**
+- Phase 1.5 Cabinet Framing (5 lenses + Klein-style pre-mortem) — spec'd
+- Phase 3 two-floor War Room (IC floor + Cabinet floor) — spec'd
+- Phase 4 sequence now Helix → Atlas → Ren → Sable
+- Phase 5 sequence now Dune → Talon → Kira → Nyx
+- Phase 7 new deliverable format: Cabinet Verdict + 5 signature artifacts + Decision Log section + Sources Appendix
+- Standing Rule 10 (escalation ladder — IC → owning exec → Cabinet → User)
+- Standing Rule 11 (every Cabinet Verdict logs a Decision entry with reversibility)
+
+**Rivalry matrix — 10 rivalries across 2 scales**
+
+Cross-functional C-Suite (NEW):
+- Cade ↔ Helix ("Ship features" vs "Pay down debt")
+- Prism ↔ Dune ("LTV:CAC says no" vs "Brand equity")
+- Flint ↔ Cade ("Question the plan" vs "Execute the plan")
+
+Cross-layer (NEW):
+- Helix ↔ Atlas ("3-year horizon" vs "This sprint")
+- Dune ↔ Talon ("Strategic positioning" vs "Tactical growth hack")
+
+IC-level (new + existing):
+- Vex ↔ Zeta ("External market" vs "Internal funnel") — NEW
+- Lex ↔ Talon ("Defensible" vs "Just try") — NEW
+- Vex ↔ Echo (existing)
+- Talon ↔ Ren (existing)
+- Sable ↔ Kira (existing)
+
+All rivalries now mirror-documented in both participants' brain files.
+
+**Validator extensions**
+- `role` field enforced as `"executive"` or `"ic"` when present
+- `reports_to` must reference existing agent; ICs must report to executives; executives may report to other executives; self-reference rejected with clear error
+- `cabinet.executives` block validated — members must exist + have `role: "executive"`; type guards on `cabinet` (must be dict) and `cabinet.executives` (must be list)
+- Non-scalar `reports_to` values (list, dict) rejected cleanly instead of crashing
+- Backward compat: all new fields are optional during migration — v3.1 state files still validate
+
+**Brain files**
+- 6 new brain files (Cade/Helix/Prism/Dune/Lex/Zeta) at the quality bar of the existing 9 — Hot Take with expansion, Playbook Disciple, Go-To Framework with filled examples referencing real Forge projects (Pet Healthcare, Digital Signature, Saudi Neobank), Anti-Patterns, Mentorship Role, Rivalries, Signal Tags, Signature Artifact, Cabinet Framing Lens (execs) or Consumed By (ICs), Evidence Pipes disposition
+- **Flint's brain file uplifted** — now includes Playbook Disciple (Rumelt), Strategy Kernel framework with worked example, vs Cade rivalry, Cabinet Framing Lens section
+- Atlas/Talon/Vex brain files updated with new cross-layer rivalries (vs Helix / vs Dune + vs Lex / vs Zeta)
+
+**Documentation**
+- `SKILL.md` gained Cabinet Framing (v3.2) section with activation triggers table
+- `references/collaboration-protocol.md` bumped v3.1 → v3.2 with Phase 1.5, two-floor Phase 3, Phase 7 format, Standing Rules 10-11; Hot Takes / Rivalries / Mentorship Chains tables extended to full 15-agent roster
+- `references/cabinet-framing-spec.md` NEW — operator-facing reference for Phase 1.5
+- `references/agent-design-guide.md` — v3.2 fields section + 3 new department color palette entries
+
+**Tests**
+- +14 validator tests (8 initial v3.2 rules + 5 review-response type-guard tests + 1 portfolio-invariants smoke test)
+- 165 tests total (151 Evidence Pipes baseline + 14 v3.2)
+- Portfolio smoke test pins: 15 agents, 9 departments, 5 execs, 10 ICs, cabinet matches executive set, every IC reports to an executive
+
+### Fixed (via Foundation Code Review Gate)
+
+**Two-stage code review caught 2 Critical + 3 Important findings per batch:**
+
+Task 2 review (validator rules):
+- Critical: `cabinet.executives: null` was crashing with TypeError instead of producing a readable error. Added dict/list type guards.
+- Critical: non-scalar `reports_to` (list, dict) crashed with unhashable-type TypeError. Added `isinstance(str)` check before set membership lookup.
+- Important: self-reference in `reports_to` now produces dedicated "cannot reference itself" error.
+
+Tasks 5-10 review (6 new agents):
+- Critical: Lex and Zeta had `playbook_disciple: null` in state despite brain files naming practitioners. Backfilled.
+- Critical: All 6 new agents were missing `avatar.department_accent_color` — pixel office would render orange-fallback. Backfilled from department colors.
+- Flint's state-level `playbook_disciple` (Rumelt) and `signature_artifact` (Strategy Kernel) also backfilled.
+
+Foundation Gate review (Wave 1 holistic):
+- Important: Flint's brain file was still v3.0 (no Cabinet Framing Lens, no Rumelt section). Uplifted to match the depth of the new C-Suite brain files.
+- Important: Rivalry asymmetry — the 4 pre-existing brain files (Flint, Atlas, Talon, Vex) didn't mirror the new cross-layer rivalries that the new 6 described. All 4 updated to close the asymmetry.
+- Important: `collaboration-protocol.md` interior tables (Hot Takes, Rivalries, Mentorship Chains) still enumerated v3.0 roster. Extended all three to cover 15 agents / 10 rivalries / 8 mentors.
+
+### Backward compat
+
+Setting `cabinet.executives: []` or omitting the cabinet block restores v3.1 behavior byte-for-byte. All v3.1 state files continue to validate without modification. All 151 Evidence Pipes v3.1 tests remain green with zero regressions.
+
+### Out of scope (deferred)
+
+- Cabinet mechanics — `tools/decisions_orchestrator.py`, `validate_decisions()`, `forge-decisions.json`, Phase 1.5 artifact generation — **Wave 2**
+- UI — Executive Suite pixel room, Cabinet block on Mission Control, Decisions tab, Pre-Mortem heatmap — **Wave 3**
+- Hierarchy tree visualization — **Sub-project A** (post Wave 3)
+- Subagent delegation, Context system, Tools catalog — **Sub-projects C/D/E**
+
+---
+
 ## [3.1.0] — 2026-04-17
 
 ### Added — Evidence Pipes v1
