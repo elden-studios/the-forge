@@ -120,6 +120,17 @@ class TestBoardroom(unittest.TestCase):
         # Look for explicit widen logic via Math.max on this.W
         self.assertRegex(src, r"this\.W\s*=\s*Math\.max\(this\.W\s*,", "canvas width must grow to fit boardroom")
 
+    def test_boardroom_abuts_grid_outer_wall(self):
+        """Regression: boardroom.x should equal MARGIN + COLS*ROOM_W + (COLS-1)*WALL
+        so the grid's outer-right wall serves as the boardroom's west wall (no seam)."""
+        src = _read_template()
+        boardroom_block = re.search(r"this\.boardroom\s*=\s*\{[^}]+\}", src, re.DOTALL)
+        self.assertIsNotNone(boardroom_block, "boardroom assignment not found")
+        block_text = boardroom_block.group(0)
+        # The "shared wall" formula must be present
+        self.assertIn("(COLS - 1) * WALL", block_text,
+                      "boardroom.x should use shared-outer-wall formula, not COLS*(ROOM_W+WALL)")
+
 
 if __name__ == "__main__":
     unittest.main()
