@@ -231,6 +231,68 @@ See `references/cabinet-framing-spec.md` for the full operator protocol.
 - **Wave 2 (next):** Phase 1.5 mechanics — decisions_orchestrator.py, validate_decisions, forge-decisions.json, Pre-Mortem output validators
 - **Wave 3 (after):** Pixel Office Executive Suite + Dashboard Cabinet block + Decisions tab + live end-to-end validation run
 
+### Phase 1.5 mechanics — how each lens actually gets produced (v3.2 Wave 2)
+
+**Flint (CSO) — Strategic Kernel**
+- Prompt self with Rumelt's 3-part kernel: diagnosis, guiding policy, coherent action.
+- Output format: "Diagnosis: [obstacle]. Guiding policy: [direction]. Coherent action: [2-3 concrete moves]."
+- 3 sentences max. If diagnosis is actually an aspiration ("we want to be #1"), reject and re-prompt.
+
+**Cade (CPO) — Product Shape**
+- Format: "User: [persona]. Outcome: [KR, measurable]. Non-goals: [at least 3]."
+- If fewer than 3 non-goals, reject — Cagan's discipline: scope is what you say no to.
+
+**Helix (CTO) — Build Class**
+- Format: "Greenfield/retrofit: [pick]. Buy/build/partner: [per major component]."
+- Must surface a risk: onboarding time estimate for a new engineer.
+
+**Prism (CFO) — Economic Shape**
+- Format: "Unit: [per-transaction/per-user]. Fee: [amount]. CAC target: [amount]. Break-even: [N units/year]."
+- All four numbers required. No ranges.
+
+**Dune (CMO) — Market Bet**
+- Format: "Position as: [1 sentence]. Fight: [named competitors]. Category: [Dunford's market category]."
+- Category must be opinionated and narrow, not "fintech" or "AI tool".
+
+**Framing Brief synthesis (Flint)**
+After the 5 lenses, Flint writes the 1-page framing brief that weaves them. Not a summary — a synthesis that commits to the kernel.
+
+**Pre-Mortem scoring (Cabinet ranks together)**
+
+Each exec provides 2 failure modes from their lens (10 total). Cabinet ranks them on likelihood × impact (1-5 scale each), keeps top 5, assigns mitigation owner + phase.
+
+Allowed `mitigation_phase` values (enforced by validator):
+- `phase_4_arch` — mitigation is architectural (Helix/Atlas own)
+- `phase_5_gtm` — mitigation is go-to-market (Dune/Talon/Kira/Lex/Nyx)
+- `phase_6_challenge` — mitigation is challenge-round stress test
+- `phase_7_delivery` — mitigation is deliverable-level QA
+
+**Output lands on `forge-tasks.json`**
+
+```json
+{
+  "cabinet_framing": {
+    "framing_brief": "...",
+    "lenses": {
+      "strategic_kernel": "...",
+      "product_shape": "...",
+      "build_class": "...",
+      "economic_shape": "...",
+      "market_bet": "..."
+    }
+  },
+  "pre_mortem": [
+    {"failure_mode": "...", "likelihood": 4, "impact": 5, "score": 20,
+     "owner_agent": "agent-X", "mitigation_phase": "phase_5_gtm"},
+    ...
+  ]
+}
+```
+
+Validator (`validate_tasks`) enforces: all 5 lenses present + non-empty, pre_mortem owners exist as agents, likelihood + impact are ints 1-5, mitigation_phase is from the allowed enum.
+
+See `scripts/cabinet_framing_simulate.py` for a worked example of the output structure.
+
 ---
 
 ## Evidence Pipes
