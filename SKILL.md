@@ -293,6 +293,73 @@ Validator (`validate_tasks`) enforces: all 5 lenses present + non-empty, pre_mor
 
 See `scripts/cabinet_framing_simulate.py` for a worked example of the output structure.
 
+### Phase 3 two-floor mechanics — who fires which floor, how escalation works (v3.2 Wave 2)
+
+**IC Floor** — evidence-grounded specialist debate.
+- **Fires when:** `evidence_conflict.detect_conflicts()` returns ≥1 conflict OR an IC flags a factual disagreement with another IC's Evidence during Phase 2 fan-in.
+- **Participants:** ICs whose Evidence is disputed. Cabinet execs are NOT present.
+- **Max rounds:** 2. Each round: claim → counter-evidence → synthesis attempt.
+- **Resolution rule:** scope > tier > recency (from `evidence_conflict.resolve`). Already implemented and tested in v3.1.
+- **Output:** Evidence bundle is updated (no new decisions logged unless escalated).
+- **Escalation trigger:** If 2 rounds don't resolve, escalate to the owning C-Suite exec.
+
+**Cabinet Floor** — cross-functional trade-off arbitration.
+- **Fires when:** (a) an IC Floor escalation lands on 2+ execs in tension, or (b) Cabinet independently detects a cross-functional trade-off during Phase 1.5 or Phase 3.
+- **Participants:** 2+ C-Suite execs whose functions are in tension (e.g., Cade vs Helix on ship-vs-debt, Prism vs Dune on LTV vs brand).
+- **Ammunition:** each exec's signature artifact (Product One-Pager, Tech Strategy Memo, Unit Economics Model, Positioning Document, Strategy Kernel).
+- **Max rounds:** 2. Each exec presents their artifact-backed case; rebuttal allowed.
+- **Resolution rule:** majority vote + dissent logged.
+- **Output:** a Decision Log entry (via `decisions_orchestrator.append_decision`). The decision records: context, alternatives considered, decided_by, dissenting, reversibility, review_at.
+
+**Escalation ladder (Standing Rule 10 implementation)**
+
+```
+IC Floor (2 rounds) → IC escalates to owning C-Suite exec
+   ↓
+Owning exec takes a side → decision logged (Type 1 if hard-to-reverse, Type 2 otherwise)
+   ↓ (if exec can't take a side alone:)
+Cabinet Floor arbitration
+   ↓ (if deadlock:)
+User (CEO/Board) decides → decision logged with `decided_by: user` marker
+```
+
+All decisions at any tier get logged in `forge-decisions.json`.
+
+**When to log Type 1 vs Type 2:**
+
+- **Type 1 (one-way door):** cannot be reversed without re-running a major phase. Examples: licensing path choice, founding team hire, brand naming, pricing floor commitment, exclusive partnership. Reviewed at 90 days.
+- **Type 2 (two-way door):** can be reversed cheaply. Examples: feature prioritization swap, channel-mix adjustment, landing-page copy variant. Reviewed at 30 days.
+
+If unsure: default to Type 1 (conservative). Cabinet can down-classify to Type 2 if challenged.
+
+**Decision Log write point**
+
+At every Cabinet Floor resolution OR IC Floor escalation that reaches an exec-level decision:
+
+```python
+from decisions_orchestrator import new_decision_id, compute_review_at, append_decision
+from datetime import datetime, timezone
+
+decision = {
+    "id": new_decision_id(),
+    "title": "<short imperative, verb + object>",
+    "context": "<what triggered this decision>",
+    "alternatives_considered": ["A (reject: why)", "B (selected)", ...],
+    "decided_by": "<agent-id of the deciding exec; 'user' if escalated to CEO>",
+    "dissenting": ["<agent-id>", ...],
+    "dissent_reason": "<why the dissenter disagreed>",
+    "decided_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "reversibility": "type_1" | "type_2",
+    "review_at": compute_review_at(decided_at, reversibility),
+    "project_id": "<current project>",
+    "related_evidence": ["<ev-...>", ...],  # Evidence IDs that grounded the decision
+    "status": "open",
+}
+append_decision(project_id, decision, "forge-decisions.json")
+```
+
+Validator (`validate_decisions`) enforces referential integrity of `decided_by`, `dissenting`, and `related_evidence`.
+
 ---
 
 ## Evidence Pipes
