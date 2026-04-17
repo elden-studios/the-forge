@@ -1,11 +1,11 @@
 # The Forge — Progress & Roadmap
 
-## Current Status: v3.2 Wave 3 SHIPPED — Cabinet visualization live on main
+## Current Status: v3.2 Wave 4 SHIPPED — Foundation cleanup consolidated
 
 **GitHub:** https://github.com/elden-studios/the-forge
-**Last release:** 2026-04-17 (v3.2 Cabinet Wave 3 — Visualization)
+**Last release:** 2026-04-17 (v3.2 Cabinet Wave 4 — Cleanup)
 **Previous releases:** Wave 3 (2026-04-17), Wave 2 (2026-04-17), Wave 1 (2026-04-17), v3.1 Evidence Pipes (2026-04-17 `7c02d85`)
-**Tests:** 356/356 green
+**Tests:** 363/363 green
 **Changelog:** see [`CHANGELOG.md`](CHANGELOG.md)
 
 **What's next:** Sub-projects A (hierarchy tree visualization), C (subagent delegation), D (context system / project-level memory), E (tools & platforms catalog). Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`. See "After v3.2" section below.
@@ -82,6 +82,17 @@ Decision Log lifecycle + Pre-Mortem + Cabinet Framing schema validation + operat
 
 See `docs/superpowers/plans/2026-04-17-v3.2-cabinet-wave2-mechanics.md`.
 
+### Wave 4 — Cleanup (SHIPPED 2026-04-17) ✅
+
+Consolidation commit addressing deferred Foundation review items from Wave 3. No new features — purely signature harmonization, helper consolidation, import hygiene, and a missing integration test.
+
+- **I1 signature harmonization** — `append_decision_persist` changed from `(project_id, decision, path)` to `(path, decision)`, matching `close_decision_persist(path, ...)` and `reverse_decision_persist(path, ...)`. `project_id` now read from `decision["project_id"]` (`KeyError` surfaces misuse). 5 test call sites + simulation driver updated.
+- **M1 import hygiene** — `from datetime import timezone` lifted to module top of `tools/decisions_orchestrator.py`; two inline re-imports removed.
+- **M7 dashboard helper consolidation** — `getAgentName(id)` removed; all 5 call sites migrated to canonical `agentName(STATE, id)`.
+- **M3 integration test** — `tests/test_v32_wave3_integration.py` walks pre_mortem → heatmap → Decision Log end-to-end using the Saudi EdTech fixture (7 tests).
+
+**363 tests green** (+7 integration tests).
+
 ### Wave 3 — Visualization (SHIPPED 2026-04-17) ✅
 
 Pixel office expansion + full dashboard visualization for the Cabinet layer + live end-to-end simulation run. The v3.2 Cabinet expansion is now visually rendered on the office canvas and dashboard, wired end-to-end from simulation driver through state → validator → Mission Control → Decisions tab.
@@ -118,12 +129,11 @@ Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`.
 
 ## Known non-blocking follow-ups from v3.2 Wave 3 reviews
 
-- **I1 — persistence signature asymmetry:** `append_decision_persist(project_id, decision, path)` vs `close_decision_persist(path, ...)` / `reverse_decision_persist(path, ...)`. Harmonize to consistent `(path, ...)` shape in Wave 4 cleanup.
-- **M1 — timezone import dedup:** module-level `from datetime import timezone` in `tools/decisions_orchestrator.py`; several functions re-import locally.
-- **M2 — integration test:** no single test walks pre_mortem → heatmap_buckets → Decision Log → dashboard render end-to-end. Unit coverage is strong; add one integration test in Wave 4.
+Resolved in Wave 4: I1 (signature harmonization), M1 (timezone import), M2 (integration test), M7 (`agentName` consolidation).
+
+Remaining:
 - **M3 — `exportDecisionsMd` markdown escape hardening:** user-supplied strings (project names, rationale) are not escaped; risk is cosmetic markdown breakage, not XSS.
-- **M4 — `getAgentName` / `agentName` duplication:** helper present in both `dashboard.html` and `dashboard-decisions.js`; consolidate.
-- **M5–M7 — file-split threshold watch:** `office-template.html` and `dashboard.html` are approaching the reviewer's comfort threshold. Track growth in Wave 4.
+- **M5–M6 — file-split threshold watch:** `office-template.html` and `dashboard.html` are approaching the reviewer's comfort threshold. Track growth in future waves.
 
 ## Known non-blocking follow-ups from v3.1 reviews
 
@@ -147,7 +157,7 @@ Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`.
 ## Key commands
 
 ```bash
-# Run full Python test suite (356 tests — 151 Evidence Pipes + 14 v3.2 W1 + 70 v3.2 W2 + 121 v3.2 W3)
+# Run full Python test suite (363 tests — 151 Evidence Pipes + 14 v3.2 W1 + 70 v3.2 W2 + 121 v3.2 W3 + 7 v3.2 W4)
 python3 -m unittest discover tests -v
 
 # Validate all state/tasks/evidence files
