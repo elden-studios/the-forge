@@ -130,6 +130,41 @@ def validate_tasks(tasks, state):
     if not isinstance(phase, int) or phase < 0 or phase > 8:
         errors.append(f"Invalid phase number: {phase} (must be 0-8)")
 
+    # Pre-Mortem (Wave 2 — Phase 1.5 Cabinet Framing output)
+    ALLOWED_MITIGATION_PHASES = {
+        "phase_4_arch", "phase_5_gtm", "phase_6_challenge", "phase_7_delivery"
+    }
+    pre_mortem = tasks.get("pre_mortem")
+    if pre_mortem is not None:
+        if not isinstance(pre_mortem, list):
+            errors.append(f"pre_mortem must be a list, got: {type(pre_mortem).__name__}")
+        else:
+            for idx, item in enumerate(pre_mortem):
+                prefix = f"pre_mortem[{idx}]"
+                if not isinstance(item, dict):
+                    errors.append(f"{prefix} must be a dict")
+                    continue
+                fm = item.get("failure_mode")
+                if not fm or not isinstance(fm, str):
+                    errors.append(f"{prefix} missing required field: failure_mode")
+                for field_name in ("likelihood", "impact"):
+                    v = item.get(field_name)
+                    if not isinstance(v, int) or isinstance(v, bool) or v < 1 or v > 5:
+                        errors.append(
+                            f"{prefix} {field_name} must be int 1-5, got: {v!r}"
+                        )
+                owner = item.get("owner_agent")
+                if owner and owner not in agent_ids:
+                    errors.append(
+                        f"{prefix} owner_agent references non-existent agent: {owner}"
+                    )
+                mp = item.get("mitigation_phase")
+                if mp and mp not in ALLOWED_MITIGATION_PHASES:
+                    errors.append(
+                        f"{prefix} mitigation_phase invalid: {mp!r} "
+                        f"(expected one of {sorted(ALLOWED_MITIGATION_PHASES)})"
+                    )
+
     return (len(errors) == 0, errors)
 
 

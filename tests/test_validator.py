@@ -1026,6 +1026,96 @@ class TestV32PortfolioInvariants(unittest.TestCase):
                          f"IC {ic['name']} reports_to {ic.get('reports_to')} which is not an executive")
 
 
+class TestValidatePreMortem(unittest.TestCase):
+    """validate_tasks enforces pre_mortem schema when present."""
+
+    def _state(self, agent_ids=("agent-flnt", "agent-lexx")):
+        return {
+            "agents": [{"id": a, "name": a, "status": "active"} for a in agent_ids]
+        }
+
+    def _base_tasks(self, pre_mortem=None):
+        return {
+            "tasks": [],
+            "handoffs": [],
+            "current_phase": 0,
+            "pre_mortem": pre_mortem,
+        }
+
+    def test_pre_mortem_absent_passes(self):
+        """Backward compat: forge-tasks without pre_mortem still validates."""
+        from validator import validate_tasks
+        tasks = {"tasks": [], "handoffs": [], "current_phase": 0}
+        ok, errors = validate_tasks(tasks, self._state())
+        self.assertTrue(ok, errors)
+
+    def test_pre_mortem_empty_list_passes(self):
+        from validator import validate_tasks
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=[]), self._state())
+        self.assertTrue(ok, errors)
+
+    def test_pre_mortem_valid_entry_passes(self):
+        from validator import validate_tasks
+        pm = [{
+            "failure_mode": "PDPL non-compliance",
+            "likelihood": 4, "impact": 5, "score": 20,
+            "owner_agent": "agent-lexx",
+            "mitigation_phase": "phase_5_gtm"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertTrue(ok, errors)
+
+    def test_pre_mortem_owner_agent_nonexistent_fails(self):
+        from validator import validate_tasks
+        pm = [{
+            "failure_mode": "x", "likelihood": 3, "impact": 3, "score": 9,
+            "owner_agent": "agent-ghost", "mitigation_phase": "phase_5_gtm"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("agent-ghost" in e for e in errors), errors)
+
+    def test_pre_mortem_likelihood_out_of_range_fails(self):
+        from validator import validate_tasks
+        pm = [{
+            "failure_mode": "x", "likelihood": 7, "impact": 3, "score": 21,
+            "owner_agent": "agent-lexx", "mitigation_phase": "phase_5_gtm"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("likelihood" in e.lower() for e in errors), errors)
+
+    def test_pre_mortem_impact_out_of_range_fails(self):
+        from validator import validate_tasks
+        pm = [{
+            "failure_mode": "x", "likelihood": 3, "impact": 0, "score": 0,
+            "owner_agent": "agent-lexx", "mitigation_phase": "phase_5_gtm"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("impact" in e.lower() for e in errors), errors)
+
+    def test_pre_mortem_invalid_mitigation_phase_fails(self):
+        from validator import validate_tasks
+        pm = [{
+            "failure_mode": "x", "likelihood": 3, "impact": 3, "score": 9,
+            "owner_agent": "agent-lexx", "mitigation_phase": "phase_99_yolo"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("mitigation_phase" in e.lower() for e in errors), errors)
+
+    def test_pre_mortem_missing_failure_mode_fails(self):
+        from validator import validate_tasks
+        pm = [{
+            "likelihood": 3, "impact": 3, "score": 9,
+            "owner_agent": "agent-lexx", "mitigation_phase": "phase_5_gtm"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("failure_mode" in e.lower() for e in errors), errors)
+
+
 class TestValidateProjectLoadsDecisions(unittest.TestCase):
     def _write(self, tmp, fname, obj):
         with open(os.path.join(tmp, fname), "w") as f:
