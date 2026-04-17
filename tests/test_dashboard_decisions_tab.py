@@ -108,5 +108,54 @@ class TestDecisionsFilters(unittest.TestCase):
         self.assertRegex(self.src, r"\.toLowerCase\(\)", "toLowerCase missing from search filter")
 
 
+class TestDecisionsSortExport(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        with open(DASHBOARD) as f:
+            cls.src = f.read()
+
+    def test_sort_by_review_at_logic_present(self):
+        self.assertRegex(self.src, r"(sortedByReviewAt|sortDecisions|sort.*review_at)",
+                         "review_at sort logic missing")
+
+    def test_review_at_header_clickable(self):
+        self.assertRegex(self.src, r'id="dec-col-review"', "clickable Review At header id=dec-col-review missing")
+
+    def test_export_md_button_present(self):
+        self.assertRegex(self.src, r'id="dec-export-md"', "export MD button missing")
+
+    def test_export_csv_button_present(self):
+        self.assertRegex(self.src, r'id="dec-export-csv"', "export CSV button missing")
+
+    def test_export_json_button_present(self):
+        self.assertRegex(self.src, r'id="dec-export-json"', "export JSON button missing")
+
+    def test_export_md_function_defined(self):
+        self.assertRegex(self.src, r"function\s+exportDecisionsMd|exportDecisionsMd\s*=\s*function|const\s+exportDecisionsMd\s*=")
+
+    def test_export_csv_function_defined(self):
+        self.assertRegex(self.src, r"function\s+exportDecisionsCsv|exportDecisionsCsv\s*=\s*function|const\s+exportDecisionsCsv\s*=")
+
+    def test_export_json_function_defined(self):
+        self.assertRegex(self.src, r"function\s+exportDecisionsJson|exportDecisionsJson\s*=\s*function|const\s+exportDecisionsJson\s*=")
+
+    def test_csv_escape_helper_present(self):
+        """CSV values with commas/quotes/newlines must be escaped — look for escape logic."""
+        self.assertRegex(self.src, r"(csvEscape|csvEsc)", "CSV escape helper missing")
+
+    def test_download_blob_helper_present(self):
+        self.assertRegex(self.src, r"URL\.createObjectURL", "Blob download mechanism missing")
+
+    def test_sort_toggles_direction(self):
+        """Sort direction should be toggleable — look for asc/desc state variable."""
+        self.assertRegex(self.src, r"(decSortDir|sortDir|sortDirection).*('asc'|'desc')",
+                         "sort direction toggle state missing")
+
+    def test_invalid_review_at_sorts_to_end(self):
+        """Invalid/missing review_at entries should sort to end — check for Infinity sentinel or partition."""
+        self.assertRegex(self.src, r"(Infinity|Number\.MAX_|partition|splice\s*\(\s*\d+\s*,\s*0\s*,)",
+                         "missing sort-to-end handling for invalid review_at")
+
+
 if __name__ == "__main__":
     unittest.main()

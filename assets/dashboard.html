@@ -300,7 +300,9 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
         <option value="reversed">Reversed</option>
       </select>
       <select id="dec-decider"><option value="">All deciders</option></select>
-      <!-- Export buttons added in T8 -->
+      <button id="dec-export-md">Export MD</button>
+      <button id="dec-export-csv">Export CSV</button>
+      <button id="dec-export-json">Export JSON</button>
     </div>
     <table class="decisions-table" id="decisions-table">
       <thead>
@@ -309,7 +311,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
           <th>Decider</th>
           <th>Reversibility</th>
           <th>Status</th>
-          <th>Review At</th>
+          <th id="dec-col-review" style="cursor:pointer;user-select:none" title="Click to toggle sort direction">Review At <span id="dec-col-review-arrow">↑</span></th>
           <th>Project</th>
         </tr>
       </thead>
@@ -735,6 +737,12 @@ function renderEvidenceBlock(doc) {
 // CABINET BLOCK — fetch decisions + render verdict/lenses/risks
 // ═══════════════════════════════════════
 let _decisionsDoc = null;
+// T8 — Decisions tab sort + export state.
+// decSortDir: current sort direction for the Review At column ('asc' | 'desc').
+// _decisionsVisible: filtered+sorted slice currently rendered, captured at
+// render time so the export buttons emit exactly what the operator sees.
+let decSortDir = 'asc';
+let _decisionsVisible = [];
 
 // esc(): HTML-escape helper for safe interpolation of user-controlled strings.
 function esc(s) {
@@ -966,12 +974,22 @@ function renderDecisionsTab(doc) {
     return true;
   });
 
-  if (filtered.length === 0) {
+  // Sort after filtering so pagination/export honour both filter + sort. The
+  // partition-based sortedByReviewAt mirrors the Python
+  // query_sorted_by_review_at helper (invalid review_at → END, both dirs).
+  const sorted = sortedByReviewAt(filtered, decSortDir);
+  _decisionsVisible = sorted;
+
+  // Keep the column-header arrow in sync with the current direction.
+  const arrow = document.getElementById('dec-col-review-arrow');
+  if (arrow) arrow.textContent = decSortDir === 'asc' ? '↑' : '↓';
+
+  if (sorted.length === 0) {
     tbody.innerHTML = '<tr><td colspan="6" class="decisions-empty">No decisions match the filters.</td></tr>';
     return;
   }
 
-  tbody.innerHTML = filtered.map(d => {
+  tbody.innerHTML = sorted.map(d => {
     const deciderName = agentName(STATE, d.decided_by);
     const reviewStr = d.review_at ? new Date(d.review_at).toLocaleDateString() : '—';
     const revCls = d.reversibility === 'type_1' ? 'type_1' : 'type_2';
@@ -1014,6 +1032,111 @@ function populateDecisionFilterDropdowns(allDecisions) {
         }).join('');
     }
   }
+}
+
+/**
+ * JS mirror of tools/decisions_orchestrator.query_sorted_by_review_at.
+ * Returns a new sorted array (doesn't mutate input).
+ * Invalid or missing review_at entries sort to the END in both directions
+ * (partition approach — matches the Python helper's behavior). A single
+ * comparator with Infinity sentinel would flip the invalids to the front on
+ * desc sort, which is why we partition instead.
+ */
+function sortedByReviewAt(decisions, dir) {
+  const valid = [];
+  const invalid = [];
+  for (const d of decisions) {
+    const t = d.review_at ? Date.parse(d.review_at) : NaN;
+    if (Number.isFinite(t)) {
+      valid.push({ d, t });
+    } else {
+      invalid.push(d);
+    }
+  }
+  valid.sort((a, b) => dir === 'desc' ? b.t - a.t : a.t - b.t);
+  return valid.map(x => x.d).concat(invalid);
+}
+
+// ───────────────────────────────────────
+// Decisions tab export helpers (T8). Scope = what the operator sees in the
+// table right now — i.e. the filtered + sorted subset captured in
+// _decisionsVisible at renderDecisionsTab time. downloadBlob is already
+// defined further down (shared with the Sources tab exports); csvEscape is
+// new here because the Sources tab's simpler quoting (quotes everything) is
+// good enough for that tab but we want per-value escaping here to keep the
+// CSV output readable.
+// ───────────────────────────────────────
+function csvEscape(v) {
+  const s = String(v == null ? '' : v);
+  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function exportDecisionsMd(stateDoc, decisions) {
+  const lines = ['# Decision Log', ''];
+  for (const d of decisions) {
+    const decider = agentName(stateDoc, d.decided_by);
+    lines.push(`## ${d.title || '(untitled)'}`);
+    lines.push('');
+    lines.push(`- **ID:** ${d.id || '—'}`);
+    lines.push(`- **Decider:** ${decider || d.decided_by || '—'}`);
+    lines.push(`- **Reversibility:** ${d.reversibility || '—'}`);
+    lines.push(`- **Status:** ${d.status || '—'}`);
+    lines.push(`- **Decided at:** ${d.decided_at || '—'}`);
+    lines.push(`- **Review at:** ${d.review_at || '—'}`);
+    lines.push(`- **Project:** ${d.project_id || '—'}`);
+    if (d.dissenting && d.dissenting.length > 0) {
+      const names = d.dissenting.map(id => agentName(stateDoc, id) || id).join(', ');
+      lines.push(`- **Dissent:** ${names}${d.dissent_reason ? ' — ' + d.dissent_reason : ''}`);
+    }
+    lines.push('');
+    if (d.context) {
+      lines.push(d.context);
+      lines.push('');
+    }
+    if (d.alternatives_considered && d.alternatives_considered.length > 0) {
+      lines.push('**Alternatives considered:**');
+      d.alternatives_considered.forEach(a => lines.push(`- ${a}`));
+      lines.push('');
+    }
+    lines.push('---');
+    lines.push('');
+  }
+  downloadBlob(lines.join('\n'), 'forge-decisions.md', 'text/markdown');
+}
+
+function exportDecisionsCsv(stateDoc, decisions) {
+  const cols = ['id','title','decided_by','decider_name','reversibility','status','decided_at','review_at','project_id','dissenting','dissent_reason'];
+  const rows = [cols.join(',')];
+  for (const d of decisions) {
+    const name = agentName(stateDoc, d.decided_by) || '';
+    const dissent = (d.dissenting || []).join(';');
+    const row = [
+      d.id, d.title, d.decided_by, name, d.reversibility, d.status,
+      d.decided_at, d.review_at || '', d.project_id || '',
+      dissent, d.dissent_reason || '',
+    ].map(csvEscape).join(',');
+    rows.push(row);
+  }
+  downloadBlob(rows.join('\n'), 'forge-decisions.csv', 'text/csv');
+}
+
+function exportDecisionsJson(decisions) {
+  // Produce a valid forge-decisions.json-shaped doc so the output can be
+  // re-ingested: { decisions: [...], project_decision_index: {proj: [ids]} }.
+  // The index is derived from the exported subset, not the full doc, so the
+  // export is self-consistent.
+  const pdi = {};
+  for (const d of decisions) {
+    if (d.project_id) {
+      if (!pdi[d.project_id]) pdi[d.project_id] = [];
+      if (!pdi[d.project_id].includes(d.id)) pdi[d.project_id].push(d.id);
+    }
+  }
+  const doc = { decisions, project_decision_index: pdi };
+  downloadBlob(JSON.stringify(doc, null, 2), 'forge-decisions.json', 'application/json');
 }
 
 // ═══════════════════════════════════════
@@ -1148,6 +1271,18 @@ function exportJson(items) {
     document.getElementById("dec-reversibility")?.addEventListener('change', rerender);
     document.getElementById("dec-status")?.addEventListener('change', rerender);
     document.getElementById("dec-decider")?.addEventListener('change', rerender);
+    // T8 — clickable Review At header toggles sort direction.
+    document.getElementById("dec-col-review")?.addEventListener('click', () => {
+      decSortDir = decSortDir === 'asc' ? 'desc' : 'asc';
+      rerender();
+    });
+    // T8 — export buttons emit the filtered+sorted subset (_decisionsVisible).
+    document.getElementById("dec-export-md")?.addEventListener('click',
+      () => exportDecisionsMd(STATE, _decisionsVisible));
+    document.getElementById("dec-export-csv")?.addEventListener('click',
+      () => exportDecisionsCsv(STATE, _decisionsVisible));
+    document.getElementById("dec-export-json")?.addEventListener('click',
+      () => exportDecisionsJson(_decisionsVisible));
     attached = true;
   }
   if (document.readyState === 'loading') {
