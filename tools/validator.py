@@ -72,6 +72,26 @@ def validate_project(project_dir):
             return (False, errors)
         errors.extend(validate_evidence(evidence_doc, state)[1])
 
+    # Decision Log (Wave 2)
+    dec_path = os.path.join(project_dir, "forge-decisions.json")
+    if os.path.isfile(dec_path):
+        try:
+            with open(dec_path) as f:
+                decisions_doc = json.load(f)
+        except json.JSONDecodeError as e:
+            errors.append(f"forge-decisions.json is not valid json: {e}")
+            return (False, errors)
+        # Re-load evidence if available (cheap, predictable scoping)
+        ev_for_decisions = None
+        ev_path_local = os.path.join(project_dir, "forge-evidence.json")
+        if os.path.isfile(ev_path_local):
+            try:
+                with open(ev_path_local) as f:
+                    ev_for_decisions = json.load(f)
+            except json.JSONDecodeError:
+                ev_for_decisions = None
+        errors.extend(validate_decisions(decisions_doc, state, ev_for_decisions)[1])
+
     return (len(errors) == 0, errors)
 
 

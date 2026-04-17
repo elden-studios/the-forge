@@ -1026,6 +1026,81 @@ class TestV32PortfolioInvariants(unittest.TestCase):
                          f"IC {ic['name']} reports_to {ic.get('reports_to')} which is not an executive")
 
 
+class TestValidateProjectLoadsDecisions(unittest.TestCase):
+    def _write(self, tmp, fname, obj):
+        with open(os.path.join(tmp, fname), "w") as f:
+            json.dump(obj, f)
+
+    def test_validate_project_loads_forge_decisions_when_present(self):
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", {
+                "company": {"name": "T", "founded": "2026-01-01"},
+                "departments": [],
+                "agents": [{"id": "agent-flnt", "name": "Flint", "status": "active"}],
+            })
+            self._write(tmp, "forge-decisions.json", {
+                "decisions": [],
+                "project_decision_index": {}
+            })
+            ok, errors = validate_project(tmp)
+            self.assertTrue(ok, errors)
+
+    def test_validate_project_catches_decisions_json_malformed(self):
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", {
+                "company": {"name": "T", "founded": "2026-01-01"},
+                "departments": [],
+                "agents": [],
+            })
+            with open(os.path.join(tmp, "forge-decisions.json"), "w") as f:
+                f.write("{ broken ]")
+            ok, errors = validate_project(tmp)
+            self.assertFalse(ok)
+            self.assertTrue(
+                any("forge-decisions.json" in e and "json" in e.lower() for e in errors),
+                errors,
+            )
+
+    def test_validate_project_catches_bad_decision_data(self):
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", {
+                "company": {"name": "T", "founded": "2026-01-01"},
+                "departments": [],
+                "agents": [{"id": "agent-flnt", "name": "Flint", "status": "active"}],
+            })
+            self._write(tmp, "forge-decisions.json", {
+                "decisions": [{
+                    "id": "BADID",
+                    "title": "bad decision", "context": "",
+                    "alternatives_considered": [], "decided_by": "agent-flnt",
+                    "dissenting": [], "dissent_reason": "",
+                    "decided_at": "2026-04-17T00:00:00Z",
+                    "reversibility": "type_1", "review_at": "2026-07-16T00:00:00Z",
+                    "project_id": "proj-001", "related_evidence": [],
+                    "status": "open"
+                }],
+                "project_decision_index": {}
+            })
+            ok, errors = validate_project(tmp)
+            self.assertFalse(ok)
+            self.assertTrue(any("BADID" in e for e in errors), errors)
+
+    def test_validate_project_passes_when_decisions_absent(self):
+        """Projects without a forge-decisions.json still validate (backward compat)."""
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", {
+                "company": {"name": "T", "founded": "2026-01-01"},
+                "departments": [],
+                "agents": [],
+            })
+            ok, errors = validate_project(tmp)
+            self.assertTrue(ok, errors)
+
+
 class TestValidateDecisions(unittest.TestCase):
     """validate_decisions(doc, state, evidence_doc=None) -> (ok, errors)"""
 
