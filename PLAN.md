@@ -1,14 +1,14 @@
 # The Forge — Progress & Roadmap
 
-## Current Status: v3.2 Wave 2 SHIPPED — Cabinet mechanics live on main
+## Current Status: v3.2 Wave 3 SHIPPED — Cabinet visualization live on main
 
 **GitHub:** https://github.com/elden-studios/the-forge
-**Last release:** 2026-04-17 (v3.2 Cabinet Wave 2 — Mechanics)
-**Previous releases:** Wave 1 (2026-04-17), v3.1 Evidence Pipes (2026-04-17 `7c02d85`)
-**Tests:** 235/235 green
+**Last release:** 2026-04-17 (v3.2 Cabinet Wave 3 — Visualization)
+**Previous releases:** Wave 3 (2026-04-17), Wave 2 (2026-04-17), Wave 1 (2026-04-17), v3.1 Evidence Pipes (2026-04-17 `7c02d85`)
+**Tests:** 356/356 green
 **Changelog:** see [`CHANGELOG.md`](CHANGELOG.md)
 
-**What's next:** Wave 3 (Visual) — Executive Suite pixel office room + Dashboard Cabinet block + Decisions tab + Pre-Mortem heatmap widget + live end-to-end run. See v3.2 Wave 3 section below.
+**What's next:** Sub-projects A (hierarchy tree visualization), C (subagent delegation), D (context system / project-level memory), E (tools & platforms catalog). Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`. See "After v3.2" section below.
 
 ---
 
@@ -82,15 +82,20 @@ Decision Log lifecycle + Pre-Mortem + Cabinet Framing schema validation + operat
 
 See `docs/superpowers/plans/2026-04-17-v3.2-cabinet-wave2-mechanics.md`.
 
-### Wave 3 — Visual (queued)
+### Wave 3 — Visualization (SHIPPED 2026-04-17) ✅
 
-- Pixel office Executive Suite boardroom (new top-right room with 5-chair conference table)
-- Legal, Finance, Product pixel dept rooms
-- Cabinet block on Mission Control tab (verdict / artifacts / pre-mortem risks)
-- Decisions tab (tab 6) with filter by project/reversibility/status/decider, sort by review_at, export MD/CSV/JSON
-- Pre-Mortem 5×5 heatmap widget
-- C-Suite walk-to-boardroom animation (Cabinet-dispatched / Cabinet-arrived events)
-- Live end-to-end run — project brief through full v3.2 flow (Task 14-style), documented in `docs/superpowers/runs/`
+Pixel office expansion + full dashboard visualization for the Cabinet layer + live end-to-end simulation run. The v3.2 Cabinet expansion is now visually rendered on the office canvas and dashboard, wired end-to-end from simulation driver through state → validator → Mission Control → Decisions tab.
+
+- **Pixel office** — grid expanded 3×2 → 3×3 to accommodate Product / Legal / Finance department rooms; Executive Suite boardroom added top-right (960×928 canvas) with conference table and 5 chair sprites; new `cabinet_dispatched` / `cabinet_arrived` animation events with `routeCabinet` helper and `cabinet_seated` sprite state
+- **Mission Control Cabinet block** — verdict card + 5 lens cards (strategic_kernel / product_shape / build_class / economic_shape / market_bet) + top 3 pre-mortem risks + 5×5 heatmap widget
+- **Decisions tab (tab 6)** — filters (project / reversibility / status / decider / free-text search), sort by review_at (toggleable), exports MD/CSV/JSON
+- **Library Task 0** — pure `append_decision(doc, decision)` with upsert semantics, persistence wrappers (`close_decision_persist`, `reverse_decision_persist`), query helpers (`query_by_project`, `query_by_status`, `query_due_soon`, `query_sorted_by_review_at`), `heatmap_buckets` 5×5 aggregation — closed 3 deferred Wave 2 Important items (I1/I2/I4)
+- **Foundation Code Review Gate passed** — 2 Criticals addressed (SKILL.md signature debt, verdict filter for committed/reviewed decisions), 2 Importants addressed (first-paint flicker when decisionsDoc null, silent mirror-write failure logging), remaining polish items deferred to Wave 4 cleanup
+- **Live simulation run** — Saudi EdTech end-to-end flow documented at `docs/superpowers/runs/2026-04-17-saudi-edtech-brief/` — produces valid Cabinet Framing + Pre-Mortem + Decision Log entry, validator OK, dashboard renders populated blocks
+
+**356 tests green** (+121 new: decisions_orchestrator_wave3, office_template_layout, dashboard_cabinet_block, dashboard_decisions_tab). **18 commits** on branch `v3.2-cabinet-wave3` from plan (`ef773a2`) through Saudi EdTech run (`0795630`).
+
+See `docs/superpowers/plans/2026-04-17-v3.2-cabinet-wave3-visual.md`.
 
 ### After v3.2 — queued sub-projects per roadmap
 
@@ -110,6 +115,15 @@ Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`.
 - **Dashboard polish** — Network Graph / Kanban / Timeline tabs enriched with Evidence+Cabinet data; agent-performance over-time mini-dashboard; project-replay mode
 
 ---
+
+## Known non-blocking follow-ups from v3.2 Wave 3 reviews
+
+- **I1 — persistence signature asymmetry:** `append_decision_persist(project_id, decision, path)` vs `close_decision_persist(path, ...)` / `reverse_decision_persist(path, ...)`. Harmonize to consistent `(path, ...)` shape in Wave 4 cleanup.
+- **M1 — timezone import dedup:** module-level `from datetime import timezone` in `tools/decisions_orchestrator.py`; several functions re-import locally.
+- **M2 — integration test:** no single test walks pre_mortem → heatmap_buckets → Decision Log → dashboard render end-to-end. Unit coverage is strong; add one integration test in Wave 4.
+- **M3 — `exportDecisionsMd` markdown escape hardening:** user-supplied strings (project names, rationale) are not escaped; risk is cosmetic markdown breakage, not XSS.
+- **M4 — `getAgentName` / `agentName` duplication:** helper present in both `dashboard.html` and `dashboard-decisions.js`; consolidate.
+- **M5–M7 — file-split threshold watch:** `office-template.html` and `dashboard.html` are approaching the reviewer's comfort threshold. Track growth in Wave 4.
 
 ## Known non-blocking follow-ups from v3.1 reviews
 
@@ -133,7 +147,7 @@ Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`.
 ## Key commands
 
 ```bash
-# Run full Python test suite (235 tests — 151 Evidence Pipes + 14 v3.2 W1 + 70 v3.2 W2)
+# Run full Python test suite (356 tests — 151 Evidence Pipes + 14 v3.2 W1 + 70 v3.2 W2 + 121 v3.2 W3)
 python3 -m unittest discover tests -v
 
 # Validate all state/tasks/evidence files
