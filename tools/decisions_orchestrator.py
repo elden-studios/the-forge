@@ -91,29 +91,88 @@ def _atomic_write_json(path, doc):
         raise
 
 
-def append_decision(project_id, decision, decisions_path):
-    """Persist a decision to forge-decisions.json atomically.
+def append_decision(doc, decision):
+    """Append a decision to the doc's decisions array with upsert semantics.
+
+    Mutates doc in-place. No I/O. Also maintains doc['project_decision_index']
+    for the decision's project_id.
+
+    Upsert (dedup) rules — a no-op occurs when ANY of these matches an existing entry:
+    (a) Same 'id' as an existing entry (historical W2 behavior — dedup by id).
+    (b) Same (title, decided_by, project_id) triple AND |decided_at_delta| < 60s
+        (Wave 3 addition — prevents simulation-driver reruns from accumulating
+        near-duplicate entries).
+
+    The 60s window is the time skew a repeated simulation run produces when the
+    human operator re-invokes the driver within a minute. Genuine follow-up
+    decisions on the same topic land at different minutes and are preserved.
+
+    Wave 3 — Task 0.1.
+    """
+    # Rule (a) — id-based dedup (existing W2 behavior preserved at the pure layer)
+    existing_ids = {d.get("id") for d in doc.get("decisions", [])}
+    if decision.get("id") in existing_ids:
+        return
+
+    # Rule (b) — upsert collapse within 60s on (title, decided_by, project_id)
+    incoming_key = (decision.get("title"), decision.get("decided_by"), decision.get("project_id"))
+    if all(x is not None for x in incoming_key):
+        try:
+            incoming_dt = _parse_iso(decision["decided_at"])
+        except (ValueError, TypeError, KeyError, AttributeError):
+            incoming_dt = None
+        if incoming_dt is not None:
+            for existing in doc.get("decisions", []):
+                existing_key = (
+                    existing.get("title"),
+                    existing.get("decided_by"),
+                    existing.get("project_id"),
+                )
+                if existing_key != incoming_key:
+                    continue
+                try:
+                    existing_dt = _parse_iso(existing["decided_at"])
+                except (ValueError, TypeError, KeyError, AttributeError):
+                    continue
+                if abs((incoming_dt - existing_dt).total_seconds()) < 60:
+                    return  # no-op: upsert collapse
+
+    # Append
+    doc.setdefault("decisions", []).append(decision)
+
+    # Maintain project_decision_index
+    pid = decision.get("project_id")
+    if pid:
+        index = doc.setdefault("project_decision_index", {})
+        current = set(index.get(pid, []))
+        current.add(decision["id"])
+        index[pid] = sorted(current)
+
+
+def append_decision_persist(project_id, decision, decisions_path):
+    """Persist a decision to forge-decisions.json atomically (I/O wrapper around append_decision).
 
     Atomically writes to the primary path AND mirrors to <parent>/assets/<basename>
     when that sibling directory exists — the live dashboard reads from assets/
     via the local http.server, so the mirror prevents split-brain UX where the
     backend writes decisions but the UI shows 0.
 
-    Updates project_decision_index[project_id] to include the new decision id,
-    extending (not replacing) any existing list. Deduped by id.
+    Delegates the in-memory mutation (append + project_decision_index update +
+    upsert dedup) to the pure append_decision(doc, decision). Any caller that
+    wants pure semantics can use append_decision() directly.
     """
     with open(decisions_path) as f:
         doc = _json.load(f)
 
-    existing_ids = {d["id"] for d in doc.get("decisions", [])}
-    if decision["id"] not in existing_ids:
-        doc["decisions"].append(decision)
-        existing_ids.add(decision["id"])
+    # Ensure the incoming decision carries the project_id so the pure function
+    # can update project_decision_index[project_id] without needing the separate
+    # argument (and without breaking backward compat — any existing callers pass
+    # project_id separately but also include it inside the decision dict per the
+    # Wave 2 schema).
+    if decision.get("project_id") != project_id:
+        decision = dict(decision, project_id=project_id)
 
-    index = doc.setdefault("project_decision_index", {})
-    current = set(index.get(project_id, []))
-    current.add(decision["id"])
-    index[project_id] = sorted(current)
+    append_decision(doc, decision)
 
     _atomic_write_json(decisions_path, doc)
 

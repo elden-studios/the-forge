@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.join(REPO, "tools"))
 from decisions_orchestrator import (  # noqa: E402
     new_decision_id,
     compute_review_at,
-    append_decision,
+    append_decision_persist,
 )
 from validator import validate_project  # noqa: E402
 
@@ -93,7 +93,7 @@ def create_cabinet_verdict_decision(project_id, project_title, forge_decisions_p
         "related_evidence": [],
         "status": "open",
     }
-    append_decision(project_id, decision, forge_decisions_path)
+    append_decision_persist(project_id, decision, forge_decisions_path)
     return decision
 
 

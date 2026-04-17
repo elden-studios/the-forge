@@ -99,7 +99,7 @@ import tempfile
 
 class TestAppendDecision(unittest.TestCase):
     def test_appends_to_empty_file(self):
-        from decisions_orchestrator import append_decision
+        from decisions_orchestrator import append_decision_persist
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "forge-decisions.json")
             with open(path, "w") as f:
@@ -120,7 +120,7 @@ class TestAppendDecision(unittest.TestCase):
                 "related_evidence": [],
                 "status": "open"
             }
-            append_decision("proj-test", decision, path)
+            append_decision_persist("proj-test", decision, path)
 
             with open(path) as f:
                 doc = json.load(f)
@@ -128,7 +128,7 @@ class TestAppendDecision(unittest.TestCase):
             self.assertEqual(doc["project_decision_index"]["proj-test"], ["dec-00000001"])
 
     def test_existing_project_decisions_extend_not_replace(self):
-        from decisions_orchestrator import append_decision
+        from decisions_orchestrator import append_decision_persist
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "forge-decisions.json")
             with open(path, "w") as f:
@@ -144,7 +144,7 @@ class TestAppendDecision(unittest.TestCase):
                 "review_at": "2026-05-17T00:00:00Z", "project_id": "proj-x",
                 "related_evidence": [], "status": "open"
             }
-            append_decision("proj-x", new_decision, path)
+            append_decision_persist("proj-x", new_decision, path)
 
             with open(path) as f:
                 doc = json.load(f)
@@ -155,7 +155,7 @@ class TestAppendDecision(unittest.TestCase):
 
     def test_append_decision_mirrors_to_assets_when_next_to_root(self):
         """When forge-decisions.json lives next to assets/, mirror atomically."""
-        from decisions_orchestrator import append_decision
+        from decisions_orchestrator import append_decision_persist
         with tempfile.TemporaryDirectory() as tmp:
             root_path = os.path.join(tmp, "forge-decisions.json")
             with open(root_path, "w") as f:
@@ -174,7 +174,7 @@ class TestAppendDecision(unittest.TestCase):
                 "review_at": "2026-07-16T00:00:00Z", "project_id": "proj-mirror",
                 "related_evidence": [], "status": "open"
             }
-            append_decision("proj-mirror", decision, root_path)
+            append_decision_persist("proj-mirror", decision, root_path)
 
             with open(root_path) as f:
                 root_doc = json.load(f)
@@ -189,7 +189,7 @@ class TestAppendDecision(unittest.TestCase):
 
     def test_append_decision_no_mirror_when_assets_missing(self):
         """If no assets/ sibling exists, no mirror is attempted — must not crash."""
-        from decisions_orchestrator import append_decision
+        from decisions_orchestrator import append_decision_persist
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "forge-decisions.json")
             with open(path, "w") as f:
@@ -202,7 +202,7 @@ class TestAppendDecision(unittest.TestCase):
                 "review_at": "2026-05-17T00:00:00Z", "project_id": "proj-solo",
                 "related_evidence": [], "status": "open"
             }
-            append_decision("proj-solo", decision, path)
+            append_decision_persist("proj-solo", decision, path)
             with open(path) as f:
                 doc = json.load(f)
             self.assertEqual(len(doc["decisions"]), 1)
@@ -210,7 +210,7 @@ class TestAppendDecision(unittest.TestCase):
     def test_append_decision_is_atomic(self):
         """Persistence must survive mid-write failure — tempfile + rename pattern."""
         import glob
-        from decisions_orchestrator import append_decision
+        from decisions_orchestrator import append_decision_persist
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "forge-decisions.json")
             with open(path, "w") as f:
@@ -223,7 +223,7 @@ class TestAppendDecision(unittest.TestCase):
                 "review_at": "2026-07-16T00:00:00Z", "project_id": "proj-atomic",
                 "related_evidence": [], "status": "open"
             }
-            append_decision("proj-atomic", decision, path)
+            append_decision_persist("proj-atomic", decision, path)
             tmps = glob.glob(os.path.join(tmp, "*.tmp"))
             self.assertEqual(tmps, [], f"stray tmp files: {tmps}")
 
