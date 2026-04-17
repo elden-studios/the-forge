@@ -158,7 +158,8 @@
       },
       "status": "active",
       "hired": "2026-04-06",
-      "role": "ic"
+      "role": "ic",
+      "reports_to": "agent-cade"
     },
     {
       "id": "agent-nyxx",
@@ -207,7 +208,8 @@
       },
       "status": "active",
       "hired": "2026-04-06",
-      "role": "ic"
+      "role": "ic",
+      "reports_to": "agent-cade"
     },
     {
       "id": "agent-renn",
@@ -259,7 +261,8 @@
       },
       "status": "active",
       "hired": "2026-04-06",
-      "role": "ic"
+      "role": "ic",
+      "reports_to": "agent-cade"
     },
     {
       "id": "agent-taln",
@@ -445,7 +448,8 @@
       },
       "status": "active",
       "hired": "2026-04-06",
-      "role": "ic"
+      "role": "ic",
+      "reports_to": "agent-cade"
     },
     {
       "id": "agent-echo",
@@ -490,7 +494,8 @@
       },
       "status": "active",
       "hired": "2026-04-06",
-      "role": "ic"
+      "role": "ic",
+      "reports_to": "agent-cade"
     },
     {
       "id": "agent-cade",
@@ -809,5 +814,14 @@
   "active_event": {},
   "evidence_pipes": {
     "enabled": true
+  },
+  "cabinet": {
+    "executives": [
+      "agent-flnt",
+      "agent-cade",
+      "agent-helx",
+      "agent-prsm",
+      "agent-dune"
+    ]
   }
 }
