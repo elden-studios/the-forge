@@ -179,6 +179,66 @@ Wait for the user to approve, request changes, or reject. On approval:
 
 ---
 
+## Evidence Pipes
+
+When `evidence_pipes.enabled` is `true` in `forge-state.json` (default), Phase 2 (Intelligence) runs in **parallel-dispatch mode**. The four **evidence agents** — Vex, Nyx, Echo, Talon — fan out as independent subagents, each running real WebSearch (and Chrome MCP in phase 2) against their sub-brief. Every `[FACT]` tag in the final deliverable must reference a valid Evidence ID or it gets stripped.
+
+See `references/evidence-pipes-spec.md` for the full operator protocol.
+
+### When to dispatch
+
+- Brief has substantive research questions (not a trivial "show office" / "team roster" command)
+- At least one evidence agent scores ≥ 2 via `evidence_orchestrator.score_agent_relevance()`
+- `evidence_pipes.enabled` is not `false` in state
+- User didn't say "no evidence" / "skip research" / "just use existing knowledge"
+
+### The dispatch flow
+
+1. Read `forge-state.json` — confirm `evidence_pipes.enabled` and check the 4 evidence agents' status
+2. For each of the 4 evidence agents, call `evidence_orchestrator.score_agent_relevance(agent_id, brief)`. Activate agents scoring ≥ 2.
+3. For each activated agent, generate a sub-brief using `evidence_orchestrator.generate_sub_brief(agent_id, brief)`.
+4. Dispatch all activated sub-briefs **in parallel** via `superpowers:dispatching-parallel-agents`. Each subagent must return a structured JSON envelope:
+   ```json
+   {
+     "agent_id": "agent-vexx",
+     "evidence": [<Evidence objects with full schema>],
+     "recommendation": "<paragraph>",
+     "confidence": 0.78,
+     "queried_count": 6,
+     "quality_avg": 3.8,
+     "gaps": ["<question they couldn't answer with evidence>"]
+   }
+   ```
+5. Fan-in merge: `bundle = evidence_orchestrator.merge_returns(returns)`.
+6. Persist to disk: `evidence_orchestrator.append_evidence(project_id, bundle, "forge-evidence.json")`. The helper atomically writes to the project root AND mirrors to `assets/forge-evidence.json` so the live dashboard stays in sync.
+7. Detect conflicts: `evidence_conflict.detect_conflicts(bundle["evidence"])`. Surface any into Phase 3 (War Room) for resolution.
+8. Before writing the final deliverable, call `evidence_orchestrator.strip_unsupported_claims(draft_text, valid_ids)` on every agent contribution — `[FACT]` without a valid Evidence ID becomes `[UNSUPPORTED — dropped by validator]`.
+9. Render the deliverable with `evidence_appendix.render_summary_block(...)` above the recommendation and `evidence_appendix.render_compact(evidence)` as the Sources Appendix. Export via `render_markdown` when the user asks for a shareable version.
+
+### Failure modes
+
+- **Subagent error / timeout:** note `⚠ <Agent> unavailable — proceeding without <domain> data` in the deliverable. Don't fabricate.
+- **Malformed Evidence JSON in return:** `tools/validator.validate_evidence()` catches; re-prompt the subagent once, then flag.
+- **Saudi-specific query returns zero usable results:** agent falls back to persona-reasoned claims tagged `[OPINION]`, never invent `[FACT]`.
+- **Total budget exhausted:** stop dispatching, deliver with `⚠ Budget exhausted` note.
+
+### Budgets
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| Total queries per brief | 40 | Cost cap |
+| Per-agent queries | 8 | Force focus |
+| Wall-clock deadline | 4 min | Prevent hang |
+| Chrome MCP concurrent tabs (phase 2) | 5 | Local resource |
+| Chrome MCP pages per brief (phase 2) | 15 | Cost cap |
+
+### Kill switch
+
+- In `forge-state.json`: `"evidence_pipes": { "enabled": false }` → v3.0 sequential behavior, zero pipe cost
+- User phrase: "no evidence" / "skip pipes" / "just use existing knowledge" → skip dispatch for this brief only
+
+---
+
 ## Collaboration Protocol
 
 When the user sends a project brief, question, or any product challenge, route it through the active agents.
@@ -203,9 +263,10 @@ Skip the multi-agent protocol. The sole agent delivers:
 
 ### Multi-Agent Mode (2+ active agents)
 1. **Intake**: Each relevant agent independently assesses the prompt (parallel)
-2. **Synthesis Round**: Each agent presents structured perspective (Assessment, Key Insight, Recommendation, optional Handoff Request)
-3. **Meeting Room** (if 2+ agents conflict): Structured debate, max 2 rounds, then resolution
-4. **Final Deliverable**: Executive summary → agent contributions → meeting transcript (if any) → consolidated recommendation → gaps & hire suggestions → next steps
+2. **Phase 2 (Intelligence):** now runs via parallel dispatch when pipes are enabled. See the "Evidence Pipes" section above. Sequential v3.0 behavior preserved when `evidence_pipes.enabled: false`.
+3. **Synthesis Round**: Each agent presents structured perspective (Assessment, Key Insight, Recommendation, optional Handoff Request)
+4. **Meeting Room** (if 2+ agents conflict): Structured debate, max 2 rounds, then resolution
+5. **Final Deliverable**: Executive summary → agent contributions → meeting transcript (if any) → consolidated recommendation → gaps & hire suggestions → next steps
 
 ### Dynamic Routing
 - When any agent's output touches another agent's domain → auto-loop them in
@@ -246,6 +307,11 @@ Every skill response must include these sections (scale each to its relevance):
 4. **Consolidated Recommendation** — the unified output, action items tagged by owning agent
 5. **Suggested Next Steps** — what to explore next, which agents to involve, follow-up questions, hire suggestions if gaps were found
 
+When Evidence Pipes fired:
+- When Evidence was gathered, deliverable includes an EVIDENCE SUMMARY block (use `evidence_appendix.render_summary_block`) above the recommendation.
+- Deliverable ends with a Sources Appendix (use `evidence_appendix.render_compact` inline, `render_markdown` for export).
+- Every `[FACT]` / `[INFERENCE]` must reference a valid Evidence ID or be downgraded to `[OPINION]`. The validator strips non-compliant claims automatically.
+
 For simple commands (show office, team roster), skip sections that don't apply.
 
 ---
@@ -260,6 +326,7 @@ These are non-negotiable. Every output must meet these bars:
 - **Saudi specificity**: Any agent with KSA focus must cite Vision 2030, local platforms (Absher, Nafath, Tawakkalna), Saudi payment ecosystems (Mada, STC Pay), Arabic UX patterns, Ramadan seasonality — never generic "Middle East" advice.
 - **No filler**: Every sentence must be actionable or insightful. No placeholder content, no padding, no "it depends" without a framework for deciding.
 - **Delightful visualization**: The pixel office should make the user smile. It's a key part of the experience.
+- **No citation, no claim.** Every `[FACT]` or `[INFERENCE]` must reference a valid Evidence ID. The validator strips non-compliant claims; agents must re-run queries or downgrade the claim to `[OPINION]`.
 
 ---
 

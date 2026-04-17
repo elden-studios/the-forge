@@ -509,5 +509,8 @@
       "retro_lesson": "Always ask if product is greenfield or existing in Phase 1 intake."
     }
   ],
-  "active_event": {}
+  "active_event": {},
+  "evidence_pipes": {
+    "enabled": true
+  }
 }

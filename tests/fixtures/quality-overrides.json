@@ -1,0 +1,6 @@
+{
+  "rules": [
+    {"pattern": "westlaw\\.com", "score": 4, "type": "primary_company"},
+    {"pattern": "my-internal-wiki\\.corp", "score": 3, "type": "analyst"}
+  ]
+}

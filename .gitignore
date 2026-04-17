@@ -1,0 +1,3 @@
+# Evidence cache (user-local, gitignored)
+assets/.forge-cache/*
+!assets/.forge-cache/.gitkeep

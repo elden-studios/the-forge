@@ -78,6 +78,29 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 .empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
 .empty-state h2{font-family:'Press Start 2P',monospace;color:var(--brand);font-size:16px;margin-bottom:12px}
 .empty-state p{font-size:14px;max-width:400px;margin:0 auto}
+
+/* Evidence block */
+.evidence-block{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px}
+.evidence-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.evidence-header span:first-child{font-weight:600;color:var(--text)}
+.ev-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.ev-metric .metric-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.ev-metric .metric-value{font-size:18px;font-weight:600;color:var(--text)}
+.ev-freshness{display:flex;gap:10px;margin-top:10px;font-size:11px;flex-wrap:wrap}
+.agent-fresh{color:var(--muted)}
+
+/* Sources tab */
+.sources-toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.sources-toolbar input,.sources-toolbar select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:5px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;border-radius:4px}
+.sources-toolbar input{flex:1;min-width:180px}
+.sources-toolbar button{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;border-radius:4px;cursor:pointer}
+.sources-toolbar button:hover{color:var(--text);border-color:var(--brand)}
+#src-table{width:100%;border-collapse:collapse;font-size:12px}
+#src-table th{text-align:left;padding:6px 8px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border)}
+#src-table td{padding:5px 8px;border-bottom:1px solid var(--border)}
+#src-table tr:hover td{background:var(--card)}
+#src-table a{color:var(--blue);text-decoration:none}
+#src-table a:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -93,11 +116,42 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
   <div class="tab" onclick="switchTab('network')">Network Graph</div>
   <div class="tab" onclick="switchTab('kanban')">Kanban Board</div>
   <div class="tab" onclick="switchTab('timeline')">Timeline</div>
+  <div class="tab" id="tab-sources" onclick="switchTab('sources')">Sources</div>
 </div>
 
 <div class="content">
   <!-- Mission Control -->
   <div class="panel active" id="panel-mc">
+    <div class="evidence-block">
+      <div class="evidence-header">
+        <span>Evidence</span>
+        <span id="evidence-status">—</span>
+      </div>
+      <div class="ev-metrics">
+        <div class="ev-metric">
+          <div class="metric-label">Queries</div>
+          <div class="metric-value" id="ev-queries">0 / 40</div>
+        </div>
+        <div class="ev-metric">
+          <div class="metric-label">Sources cited</div>
+          <div class="metric-value" id="ev-cited">0</div>
+        </div>
+        <div class="ev-metric">
+          <div class="metric-label">Avg quality</div>
+          <div class="metric-value" id="ev-quality">— ★</div>
+        </div>
+        <div class="ev-metric">
+          <div class="metric-label">Cache hit rate</div>
+          <div class="metric-value" id="ev-cache">—</div>
+        </div>
+      </div>
+      <div class="ev-freshness" id="ev-freshness">
+        <span class="agent-fresh" data-agent="Vex">● Vex</span>
+        <span class="agent-fresh" data-agent="Nyx">● Nyx</span>
+        <span class="agent-fresh" data-agent="Echo">● Echo</span>
+        <span class="agent-fresh" data-agent="Talon">● Talon</span>
+      </div>
+    </div>
     <div class="mc-grid" id="mcGrid"></div>
   </div>
 
@@ -117,6 +171,47 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
   <div class="panel" id="panel-timeline">
     <div class="timeline-container" id="timelineView"></div>
   </div>
+
+  <!-- Sources -->
+  <div class="panel" id="panel-sources">
+    <div class="sources-toolbar">
+      <input id="src-search" placeholder="Search claim or source title…"/>
+      <select id="src-tier"><option value="">All tiers</option><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select>
+      <select id="src-agent">
+        <option value="">All agents</option>
+        <option value="agent-vexx">Vex</option>
+        <option value="agent-nyxx">Nyx</option>
+        <option value="agent-echo">Echo</option>
+        <option value="agent-taln">Talon</option>
+      </select>
+      <select id="src-fresh">
+        <option value="">All freshness</option>
+        <option value="fresh">Fresh</option>
+        <option value="stale">Stale</option>
+        <option value="refetch">Refetch</option>
+      </select>
+      <button id="src-export-md">Export MD</button>
+      <button id="src-export-csv">Export CSV</button>
+      <button id="src-export-json">Export JSON</button>
+      <span id="src-count" style="color:var(--muted);font-size:11px;margin-left:auto;white-space:nowrap">0 results</span>
+    </div>
+    <table id="src-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Claim</th>
+          <th>Source</th>
+          <th>Tier</th>
+          <th>Agent</th>
+          <th>Retrieved</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="src-empty" style="text-align:center;padding:40px;color:var(--muted);display:none;">
+      No evidence yet. Run a brief with pipes enabled.
+    </div>
+  </div>
 </div>
 
 <script>
@@ -127,6 +222,20 @@ let STATE = null, TASKS = null;
 const PHASE_NAMES = ['Intake','Intelligence','War Room','Architecture','GTM','Challenge','Delivery','Retro'];
 const PHASE_COLORS = ['#C04040','#9B59B6','#D4763A','#4080C0','#2ECC71','#C04040','#D4763A','#8A8070'];
 
+function applyEvidencePipesVisibility(state) {
+  const enabled = !(state && state.evidence_pipes && state.evidence_pipes.enabled === false);
+  // Evidence block on MC
+  const evBlock = document.querySelector('.evidence-block');
+  if (evBlock) evBlock.style.display = enabled ? '' : 'none';
+  // Sources tab button + panel
+  document.querySelectorAll('[data-tab="sources"], #tab-sources').forEach(el => {
+    el.style.display = enabled ? '' : 'none';
+  });
+  // Also handle a Sources panel wrapped differently
+  const sourcesTab = document.getElementById('panel-sources');
+  if (sourcesTab) sourcesTab.style.display = enabled ? '' : 'none';
+}
+
 async function loadData() {
   try {
     const [sr, tr] = await Promise.all([
@@ -136,6 +245,7 @@ async function loadData() {
     if (sr) STATE = await sr.json();
     if (tr) TASKS = await tr.json();
   } catch(e) { console.error('Load error:', e); }
+  applyEvidencePipesVisibility(STATE);
   render();
 }
 
@@ -157,11 +267,12 @@ function getAgentStatus(id) {
 // ═══════════════════════════════════════
 function switchTab(id) {
   document.querySelectorAll('.tab').forEach((t,i) => {
-    t.classList.toggle('active', ['mc','network','kanban','timeline'][i] === id);
+    t.classList.toggle('active', ['mc','network','kanban','timeline','sources'][i] === id);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
   if (id === 'network') renderNetwork();
+  if (id === 'sources') fetchEvidence().then(d => renderSourcesTab(d || { evidence: [] }));
 }
 
 // ═══════════════════════════════════════
@@ -462,10 +573,175 @@ function renderNetwork() {
 }
 
 // ═══════════════════════════════════════
+// EVIDENCE PIPES — fetch + render
+// ═══════════════════════════════════════
+let _evidenceDoc = { evidence: [] };
+
+async function fetchEvidence() {
+  try {
+    const res = await fetch('forge-evidence.json?' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) { renderEvidenceBlock(_evidenceDoc); return null; }
+    const doc = await res.json();
+    _evidenceDoc = doc;
+    renderEvidenceBlock(doc);
+    // Update sources tab if visible
+    const sp = document.getElementById('panel-sources');
+    if (sp && sp.classList.contains('active')) renderSourcesTab(doc);
+    return doc;
+  } catch(e) {
+    renderEvidenceBlock(_evidenceDoc);
+    return null;
+  }
+}
+
+function renderEvidenceBlock(doc) {
+  const items = doc.evidence || [];
+  const total = items.length;
+  const avg = total ? (items.reduce((a, x) => a + (x.quality_score || 0), 0) / total) : 0;
+
+  const queriesEl = document.getElementById('ev-queries');
+  const citedEl   = document.getElementById('ev-cited');
+  const qualityEl = document.getElementById('ev-quality');
+  const cacheEl   = document.getElementById('ev-cache');
+  const statusEl  = document.getElementById('evidence-status');
+
+  if (queriesEl) queriesEl.textContent = `${total} / 40`;
+  if (citedEl)   citedEl.textContent   = total;
+  if (qualityEl) qualityEl.textContent = total ? `${avg.toFixed(1)} ★` : '— ★';
+  if (cacheEl)   cacheEl.textContent   = '—'; // cache hit rate tracked in future
+  if (statusEl)  statusEl.textContent  = total ? `${total} item${total !== 1 ? 's' : ''}` : 'empty';
+
+  // Freshness dots per evidence agent
+  const agentMap = { Vex: 'agent-vexx', Nyx: 'agent-nyxx', Echo: 'agent-echo', Talon: 'agent-taln' };
+  Object.entries(agentMap).forEach(([name, id]) => {
+    const agentItems = items.filter(i => (i.retrieved_by || []).includes(id));
+    const el = document.querySelector(`.agent-fresh[data-agent="${name}"]`);
+    if (!el) return;
+    if (!agentItems.length) { el.style.color = 'var(--muted)'; return; }
+    const ages = agentItems.map(i => (Date.now() - new Date(i.retrieved_at).getTime()) / (1000 * 60 * 60 * 24));
+    const worst = Math.max(...ages);
+    el.style.color = worst > 180 ? 'var(--red)' : worst > 90 ? 'var(--yellow)' : 'var(--green)';
+  });
+}
+
+// ═══════════════════════════════════════
+// SOURCES TAB — render, filter, export
+// ═══════════════════════════════════════
+function freshnessBucket(it) {
+  // Kept in sync with tools/evidence_freshness.py FRESHNESS_RULES
+  const rules = {
+    primary_government: [180, 730], primary_company: [90, 365],
+    analyst: [365, 1095], reputable_media: [180, 730],
+    user_reviews: [30, 180], community: [30, 180], blog: [90, 365],
+  };
+  const [stale, refetch] = rules[it.source_type] || rules.blog;
+  const age = (Date.now() - new Date(it.retrieved_at).getTime()) / 86400000;
+  if (age >= refetch) return 'refetch';
+  if (age >= stale) return 'stale';
+  return 'fresh';
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+function safeUrl(u) {
+  // Only allow http(s) and the local:// scheme used by the evidence cache.
+  // Anything else (javascript:, data:, file:, …) becomes '#' to prevent XSS.
+  const s = String(u ?? '').trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^local:\/\//i.test(s)) return s;
+  return '#';
+}
+
+function renderSourcesTab(doc) {
+  const items = doc.evidence || [];
+  const q     = (document.getElementById('src-search') || {}).value?.toLowerCase() || '';
+  const tier  = (document.getElementById('src-tier')   || {}).value || '';
+  const agent = (document.getElementById('src-agent')  || {}).value || '';
+  const fresh = (document.getElementById('src-fresh')  || {}).value || '';
+
+  const filtered = items.filter(it => {
+    if (q && !((it.claim || '') + (it.source_title || '')).toLowerCase().includes(q)) return false;
+    if (tier  && String(it.quality_score) !== tier)               return false;
+    if (agent && !(it.retrieved_by || []).includes(agent))        return false;
+    if (fresh && freshnessBucket(it) !== fresh)                   return false;
+    return true;
+  });
+
+  const countEl = document.getElementById('src-count');
+  if (countEl) countEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
+
+  const tbody = document.querySelector('#src-table tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  filtered.forEach(it => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:monospace;color:var(--muted)">${escapeHtml(it.id)}</td>
+      <td>${escapeHtml(it.claim)}</td>
+      <td><a href="${safeUrl(it.source_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.source_title || it.source_url)}</a></td>
+      <td>${'★'.repeat(it.quality_score || 0)}</td>
+      <td>${escapeHtml((it.retrieved_by || []).join(', '))}</td>
+      <td style="color:var(--muted)">${escapeHtml((it.retrieved_at || '').slice(0, 10))}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  const empty = document.getElementById('src-empty');
+  if (empty) empty.style.display = filtered.length ? 'none' : 'block';
+}
+
+// Export helpers
+function downloadBlob(data, name, type) {
+  const blob = new Blob([data], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function exportMd(items) {
+  let md = '# Sources Appendix\n\n';
+  items.forEach(it => {
+    md += `- **[${it.id}] ${it.source_title || it.source_url}**\n`;
+    md += `  - ${it.source_url}\n`;
+    md += `  - Tier ${it.quality_score}, retrieved ${it.retrieved_at} by ${(it.retrieved_by||[]).join(', ')}\n`;
+    if (it.excerpt) md += `  - Excerpt: > ${it.excerpt}\n`;
+    md += '\n';
+  });
+  downloadBlob(md, 'sources-appendix.md', 'text/markdown');
+}
+function exportCsv(items) {
+  const rows = [['id','claim','source_url','source_title','source_type','quality_score','retrieved_at','retrieved_by']];
+  items.forEach(it => rows.push([it.id, it.claim, it.source_url, it.source_title, it.source_type, it.quality_score, it.retrieved_at, (it.retrieved_by||[]).join(';')]));
+  const csv = rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g,'""')}"`).join(',')).join('\n');
+  downloadBlob(csv, 'sources.csv', 'text/csv');
+}
+function exportJson(items) {
+  downloadBlob(JSON.stringify(items, null, 2), 'sources.json', 'application/json');
+}
+
+// Wire up filter listeners + export buttons (no DOMContentLoaded needed — script runs after body)
+(function wireSourcesTab() {
+  ['src-search','src-tier','src-agent','src-fresh'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', () => renderSourcesTab(_evidenceDoc));
+  });
+  const btnMd   = document.getElementById('src-export-md');
+  const btnCsv  = document.getElementById('src-export-csv');
+  const btnJson = document.getElementById('src-export-json');
+  if (btnMd)   btnMd.addEventListener('click',   () => exportMd(_evidenceDoc.evidence || []));
+  if (btnCsv)  btnCsv.addEventListener('click',  () => exportCsv(_evidenceDoc.evidence || []));
+  if (btnJson) btnJson.addEventListener('click', () => exportJson(_evidenceDoc.evidence || []));
+})();
+
+// ═══════════════════════════════════════
 // AUTO-REFRESH
 // ═══════════════════════════════════════
 loadData();
 setInterval(loadData, 3000); // refresh every 3 seconds
+fetchEvidence();
+setInterval(fetchEvidence, 3000); // evidence refreshes alongside state/tasks
 </script>
 </body>
 </html>

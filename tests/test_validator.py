@@ -535,5 +535,203 @@ class TestRealProjectSmoke(unittest.TestCase):
         )
 
 
+class TestValidateEvidence(unittest.TestCase):
+    """validate_evidence(doc, state) -> (ok, errors)"""
+
+    def _doc(self, evidence=None, index=None):
+        return {
+            "evidence": evidence or [],
+            "project_evidence_index": index or {},
+        }
+
+    def _state(self, agent_ids=("agent-vexx",)):
+        return {
+            "agents": [{"id": a, "name": a, "status": "active"} for a in agent_ids]
+        }
+
+    def _ev(self, **kwargs):
+        base = {
+            "id": "ev-abc12345", "claim": "c", "source_url": "https://a.com",
+            "source_title": "t", "source_type": "primary_government",
+            "quality_score": 5, "retrieved_at": "2026-04-16T00:00:00Z",
+            "retrieved_by": ["agent-vexx"], "queried_via": "WebSearch",
+            "excerpt": "e", "confidence": 0.8, "signal_tag": "FACT",
+        }
+        base.update(kwargs)
+        return base
+
+    def test_empty_doc_passes(self):
+        from validator import validate_evidence
+        ok, errors = validate_evidence(self._doc(), self._state())
+        self.assertTrue(ok, errors)
+
+    def test_index_references_missing_evidence_fails(self):
+        from validator import validate_evidence
+        doc = self._doc(index={"proj-001": ["ev-ghost"]})
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("ev-ghost" in e for e in errors), errors)
+
+    def test_retrieved_by_references_missing_agent_fails(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(retrieved_by=["agent-ghost"])])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("agent-ghost" in e for e in errors), errors)
+
+    def test_quality_score_out_of_range_fails(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(quality_score=9)])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("quality_score" in e for e in errors), errors)
+
+    def test_confidence_out_of_range_fails(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(confidence=2.0)])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+
+    def test_bad_signal_tag_fails(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(signal_tag="MAYBE")])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+
+    def test_bad_source_type_fails(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(source_type="made-up")])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+
+    def test_malformed_retrieved_at_fails(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(retrieved_at="last tuesday")])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+
+    def test_malformed_source_url_fails(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(source_url="not a url")])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+
+    def test_local_scheme_url_allowed(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(source_url="local://cache/xyz.html")])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertTrue(ok, errors)
+
+    def test_duplicate_evidence_ids_fails(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(id="ev-dup12345"), self._ev(id="ev-dup12345")])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("ev-dup12345" in e and "duplicate" in e.lower() for e in errors), errors)
+
+    def test_retrieved_by_must_be_a_list(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(retrieved_by="agent-vexx")])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+        # Must produce ONE clear error, not N char-by-char errors
+        rb_errors = [e for e in errors if "retrieved_by" in e]
+        self.assertEqual(len(rb_errors), 1, f"expected one error, got: {rb_errors}")
+        self.assertIn("list", rb_errors[0].lower())
+
+    def test_retrieved_by_none_produces_clear_error(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(retrieved_by=None)])
+        ok, errors = validate_evidence(doc, self._state())
+        # None is acceptable — treated as empty (no agents attributed yet)
+        # OR produces exactly one clear error. Pin the current contract.
+        # Current code does `it.get("retrieved_by", []) or []` so None → empty → OK.
+        self.assertTrue(ok, f"None retrieved_by should be treated as empty, got: {errors}")
+
+    def test_missing_id_produces_clear_error(self):
+        from validator import validate_evidence
+        # Construct evidence dict without the 'id' key
+        ev = self._ev()
+        ev.pop("id", None)
+        doc = self._doc(evidence=[ev])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("missing" in e.lower() and "id" in e.lower() for e in errors),
+            f"expected clear 'missing id' error, got: {errors}",
+        )
+
+    def test_retrieved_at_with_fractional_seconds_is_accepted(self):
+        from validator import validate_evidence
+        doc = self._doc(evidence=[self._ev(retrieved_at="2026-04-16T14:32:00.123Z")])
+        ok, errors = validate_evidence(doc, self._state())
+        self.assertTrue(ok, f"fractional seconds should be accepted, got: {errors}")
+
+    def test_validate_project_validates_populated_evidence(self):
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "forge-state.json"), "w") as f:
+                json.dump({
+                    "company": {"name": "T", "founded": "2026-01-01"},
+                    "departments": [],
+                    "agents": [{"id": "agent-vexx", "name": "Vex", "status": "active"}],
+                }, f)
+            with open(os.path.join(tmp, "forge-evidence.json"), "w") as f:
+                json.dump({
+                    "evidence": [self._ev()],
+                    "project_evidence_index": {"proj-001": ["ev-abc12345"]},
+                }, f)
+            ok, errors = validate_project(tmp)
+            self.assertTrue(ok, errors)
+
+    def test_validate_project_loads_evidence_file_when_present(self):
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "forge-state.json"), "w") as f:
+                json.dump({
+                    "company": {"name": "T", "founded": "2026-01-01"},
+                    "departments": [], "agents": [],
+                }, f)
+            with open(os.path.join(tmp, "forge-evidence.json"), "w") as f:
+                json.dump({"evidence": [], "project_evidence_index": {}}, f)
+            ok, errors = validate_project(tmp)
+            self.assertTrue(ok, errors)
+
+    def test_validate_project_catches_malformed_evidence_json(self):
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "forge-state.json"), "w") as f:
+                json.dump({
+                    "company": {"name": "T", "founded": "2026-01-01"},
+                    "departments": [], "agents": [],
+                }, f)
+            with open(os.path.join(tmp, "forge-evidence.json"), "w") as f:
+                f.write("{ broken ]")
+            ok, errors = validate_project(tmp)
+            self.assertFalse(ok)
+            self.assertTrue(
+                any("forge-evidence.json" in e and "json" in e.lower() for e in errors),
+                errors,
+            )
+
+
+class TestCacheStatsCli(unittest.TestCase):
+    def test_cache_stats_flag_exits_zero_and_prints_stats(self):
+        from validator import main
+        buf = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "assets", ".forge-cache"))
+            with open(os.path.join(tmp, "assets", ".forge-cache", "abc.json"), "w") as f:
+                f.write('{"key":"abc","query":"q","results":[],"fetched_at":"2026-04-16T00:00:00Z","hits":0}')
+            with redirect_stdout(buf):
+                rc = main(["--cache-stats", tmp])
+            self.assertEqual(rc, 0)
+            output = buf.getvalue()
+            self.assertIn("entries", output.lower())
+            # Pin the actual count so a broken cache_stats() that always
+            # prints "0 entries" doesn't silently pass this test.
+            self.assertIn("1 entries", output)
+
+
 if __name__ == "__main__":
     unittest.main()

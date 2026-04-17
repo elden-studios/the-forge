@@ -665,6 +665,46 @@ class Scene {
         ctx.fillRect(bubbleX, bubbleY + bh - 2, dotW, 2);
       }
     });
+
+    // ── EVIDENCE PIPES v1 — dispatch / arrived overlays ──
+    L.agents.forEach(a => {
+      const an = this.anims[a.id];
+      const ap = L.agentPos[a.id];
+      if (!an || !ap || !an.evState) return;
+
+      const seated = (an.state === 'sitting' || an.state === 'working');
+      // Agent head position (same logic as drawAgentsAtDesks)
+      const ax = seated ? ap.x + 8 : an.sx;
+      const ay = seated ? ap.y - 30 : an.sy;
+
+      if (an.evState === 'dispatched') {
+        // Pulsing yellow [!] bubble above the agent
+        const pulse = (Math.sin(Date.now() / 300) + 1) / 2; // 0..1
+        ctx.save();
+        ctx.globalAlpha = 0.55 + pulse * 0.45;
+        // Bubble background
+        ctx.fillStyle = '#ffcc00';
+        ctx.fillRect(ax + CH_W * CPX / 2 - 7, ay - 18, 14, 12);
+        // Exclamation mark
+        ctx.fillStyle = '#1A1A2E';
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('!', ax + CH_W * CPX / 2, ay - 9);
+        ctx.restore();
+      }
+
+      if (an.evState === 'evidence_arrived') {
+        // Green glow around the desk outline
+        ctx.save();
+        ctx.shadowColor = '#55ff88';
+        ctx.shadowBlur = 14;
+        ctx.strokeStyle = '#55ff88';
+        ctx.lineWidth = 2;
+        // Desk bounds: surface top at ap.y, front panel ap.y+4 to ap.y+28, width 60, x from ap.x-4
+        ctx.strokeRect(ap.x - 4, ap.y - 14, 60, 46);
+        ctx.restore();
+      }
+    });
   }
 
   // ── FLOORS ──
@@ -1258,6 +1298,11 @@ class Scene {
       const slots=[{x:layout.hallCenter.x-30,y:layout.hallCenter.y-10},{x:layout.hallCenter.x+30,y:layout.hallCenter.y-10},{x:layout.hallCenter.x-30,y:layout.hallCenter.y+10},{x:layout.hallCenter.x+30,y:layout.hallCenter.y+10}];
       (ev.agents||[]).forEach((id,i)=>{if(scene.anims[id]&&slots[i])scene.sendWalk(id,slots[i].x,slots[i].y,'meeting',30)});
     }
+    // Evidence Pipes v1 — reset all evStates first, then apply current event
+    Object.values(scene.anims).forEach(a => { a.evState = null; });
+    if(ev.type==='dispatched')(ev.agents||[]).forEach(id=>{if(scene.anims[id])scene.anims[id].evState='dispatched'});
+    // Evidence Pipes v1 — evidence_arrived: evidence returned and merged
+    if(ev.type==='evidence_arrived')(ev.agents||[]).forEach(id=>{if(scene.anims[id])scene.anims[id].evState='evidence_arrived'});
   }
 
   const ac=layout.agents.length,dc=layout.depts.length;
