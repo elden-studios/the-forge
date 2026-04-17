@@ -4,11 +4,7 @@ Covers upsert semantics on the pure append_decision(doc, decision) entry point,
 persistence wrappers (close/reverse_decision_persist), query helpers, and
 heatmap bucket logic. Subsequent Wave 3 sub-tasks will extend this file.
 """
-import json
-import os
-import tempfile
 import unittest
-from datetime import datetime, timezone, timedelta
 
 from tools.decisions_orchestrator import (
     append_decision,
@@ -95,6 +91,31 @@ class TestAppendDecisionUpsert(unittest.TestCase):
         append_decision(doc, d)
         append_decision(doc, d)
         self.assertEqual(len(doc["decisions"]), 1)
+
+    def test_append_handles_mixed_tz_awareness_without_crashing(self):
+        """Regression: pure append must not crash when the doc has a naive decided_at
+        and the incoming decision is tz-aware (or vice versa). Both should be treated
+        as UTC for the 60s collapse comparison — matches compute_review_at convention.
+        """
+        doc = {
+            "decisions": [self._decision(id="dec-aaaaaaaa", decided_at="2026-04-17T10:31:24")],  # naive
+            "project_decision_index": {"proj-simulation": ["dec-aaaaaaaa"]},
+        }
+        # Incoming is tz-aware (Z); naive existing is treated as UTC, so delta = 6s → collapse
+        d_aware = self._decision(id="dec-bbbbbbbb", decided_at="2026-04-17T10:31:30Z")
+        append_decision(doc, d_aware)  # must not raise TypeError
+        self.assertEqual(len(doc["decisions"]), 1, "naive+aware within 60s should still collapse (treated as UTC)")
+        self.assertEqual(doc["decisions"][0]["id"], "dec-aaaaaaaa", "first-write-wins preserved")
+
+    def test_append_naive_vs_aware_beyond_60s_keeps_both(self):
+        """Regression flip-side: naive doc + tz-aware incoming, >60s apart → both stored."""
+        doc = {
+            "decisions": [self._decision(id="dec-aaaaaaaa", decided_at="2026-04-17T10:31:24")],  # naive
+            "project_decision_index": {"proj-simulation": ["dec-aaaaaaaa"]},
+        }
+        d_aware = self._decision(id="dec-bbbbbbbb", decided_at="2026-04-17T10:33:00Z")  # +96s
+        append_decision(doc, d_aware)
+        self.assertEqual(len(doc["decisions"]), 2)
 
 
 if __name__ == "__main__":

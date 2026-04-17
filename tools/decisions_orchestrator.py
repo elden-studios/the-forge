@@ -31,6 +31,20 @@ def _parse_iso(iso):
     return datetime.fromisoformat(iso.replace("Z", "+00:00"))
 
 
+def _to_naive_utc(dt):
+    """Return a naive-UTC datetime. Tz-aware inputs are converted to UTC
+    and stripped of tzinfo; naive inputs are returned as-is (assumed UTC
+    per project convention).
+
+    Used by append_decision to make datetime subtraction safe across
+    mixed aware/naive pairs. Matches compute_review_at's tz handling.
+    """
+    from datetime import timezone
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
 def _format_iso_utc(dt):
     """Format a datetime as ISO 8601 UTC with a Z suffix (matches retrieved_at style)."""
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -122,6 +136,11 @@ def append_decision(doc, decision):
         except (ValueError, TypeError, KeyError, AttributeError):
             incoming_dt = None
         if incoming_dt is not None:
+            # Normalize to naive-UTC so subtraction never crashes on mixed
+            # aware/naive pairs. Naive timestamps are treated as UTC, matching
+            # the convention used in compute_review_at and how the simulation
+            # driver emits Z-suffixed timestamps.
+            incoming_utc = _to_naive_utc(incoming_dt)
             for existing in doc.get("decisions", []):
                 existing_key = (
                     existing.get("title"),
@@ -134,7 +153,8 @@ def append_decision(doc, decision):
                     existing_dt = _parse_iso(existing["decided_at"])
                 except (ValueError, TypeError, KeyError, AttributeError):
                     continue
-                if abs((incoming_dt - existing_dt).total_seconds()) < 60:
+                existing_utc = _to_naive_utc(existing_dt)
+                if abs((incoming_utc - existing_utc).total_seconds()) < 60:
                     return  # no-op: upsert collapse
 
     # Append
