@@ -47,5 +47,43 @@ class TestCabinetBlockPresence(unittest.TestCase):
         self.assertRegex(self.src, r"function\s+esc\s*\(|const\s+esc\s*=", "esc() helper missing for safe interpolation")
 
 
+class TestPreMortemHeatmap(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        with open(DASHBOARD) as f:
+            cls.src = f.read()
+
+    def test_heatmap_css_class_defined(self):
+        self.assertRegex(self.src, r"\.heatmap\s*\{|\.heatmap-cell\s*\{|\.heatmap-grid\s*\{",
+                         "heatmap CSS class missing")
+
+    def test_heatmap_dom_element_present(self):
+        self.assertRegex(self.src, r'id="cabinet-heatmap"', "heatmap DOM container missing")
+
+    def test_heatmap_axis_labels_present(self):
+        self.assertRegex(self.src, r"Likelihood", "Likelihood axis label missing")
+        self.assertRegex(self.src, r"Impact", "Impact axis label missing")
+
+    def test_heatmap_is_5x5_grid(self):
+        self.assertRegex(self.src, r"repeat\(5", "5-column grid template missing")
+
+    def test_heatmap_buckets_js_mirror_defined(self):
+        self.assertRegex(self.src, r"function\s+heatmapBuckets|heatmapBuckets\s*=\s*function|const\s+heatmapBuckets\s*=",
+                         "heatmapBuckets JS function missing")
+
+    def test_render_heatmap_function_defined(self):
+        self.assertRegex(self.src, r"function\s+renderHeatmap|renderHeatmap\s*=\s*function|const\s+renderHeatmap\s*=",
+                         "renderHeatmap function missing")
+
+    def test_heatmap_renders_from_cabinet_block(self):
+        """renderCabinetBlock should call renderHeatmap (or invoke it inline)."""
+        self.assertIn("renderHeatmap", self.src, "renderHeatmap must be called somewhere")
+
+    def test_heatmap_number_is_integer_check(self):
+        """JS mirror of Python's isinstance(x, int) check — must use Number.isInteger or similar."""
+        self.assertRegex(self.src, r"Number\.isInteger|typeof\s+\w+\s*===\s*['\"]number['\"]",
+                         "numeric type check missing in heatmapBuckets")
+
+
 if __name__ == "__main__":
     unittest.main()
