@@ -1026,5 +1026,123 @@ class TestV32PortfolioInvariants(unittest.TestCase):
                          f"IC {ic['name']} reports_to {ic.get('reports_to')} which is not an executive")
 
 
+class TestValidateDecisions(unittest.TestCase):
+    """validate_decisions(doc, state, evidence_doc=None) -> (ok, errors)"""
+
+    def _doc(self, decisions=None, index=None):
+        return {
+            "decisions": decisions or [],
+            "project_decision_index": index or {},
+        }
+
+    def _state(self, agent_ids=("agent-flnt",)):
+        return {
+            "agents": [{"id": a, "name": a, "status": "active"} for a in agent_ids]
+        }
+
+    def _decision(self, **kwargs):
+        base = {
+            "id": "dec-abc12345",
+            "title": "Test decision",
+            "context": "unit test",
+            "alternatives_considered": ["A (reject: x)", "B (selected)"],
+            "decided_by": "agent-flnt",
+            "dissenting": [],
+            "dissent_reason": "",
+            "decided_at": "2026-04-17T00:00:00Z",
+            "reversibility": "type_1",
+            "review_at": "2026-07-16T00:00:00Z",
+            "project_id": "proj-001",
+            "related_evidence": [],
+            "status": "open",
+        }
+        base.update(kwargs)
+        return base
+
+    def test_empty_doc_passes(self):
+        from validator import validate_decisions
+        ok, errors = validate_decisions(self._doc(), self._state())
+        self.assertTrue(ok, errors)
+
+    def test_invalid_id_format_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(id="BADID")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("id" in e.lower() and "BADID" in e for e in errors), errors)
+
+    def test_duplicate_ids_fail(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[
+            self._decision(id="dec-aaaabbbb"),
+            self._decision(id="dec-aaaabbbb"),
+        ])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("duplicate" in e.lower() for e in errors), errors)
+
+    def test_decided_by_nonexistent_agent_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(decided_by="agent-ghost")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("agent-ghost" in e for e in errors), errors)
+
+    def test_dissenting_nonexistent_agent_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(dissenting=["agent-ghost"])])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("agent-ghost" in e for e in errors), errors)
+
+    def test_bad_reversibility_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(reversibility="maybe")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("reversibility" in e.lower() for e in errors), errors)
+
+    def test_bad_status_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(status="pending")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("status" in e.lower() for e in errors), errors)
+
+    def test_malformed_decided_at_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(decided_at="yesterday")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+
+    def test_malformed_review_at_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(review_at="tomorrow")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+
+    def test_related_evidence_nonexistent_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(related_evidence=["ev-ghost000"])])
+        evidence_doc = {"evidence": [], "project_evidence_index": {}}
+        ok, errors = validate_decisions(doc, self._state(), evidence_doc)
+        self.assertFalse(ok)
+        self.assertTrue(any("ev-ghost000" in e for e in errors), errors)
+
+    def test_related_evidence_not_checked_when_evidence_doc_absent(self):
+        """If no evidence_doc is provided, skip related_evidence validation."""
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(related_evidence=["ev-anyid0001"])])
+        ok, errors = validate_decisions(doc, self._state())  # no evidence_doc arg
+        self.assertTrue(ok, errors)
+
+    def test_project_decision_index_ref_missing_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(index={"proj-001": ["dec-ghost000"]})
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("dec-ghost000" in e for e in errors), errors)
+
+
 if __name__ == "__main__":
     unittest.main()

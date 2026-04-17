@@ -189,6 +189,101 @@ def validate_evidence(evidence_doc, state):
     return (len(errors) == 0, errors)
 
 
+def validate_decisions(decisions_doc, state, evidence_doc=None):
+    """Validate forge-decisions.json against forge-state.json (and optionally
+    forge-evidence.json).
+
+    Rules:
+    - id format matches 'dec-[0-9a-f]{8}'
+    - ids unique across decisions
+    - decided_by + dissenting agents must exist in state
+    - reversibility in {type_1, type_2}
+    - status in {open, reviewed, reversed, committed}
+    - decided_at + review_at parse as ISO 8601
+    - project_decision_index refs must exist in decisions
+    - If evidence_doc provided: related_evidence IDs must exist
+
+    Returns (ok: bool, errors: list[str]).
+    """
+    import re
+
+    errors = []
+    items = decisions_doc.get("decisions", [])
+    index = decisions_doc.get("project_decision_index", {})
+    agent_ids = {a["id"] for a in state.get("agents", [])}
+    evidence_ids = None
+    if evidence_doc is not None:
+        evidence_ids = {e.get("id") for e in evidence_doc.get("evidence", [])}
+
+    ALLOWED_STATUSES = {"open", "reviewed", "reversed", "committed"}
+    ALLOWED_REVERSIBILITY = {"type_1", "type_2"}
+    ID_RE = re.compile(r"^dec-[0-9a-f]{8}$")
+
+    seen_ids = set()
+    for idx, d in enumerate(items):
+        did = d.get("id")
+        if not did:
+            errors.append(f"Decision at index {idx} is missing required field: id")
+            continue
+        if not ID_RE.match(did):
+            errors.append(f"Decision id invalid format: {did} (expected dec-[0-9a-f]{{8}})")
+        if did in seen_ids:
+            errors.append(f"Decision duplicate id: {did}")
+            continue
+        seen_ids.add(did)
+
+        decided_by = d.get("decided_by")
+        if decided_by and decided_by not in agent_ids:
+            errors.append(
+                f"Decision {did} decided_by references non-existent agent: {decided_by}"
+            )
+        for dissent in d.get("dissenting", []) or []:
+            if dissent not in agent_ids:
+                errors.append(
+                    f"Decision {did} dissenting references non-existent agent: {dissent}"
+                )
+
+        rev = d.get("reversibility")
+        if rev not in ALLOWED_REVERSIBILITY:
+            errors.append(
+                f"Decision {did} reversibility must be one of "
+                f"{sorted(ALLOWED_REVERSIBILITY)}, got: {rev!r}"
+            )
+        status = d.get("status")
+        if status not in ALLOWED_STATUSES:
+            errors.append(
+                f"Decision {did} status must be one of {sorted(ALLOWED_STATUSES)}, "
+                f"got: {status!r}"
+            )
+
+        for field_name in ("decided_at", "review_at"):
+            ts = d.get(field_name)
+            if not isinstance(ts, str) or not ts:
+                errors.append(f"Decision {did} malformed {field_name}: {ts!r}")
+                continue
+            try:
+                datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                errors.append(f"Decision {did} malformed {field_name}: {ts!r}")
+
+        if evidence_ids is not None:
+            for ev_id in d.get("related_evidence", []) or []:
+                if ev_id not in evidence_ids:
+                    errors.append(
+                        f"Decision {did} related_evidence references "
+                        f"non-existent Evidence: {ev_id}"
+                    )
+
+    for proj, ids in index.items():
+        for ref in ids:
+            if ref not in seen_ids:
+                errors.append(
+                    f"project_decision_index[{proj}] references non-existent Decision: {ref}"
+                )
+
+    return (len(errors) == 0, errors)
+
+
 def validate_brain_files(state, brains_dir):
     """Check that each active agent has a corresponding brain file.
 
