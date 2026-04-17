@@ -4,6 +4,29 @@ All notable changes to The Forge are documented here. Format follows [Keep a Cha
 
 ---
 
+## [3.3.0] — 2026-04-17 — Sub-project A: Org Tree
+
+First of the five v3.2 expansion sub-projects. Visualizes the two-tier v3.2 Cabinet hierarchy — built from the `reports_to` / `role` / `cabinet.executives` fields already on every agent — as a 7th dashboard tab. SVG-based (not Canvas), cleanly separated from the pixel office, DOM-queryable, scalable.
+
+### Added
+- `tools/org_tree.py` — pure `get_org_tree(state)` helper returning `{root, orphans, rivalry_edges}`. Root chosen from agents with no `reports_to`; tiebreak via `cabinet.executives[0]`. Rivalry edges are mutual-only, deduped, scale-tagged (`cabinet` when both sides are execs, else `ic`). Orphans (agents whose `reports_to` points at a missing id) surface rather than silently drop.
+- Dashboard "Org Tree" tab (tab 7) with SVG-rendered 3-tier org chart. Parent-centered layered layout so a wide fan-out (Cade's 6 ICs) doesn't overlap; rounded node cards with a 4px department color strip on top; cubic-Bezier connectors for Reports-to; dashed-red peer lines for Rivalry (same-tier pairs only — cross-tier is elided to keep the chart legible).
+- `getOrgTree(state)` JS mirror of the Python helper (Wave 3 mirror-discipline convention — divergence is a bug), plus `layoutTree` / `bezierPath` renderers and a legend row (Root / C-Suite / IC / Reports to / Rivalry).
+- `tests/test_subproject_a_org_tree.py` — integration test validating the tree against the live committed `forge-state.json`: root is `agent-flnt`, tier-1 is exactly {cade, helx, prsm, dune, lexx} (4 reporting execs + Legal IC reporting directly to CSO), 15 total nodes, 0 orphans.
+
+### Changed
+- `assets/dashboard.html` — tab button + panel + CSS + SVG renderer; `switchTab` array extended to include `'org-tree'`; `render()` pipeline calls `renderOrgTree(STATE)` so the tree stays in sync with every state refresh. No touch to Wave 3 Cabinet or Decisions code paths.
+- `tests/test_dashboard_decisions_tab.py::test_switchtab_array_includes_decisions` — regex loosened from `…'decisions'\]` to `…'decisions'` to permit trailing entries (the array is open-ended as new tabs ship).
+
+### Tests
+- 363 → 406 (+43). Breakdown: 17 `test_org_tree.py` (pure-helper unit tests — empty state, single agent, multi-root tiebreak, live shape, orphans, rivalry semantics) + 22 `test_dashboard_org_tree.py` (smoke: tab shell, CSS, legend, layout contract, SVG emission, rivalry class) + 4 `test_subproject_a_org_tree.py` (integration).
+
+### Notes
+- **Rivalries are empty in current state.** The `rivalries` field exists on every agent but is unpopulated; the renderer handles that path (no rivalry lines, no crash). A future task can populate rivalries per the v3.2 spec and the dashed-red peer lines will start rendering without further code changes.
+- **SVG, not Canvas.** Intentional split from the pixel office. SVG gives hover-ready DOM, clean scaling, and simpler test assertions.
+
+---
+
 ## [3.2.0-wave4] — 2026-04-17 — Cleanup
 
 Consolidation commit addressing deferred Foundation review items from Wave 3. No new features — signature harmonization, helper consolidation, import hygiene, integration-coverage gap closed.
