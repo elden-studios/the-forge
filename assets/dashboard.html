@@ -357,7 +357,6 @@ async function loadData() {
   if (typeof renderCabinetBlock === 'function') renderCabinetBlock(STATE, TASKS, _decisionsDoc);
 }
 
-function getAgentName(id) { return STATE?.agents?.find(a=>a.id===id)?.name || id; }
 function getDeptColor(agentId) {
   const agent = STATE?.agents?.find(a=>a.id===agentId);
   if (!agent) return '#8A8070';
@@ -441,9 +440,9 @@ function renderMissionControl() {
   // Handoffs Card
   const handoffHTML = handoffs.length > 0 ? handoffs.map(h =>
     `<div class="handoff-item">
-      <span style="color:${getDeptColor(h.from)}">${getAgentName(h.from)}</span>
+      <span style="color:${getDeptColor(h.from)}">${agentName(STATE,h.from)}</span>
       <span class="handoff-arrow">${h.status==='complete'?'✓ →':'⏳ →'}</span>
-      <span style="color:${getDeptColor(h.to)}">${getAgentName(h.to)}</span>
+      <span style="color:${getDeptColor(h.to)}">${agentName(STATE,h.to)}</span>
       <span style="color:var(--muted);margin-left:auto;font-size:11px">${h.label}</span>
     </div>`
   ).join('') : '<div style="color:var(--muted)">No handoffs yet</div>';
@@ -464,7 +463,7 @@ function renderMissionControl() {
     return `<div class="risk-item">
       <div class="risk-dot" style="background:${color}"></div>
       <span>${r.risk}</span>
-      <span style="color:var(--muted);margin-left:auto;font-size:11px">${getAgentName(r.agent)}</span>
+      <span style="color:var(--muted);margin-left:auto;font-size:11px">${agentName(STATE,r.agent)}</span>
     </div>`;
   }).join('') : '<div style="color:var(--muted)">No risks flagged</div>';
 
@@ -480,7 +479,7 @@ function renderMissionControl() {
   // Active Tasks Card
   const activeTaskHTML = tasks.filter(t=>t.status==='in_progress').map(t =>
     `<div class="agent-row">
-      <span class="agent-name-sm" style="color:${getDeptColor(t.agent)}">${getAgentName(t.agent)}</span>
+      <span class="agent-name-sm" style="color:${getDeptColor(t.agent)}">${agentName(STATE,t.agent)}</span>
       <span class="agent-task">${t.name}</span>
       <div class="progress-bar"><div class="fill" style="width:${t.progress||0}%;background:${getDeptColor(t.agent)}"></div></div>
     </div>`
@@ -513,7 +512,7 @@ function renderKanban() {
     const color = getDeptColor(t.agent);
     const elapsed = t.started ? Math.round((Date.now() - new Date(t.started).getTime())/60000) + 'm ago' : '';
     return `<div class="kanban-card" style="border-left-color:${color}">
-      <div class="kc-agent" style="color:${color}">${getAgentName(t.agent)}</div>
+      <div class="kc-agent" style="color:${color}">${agentName(STATE,t.agent)}</div>
       <div class="kc-task">${t.name}</div>
       ${t.deliverable?`<div class="kc-task" style="font-size:10px">→ ${t.deliverable}</div>`:''}
       <div class="kc-time">${elapsed}</div>

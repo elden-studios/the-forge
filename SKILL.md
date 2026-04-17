@@ -355,7 +355,7 @@ decision = {
     "related_evidence": ["<ev-...>", ...],  # Evidence IDs that grounded the decision
     "status": "open",
 }
-append_decision_persist(project_id, decision, "forge-decisions.json")
+append_decision_persist("forge-decisions.json", decision)
 ```
 
 Validator (`validate_decisions`) enforces referential integrity of `decided_by`, `dissenting`, and `related_evidence`.

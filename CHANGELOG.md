@@ -4,6 +4,23 @@ All notable changes to The Forge are documented here. Format follows [Keep a Cha
 
 ---
 
+## [3.2.0-wave4] — 2026-04-17 — Cleanup
+
+Consolidation commit addressing deferred Foundation review items from Wave 3. No new features — signature harmonization, helper consolidation, import hygiene, integration-coverage gap closed.
+
+### Changed
+- `append_decision_persist` signature harmonized to `(path, decision)` — matches `close_decision_persist(path, ...)` / `reverse_decision_persist(path, ...)`. Breaking for out-of-tree callers (in-tree driver + 5 test call sites updated). The `project_id` arg was redundant (already in `decision.project_id`); Wave 3's forced normalization block removed. `KeyError` raised when `decision["project_id"]` missing (surfaces misuse cleanly). Historical shape was `append_decision(project_id, decision, path)` in Wave 2, renamed to `append_decision_persist(project_id, decision, path)` in Wave 3, and harmonized to `(path, decision)` here.
+- Merged `getAgentName(id)` into canonical `agentName(stateDoc, id)` in `assets/dashboard.html` — 5 call sites migrated from implicit-global lookup to explicit stateDoc arg (more testable, no hidden dep).
+- Lifted `from datetime import timezone` to module top of `tools/decisions_orchestrator.py` — two inline re-imports inside function bodies removed.
+
+### Added
+- `tests/test_v32_wave3_integration.py` — walks pre_mortem → heatmap → Decision Log end-to-end via the Saudi EdTech fixture (7 tests). Closes M3 integration-coverage gap from Wave 3 Foundation review.
+
+### Tests
+- 356 → 363 (+7 integration tests).
+
+---
+
 ## [3.2.0-wave3] — 2026-04-17 — Cabinet Visualization
 
 ### Added — v3.2 Cabinet Wave 3 (Visualization)
