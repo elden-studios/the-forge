@@ -140,6 +140,18 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 #src-table tr:hover td{background:var(--card)}
 #src-table a{color:var(--blue);text-decoration:none}
 #src-table a:hover{text-decoration:underline}
+.decisions-table{width:100%;border-collapse:collapse;font-size:12px}
+.decisions-table th{text-align:left;padding:8px;border-bottom:2px solid var(--border);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.decisions-table td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top}
+.decisions-table tr:hover td{background:var(--card)}
+.decisions-table .badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.decisions-table .badge.type_1{background:#4a2a20;color:#ff9060}
+.decisions-table .badge.type_2{background:#2a3a4a;color:#60a0ff}
+.decisions-table .badge.status-open{background:#2a4a2a;color:var(--green)}
+.decisions-table .badge.status-reviewed{background:#2a3a4a;color:#60a0ff}
+.decisions-table .badge.status-committed{background:#444;color:var(--muted)}
+.decisions-table .badge.status-reversed{background:#4a2a2a;color:var(--red)}
+.decisions-empty{text-align:center;padding:24px;color:var(--muted);font-size:12px;font-style:italic}
 </style>
 </head>
 <body>
@@ -156,6 +168,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
   <div class="tab" onclick="switchTab('kanban')">Kanban Board</div>
   <div class="tab" onclick="switchTab('timeline')">Timeline</div>
   <div class="tab" id="tab-sources" onclick="switchTab('sources')">Sources</div>
+  <div class="tab" id="tab-decisions" onclick="switchTab('decisions')">Decisions</div>
 </div>
 
 <div class="content">
@@ -268,6 +281,29 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       No evidence yet. Run a brief with pipes enabled.
     </div>
   </div>
+
+  <!-- Decisions -->
+  <div class="panel" id="panel-decisions">
+    <div class="sources-toolbar" id="dec-toolbar" style="margin-bottom:12px">
+      <!-- Filters & search toolbar goes here in T7 -->
+      <div style="color:var(--muted);font-size:11px;font-style:italic;padding:8px 0">
+        Filters, sort, and export will be added in T7-T8.
+      </div>
+    </div>
+    <table class="decisions-table" id="decisions-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Decider</th>
+          <th>Reversibility</th>
+          <th>Status</th>
+          <th>Review At</th>
+          <th>Project</th>
+        </tr>
+      </thead>
+      <tbody id="decisions-tbody"></tbody>
+    </table>
+  </div>
 </div>
 
 <script>
@@ -325,12 +361,13 @@ function getAgentStatus(id) {
 // ═══════════════════════════════════════
 function switchTab(id) {
   document.querySelectorAll('.tab').forEach((t,i) => {
-    t.classList.toggle('active', ['mc','network','kanban','timeline','sources'][i] === id);
+    t.classList.toggle('active', ['mc','network','kanban','timeline','sources','decisions'][i] === id);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
   if (id === 'network') renderNetwork();
   if (id === 'sources') fetchEvidence().then(d => renderSourcesTab(d || { evidence: [] }));
+  if (id === 'decisions') fetchDecisions().then(() => renderDecisionsTab(_decisionsDoc));
 }
 
 // ═══════════════════════════════════════
@@ -867,6 +904,37 @@ function renderHeatmap(preMortem) {
   }
   html += '<div class="heatmap-xlabel">Impact →</div>';
   el.innerHTML = html;
+}
+
+/**
+ * Render the Decisions tab body. Reads decisions from the passed doc (expected
+ * shape: { decisions: [...], project_decision_index: {...} }) and fills the
+ * #decisions-tbody with one row per decision.
+ *
+ * T6 = unfiltered full table. T7 will add filter logic; T8 adds sort + export.
+ */
+function renderDecisionsTab(doc) {
+  const tbody = document.getElementById('decisions-tbody');
+  if (!tbody) return;
+  const rows = (doc && doc.decisions) || [];
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="decisions-empty">No decisions recorded yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(d => {
+    const deciderName = agentName(STATE, d.decided_by);
+    const reviewStr = d.review_at ? new Date(d.review_at).toLocaleDateString() : '—';
+    const revCls = d.reversibility === 'type_1' ? 'type_1' : 'type_2';
+    const statusCls = 'status-' + (d.status || 'open');
+    return `<tr>
+      <td>${esc(d.title || '(untitled)')}</td>
+      <td>${esc(deciderName)}</td>
+      <td><span class="badge ${revCls}">${esc(d.reversibility || '—')}</span></td>
+      <td><span class="badge ${statusCls}">${esc(d.status || '—')}</span></td>
+      <td>${esc(reviewStr)}</td>
+      <td>${esc(d.project_id || '—')}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ═══════════════════════════════════════
