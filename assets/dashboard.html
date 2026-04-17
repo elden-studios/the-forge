@@ -791,34 +791,55 @@ function renderCabinetBlock(stateDoc, tasksDoc, decisionsDoc) {
   const statusEl = document.getElementById('cabinet-status');
   if (statusEl) statusEl.textContent = 'Active';
 
-  // Verdict — latest open decision for current_project
+  // Verdict — latest non-reversed decision for current_project
   const currentProject = (tasksDoc && tasksDoc.current_project) || (stateDoc && stateDoc.current_project) || null;
-  const allDecisions = (decisionsDoc && decisionsDoc.decisions) || [];
-  const projectDecisions = allDecisions.filter(d => d.project_id === currentProject && d.status === 'open');
-  const latest = projectDecisions.sort((a, b) => (a.decided_at < b.decided_at ? 1 : -1))[0];
-
   const verdictEl = document.getElementById('cabinet-verdict');
   if (verdictEl) {
-    if (latest) {
-      const deciderName = agentName(stateDoc, latest.decided_by);
-      const dissenters = (latest.dissenting || [])
-        .map(id => agentName(stateDoc, id))
-        .filter(Boolean);
-      const reviewStr = latest.review_at ? new Date(latest.review_at).toLocaleDateString() : '—';
-      const dissentHtml = dissenters.length
-        ? `<div class="verdict-dissent">Dissent: ${esc(dissenters.join(', '))} — ${esc(latest.dissent_reason || '')}</div>`
-        : '';
-      verdictEl.innerHTML = `
-        <div class="verdict-title">${esc(latest.title)}</div>
-        <div class="verdict-meta">
-          <span>Decider: <b>${esc(deciderName)}</b></span>
-          <span>Reversibility: <b>${esc(latest.reversibility || '—')}</b></span>
-          <span>Review: <b>${esc(reviewStr)}</b></span>
-        </div>
-        ${dissentHtml}
-      `;
+    if (!decisionsDoc) {
+      // Wave 3 Foundation review (I2): on first paint, decisionsDoc may be null
+      // because fetchDecisions() is async and fires alongside loadData(). Leave
+      // the verdict pane empty rather than flashing "No verdict recorded yet" —
+      // the 3s auto-refresh will populate it on the next tick. Lens cards, risks,
+      // and heatmap below are tasks-driven and render regardless.
+      verdictEl.innerHTML = '';
     } else {
-      verdictEl.innerHTML = '<div style="color:var(--muted);font-size:12px;font-style:italic">No verdict recorded yet for this project.</div>';
+      // Wave 3 Foundation review (C2): include non-reversed decisions in verdict
+      // candidates. Reversed decisions are superseded by their successor;
+      // open/committed/reviewed all represent valid current-state verdicts.
+      // Previously filtered on status==='open' only, which made the Verdict pane
+      // evaporate once the Cabinet closed a decision.
+      const allDecisions = (decisionsDoc && decisionsDoc.decisions) || [];
+      const projectDecisions = allDecisions
+        .filter(d => d.project_id === currentProject && d.status !== 'reversed')
+        .sort((a, b) => {
+          // Prefer open > committed > reviewed; within each bucket, newest decided_at first.
+          const rank = s => s === 'open' ? 0 : s === 'committed' ? 1 : 2;
+          const ra = rank(a.status), rb = rank(b.status);
+          if (ra !== rb) return ra - rb;
+          return (a.decided_at < b.decided_at ? 1 : -1);
+        });
+      const latest = projectDecisions[0];
+      if (latest) {
+        const deciderName = agentName(stateDoc, latest.decided_by);
+        const dissenters = (latest.dissenting || [])
+          .map(id => agentName(stateDoc, id))
+          .filter(Boolean);
+        const reviewStr = latest.review_at ? new Date(latest.review_at).toLocaleDateString() : '—';
+        const dissentHtml = dissenters.length
+          ? `<div class="verdict-dissent">Dissent: ${esc(dissenters.join(', '))} — ${esc(latest.dissent_reason || '')}</div>`
+          : '';
+        verdictEl.innerHTML = `
+          <div class="verdict-title">${esc(latest.title)}</div>
+          <div class="verdict-meta">
+            <span>Decider: <b>${esc(deciderName)}</b></span>
+            <span>Reversibility: <b>${esc(latest.reversibility || '—')}</b></span>
+            <span>Review: <b>${esc(reviewStr)}</b></span>
+          </div>
+          ${dissentHtml}
+        `;
+      } else {
+        verdictEl.innerHTML = '<div style="color:var(--muted);font-size:12px;font-style:italic">No verdict recorded yet for this project.</div>';
+      }
     }
   }
 

@@ -7,6 +7,7 @@ CLI-free — all entrypoints are Python functions consumed by the validator and
 by scripts/cabinet_framing_simulate.py.
 """
 from datetime import datetime, timedelta
+import logging
 import uuid
 
 
@@ -202,8 +203,8 @@ def append_decision_persist(project_id, decision, decisions_path):
         mirror_path = os.path.join(assets_dir, os.path.basename(decisions_path))
         try:
             _atomic_write_json(mirror_path, doc)
-        except OSError:
-            pass
+        except OSError as e:
+            logging.warning("decisions_orchestrator: mirror write to %s failed: %s", mirror_path, e)
 
 
 def review_decisions_due(doc, now_iso):
@@ -313,8 +314,8 @@ def close_decision_persist(path, decision_id, *, new_status="committed"):
         mirror_path = os.path.join(assets_dir, os.path.basename(path))
         try:
             _atomic_write_json(mirror_path, doc)
-        except OSError:
-            pass
+        except OSError as e:
+            logging.warning("decisions_orchestrator: mirror write to %s failed: %s", mirror_path, e)
 
 
 def reverse_decision_persist(path, decision_id, successor_id):
@@ -344,8 +345,8 @@ def reverse_decision_persist(path, decision_id, successor_id):
         mirror_path = os.path.join(assets_dir, os.path.basename(path))
         try:
             _atomic_write_json(mirror_path, doc)
-        except OSError:
-            pass
+        except OSError as e:
+            logging.warning("decisions_orchestrator: mirror write to %s failed: %s", mirror_path, e)
 
 
 def query_by_project(doc, project_id):

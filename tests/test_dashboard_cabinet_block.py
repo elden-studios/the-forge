@@ -85,5 +85,33 @@ class TestPreMortemHeatmap(unittest.TestCase):
                          "numeric type check missing in heatmapBuckets")
 
 
+class TestVerdictFilterIncludesCommitted(unittest.TestCase):
+    """C2 regression: verdict filter must include committed/reviewed decisions,
+    only excluding reversed ones. Previously filtered on status==='open' only,
+    causing the Verdict pane to evaporate when the Cabinet closed a decision."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(DASHBOARD) as f:
+            cls.src = f.read()
+
+    def test_verdict_filter_excludes_only_reversed(self):
+        self.assertRegex(
+            self.src,
+            r"status\s*!==\s*['\"]reversed['\"]",
+            "verdict filter must exclude status==='reversed' (not status==='open' only)"
+        )
+
+    def test_verdict_does_not_exclude_committed_status(self):
+        """Make sure we don't see `status === 'open'` as the sole status filter in the verdict selection."""
+        # A negative test — the old buggy pattern should not be present for verdict selection
+        # Search for renderCabinetBlock function body and look for the filter
+        self.assertNotRegex(
+            self.src,
+            r"currentProject\s*&&\s*d\.status\s*===\s*['\"]open['\"]",
+            "buggy verdict filter `status === 'open'` must not remain in renderCabinetBlock"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

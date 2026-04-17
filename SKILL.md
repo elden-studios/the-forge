@@ -309,7 +309,7 @@ See `scripts/cabinet_framing_simulate.py` for a worked example of the output str
 - **Ammunition:** each exec's signature artifact (Product One-Pager, Tech Strategy Memo, Unit Economics Model, Positioning Document, Strategy Kernel).
 - **Max rounds:** 2. Each exec presents their artifact-backed case; rebuttal allowed.
 - **Resolution rule:** majority vote + dissent logged.
-- **Output:** a Decision Log entry (via `decisions_orchestrator.append_decision`). The decision records: context, alternatives considered, decided_by, dissenting, reversibility, review_at.
+- **Output:** a Decision Log entry (via `decisions_orchestrator.append_decision_persist` (I/O) or `append_decision` (pure)). The decision records: context, alternatives considered, decided_by, dissenting, reversibility, review_at.
 
 **Escalation ladder (Standing Rule 10 implementation)**
 
@@ -337,7 +337,7 @@ If unsure: default to Type 1 (conservative). Cabinet can down-classify to Type 2
 At every Cabinet Floor resolution OR IC Floor escalation that reaches an exec-level decision:
 
 ```python
-from decisions_orchestrator import new_decision_id, compute_review_at, append_decision
+from decisions_orchestrator import new_decision_id, compute_review_at, append_decision_persist
 from datetime import datetime, timezone
 
 decision = {
@@ -355,7 +355,7 @@ decision = {
     "related_evidence": ["<ev-...>", ...],  # Evidence IDs that grounded the decision
     "status": "open",
 }
-append_decision(project_id, decision, "forge-decisions.json")
+append_decision_persist(project_id, decision, "forge-decisions.json")
 ```
 
 Validator (`validate_decisions`) enforces referential integrity of `decided_by`, `dissenting`, and `related_evidence`.
