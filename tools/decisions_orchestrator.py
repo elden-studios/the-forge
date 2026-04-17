@@ -56,3 +56,66 @@ def compute_review_at(decided_at_iso, reversibility):
         )
     review_dt = dt + timedelta(days=_REVIEW_DAYS[reversibility])
     return _format_iso_utc(review_dt.replace(tzinfo=None))
+
+
+import json as _json
+import os
+import tempfile
+
+
+def _atomic_write_json(path, doc):
+    """Write JSON atomically via tempfile + os.replace.
+
+    Mirrors tools/evidence_orchestrator._atomic_write_json — same invariant
+    that a mid-write interruption leaves the original file intact.
+    """
+    dir_ = os.path.dirname(path) or "."
+    stem = os.path.basename(path).rsplit(".", 1)[0]
+    fd, tmp = tempfile.mkstemp(dir=dir_, prefix=f".{stem}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            _json.dump(doc, f, indent=2)
+        os.replace(tmp, path)
+    except Exception:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+        raise
+
+
+def append_decision(project_id, decision, decisions_path):
+    """Persist a decision to forge-decisions.json atomically.
+
+    Atomically writes to the primary path AND mirrors to <parent>/assets/<basename>
+    when that sibling directory exists — the live dashboard reads from assets/
+    via the local http.server, so the mirror prevents split-brain UX where the
+    backend writes decisions but the UI shows 0.
+
+    Updates project_decision_index[project_id] to include the new decision id,
+    extending (not replacing) any existing list. Deduped by id.
+    """
+    with open(decisions_path) as f:
+        doc = _json.load(f)
+
+    existing_ids = {d["id"] for d in doc.get("decisions", [])}
+    if decision["id"] not in existing_ids:
+        doc["decisions"].append(decision)
+        existing_ids.add(decision["id"])
+
+    index = doc.setdefault("project_decision_index", {})
+    current = set(index.get(project_id, []))
+    current.add(decision["id"])
+    index[project_id] = sorted(current)
+
+    _atomic_write_json(decisions_path, doc)
+
+    parent = os.path.dirname(os.path.abspath(decisions_path)) or "."
+    assets_dir = os.path.join(parent, "assets")
+    if os.path.isdir(assets_dir):
+        mirror_path = os.path.join(assets_dir, os.path.basename(decisions_path))
+        try:
+            _atomic_write_json(mirror_path, doc)
+        except OSError:
+            pass
