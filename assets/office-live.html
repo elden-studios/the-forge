@@ -221,6 +221,45 @@ function chairPositions(layout) {
   ];
 }
 
+/**
+ * Route the C-Suite to the boardroom chairs.
+ *
+ * mode='walk' — tween each exec from their current position to their chair
+ *   using scene.sendWalk's existing after-state hook, so the sprite flips to
+ *   'cabinet_seated' automatically once the tween lands.
+ * mode='seat' — snap each exec directly to their chair with state='cabinet_seated'
+ *   (no walk animation — used when restoring from persisted cabinet_arrived state
+ *   where the dispatch animation has already played in a previous frame).
+ *
+ * Exec → chair mapping: first N IDs from state.cabinet.executives are mapped to
+ * chairPositions(layout) in declaration order:
+ *   [0]=head (Flint/CSO), [1]=top-left (Cade/CPO), [2]=top-right (Helix/CTO),
+ *   [3]=bot-left (Prism/CFO), [4]=bot-right (Dune/CMO).
+ * If fewer than 5 execs are declared, remaining chairs stay empty. Excess execs
+ * (beyond 5) are ignored — the boardroom has exactly 5 seats.
+ *
+ * Wave 3 — Task 3.
+ */
+function routeCabinet(scene, state, layout, mode) {
+  const execs = ((state.cabinet && state.cabinet.executives) || []).slice(0, 5);
+  const chairs = chairPositions(layout);
+  execs.forEach((execId, i) => {
+    const chair = chairs[i];
+    const an = scene.anims[execId];
+    if (!chair || !an) return;
+    if (mode === 'walk') {
+      // sendWalk(id, tx, ty, after, timer) — `after` is the state the sprite
+      // settles into once the final waypoint is reached. 40 frames ≈ matches
+      // the existing meeting-event tween cadence (which uses 30).
+      scene.sendWalk(execId, chair.x, chair.y, 'cabinet_seated', 40);
+    } else if (mode === 'seat') {
+      an.state = 'cabinet_seated';
+      an.sx = chair.x;
+      an.sy = chair.y;
+    }
+  });
+}
+
 // ═══════════════════════════════════════════════════════
 // SPRITE ENGINE — Enhanced characters
 // ═══════════════════════════════════════════════════════
@@ -689,7 +728,7 @@ class Scene {
       const ap = L.agentPos[t.agent];
       if (!an || !ap) return;
 
-      const seated = (an.state === 'sitting' || an.state === 'working');
+      const seated = (an.state === 'sitting' || an.state === 'working' || an.state === 'cabinet_seated');
       const bx = seated ? ap.x + 8 : an.sx;
       const by = seated ? ap.y - 38 : an.sy - 8;
 
@@ -730,7 +769,7 @@ class Scene {
       const ap = L.agentPos[a.id];
       if (!an || !ap || !an.evState) return;
 
-      const seated = (an.state === 'sitting' || an.state === 'working');
+      const seated = (an.state === 'sitting' || an.state === 'working' || an.state === 'cabinet_seated');
       // Agent head position (same logic as drawAgentsAtDesks)
       const ax = seated ? ap.x + 8 : an.sx;
       const ay = seated ? ap.y - 30 : an.sy;
@@ -1371,10 +1410,14 @@ class Scene {
     L.agents.forEach(a=>{
       const an=this.anims[a.id];if(!an)return;
       const ap=L.agentPos[a.id];
-      const seated=(an.state==='sitting'||an.state==='working');
+      const seated=(an.state==='sitting'||an.state==='working'||an.state==='cabinet_seated');
       const animS=an.state==='working'?'working':'idle';
 
-      if(seated && ap){
+      if(an.state==='cabinet_seated'){
+        // Wave 3 T3 — cabinet execs render at their animated chair coords, not their desk.
+        this.sprite.drawAgent(an.sx, an.sy, a.avatar, this.frame, animS, true);
+        this.drawName(an.sx, an.sy + CH_H*CPX + 4, a.name);
+      } else if(seated && ap){
         const agentX = ap.x + 8;
         const agentY = ap.y - 30;
         this.sprite.drawAgent(agentX, agentY, a.avatar, this.frame, animS, true);
@@ -1443,6 +1486,11 @@ class Scene {
     if(ev.type==='dispatched')(ev.agents||[]).forEach(id=>{if(scene.anims[id])scene.anims[id].evState='dispatched'});
     // Evidence Pipes v1 — evidence_arrived: evidence returned and merged
     if(ev.type==='evidence_arrived')(ev.agents||[]).forEach(id=>{if(scene.anims[id])scene.anims[id].evState='evidence_arrived'});
+    // Wave 3 T3 — Cabinet Framing: C-Suite walks to / is seated in the boardroom.
+    // Executives come from state.cabinet.executives (not ev.agents) — dispatch is
+    // a cabinet-wide event, not a per-agent one.
+    if(ev.type==='cabinet_dispatched') routeCabinet(scene, state, layout, 'walk');
+    if(ev.type==='cabinet_arrived') routeCabinet(scene, state, layout, 'seat');
   }
 
   const ac=layout.agents.length,dc=layout.depts.length;

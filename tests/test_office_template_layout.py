@@ -132,5 +132,46 @@ class TestBoardroom(unittest.TestCase):
                       "boardroom.x should use shared-outer-wall formula, not COLS*(ROOM_W+WALL)")
 
 
+class TestCabinetAnimation(unittest.TestCase):
+    def test_cabinet_dispatched_event_handled(self):
+        src = _read_template()
+        self.assertRegex(src, r"cabinet_dispatched", "cabinet_dispatched event handler missing")
+
+    def test_cabinet_arrived_event_handled(self):
+        src = _read_template()
+        self.assertRegex(src, r"cabinet_arrived", "cabinet_arrived event handler missing")
+
+    def test_route_cabinet_helper_defined(self):
+        src = _read_template()
+        self.assertRegex(src, r"function\s+routeCabinet|routeCabinet\s*=\s*function|const\s+routeCabinet\s*=",
+                         "routeCabinet helper missing")
+
+    def test_route_cabinet_reads_cabinet_executives(self):
+        src = _read_template()
+        self.assertRegex(src, r"cabinet\.executives", "routeCabinet must read state.cabinet.executives")
+
+    def test_route_cabinet_supports_both_modes(self):
+        src = _read_template()
+        self.assertRegex(src, r"'walk'", "routeCabinet must support 'walk' mode")
+        self.assertRegex(src, r"'seat'", "routeCabinet must support 'seat' mode")
+
+    def test_cabinet_seated_sprite_state_recognized(self):
+        src = _read_template()
+        # All 3 'seated' check locations should include cabinet_seated
+        self.assertGreaterEqual(
+            src.count("cabinet_seated"), 4,
+            "cabinet_seated should appear in routeCabinet + 3 seated checks (>=4 occurrences)"
+        )
+
+    def test_live_file_contains_cabinet_event_handlers(self):
+        import os
+        live_path = os.path.join(REPO_ROOT, "assets", "office-live.html")
+        with open(live_path) as f:
+            live = f.read()
+        self.assertIn("cabinet_dispatched", live)
+        self.assertIn("cabinet_arrived", live)
+        self.assertIn("routeCabinet", live)
+
+
 if __name__ == "__main__":
     unittest.main()
