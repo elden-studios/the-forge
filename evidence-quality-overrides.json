@@ -1,0 +1,4 @@
+{
+  "comment": "Optional user extensions to the default quality grading rules. Drop in rules with higher-priority patterns. See references/evidence-pipes-spec.md.",
+  "rules": []
+}

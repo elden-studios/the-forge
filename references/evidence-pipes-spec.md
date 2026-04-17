@@ -46,6 +46,21 @@ Every Evidence must have: `id` (ev-<8hex>), `claim`, `source_url`, `source_title
 | 2 User/community | App Store reviews, Reddit, Product Hunt | UX signal, demand validation |
 | 1 Blog / unknown | Medium, Substack | Only for directional hints, never anchor a claim |
 
+### User overrides
+
+Drop a file at `evidence-quality-overrides.json` (project root) with shape:
+
+```json
+{
+  "rules": [
+    {"pattern": "westlaw\\.com", "score": 4, "type": "primary_company"},
+    {"pattern": "your-internal-wiki\\.corp", "score": 3, "type": "analyst"}
+  ]
+}
+```
+
+User rules are PREPENDED to the default table, so they win on match. Invalid rules (missing `pattern` / `score` / `type`) are silently skipped. Overrides are loaded once at `evidence_orchestrator` import time.
+
 ## Failure modes
 
 - Subagent timeout/error → `⚠ {Agent} unavailable` in deliverable; never fabricate

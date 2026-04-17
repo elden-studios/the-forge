@@ -95,6 +95,77 @@ class TestMergeReturns(unittest.TestCase):
         self.assertEqual(merged["total_queries"], 8)
         self.assertEqual(merged["agents"], ["agent-vexx", "agent-nyxx"])
 
+    def test_distinct_excerpts_from_same_url_are_preserved(self):
+        """Two Evidence items sharing a source_url but with different excerpts
+        must both survive merge — each represents a different claim from
+        the same page. Collapsing them loses the second claim's citation.
+
+        Regression from Task 14: Nyx cited ev-b7e90014 and ev-f8a1c9e6 for
+        two different excerpts from the same SAMA rulebook URL. Dedup kept
+        ev-b7e90014 and dropped ev-f8a1c9e6, orphaning every later citation
+        of ev-f8a1c9e6.
+        """
+        from evidence_orchestrator import merge_returns
+        returns = [
+            {
+                "agent_id": "agent-nyxx",
+                "evidence": [
+                    {
+                        "id": "ev-nyxfirst",
+                        "source_url": "https://sama.gov.sa/rulebook/xyz",
+                        "excerpt": "Licensing requires Category A registration.",
+                        "retrieved_by": ["agent-nyxx"],
+                    },
+                    {
+                        "id": "ev-nyxsecnd",
+                        "source_url": "https://sama.gov.sa/rulebook/xyz",
+                        "excerpt": "Transfer caps of SAR 50,000 per month apply.",
+                        "retrieved_by": ["agent-nyxx"],
+                    },
+                ],
+                "recommendation": "r",
+                "confidence": 0.8,
+                "queried_count": 2,
+                "quality_avg": 5.0,
+            },
+        ]
+        merged = merge_returns(returns)
+        ids = {e["id"] for e in merged["evidence"]}
+        self.assertIn("ev-nyxfirst", ids, "first distinct-excerpt Evidence must survive")
+        self.assertIn("ev-nyxsecnd", ids, "second distinct-excerpt Evidence must survive")
+        self.assertEqual(len(merged["evidence"]), 2)
+
+    def test_identical_excerpt_and_url_across_agents_collapses_and_grows_retrieved_by(self):
+        """When two agents cite literally the same (url, excerpt), that's a
+        genuine duplicate — collapse to one Evidence, grow retrieved_by."""
+        from evidence_orchestrator import merge_returns
+        returns = [
+            {
+                "agent_id": "agent-vexx",
+                "evidence": [{
+                    "id": "ev-vex12345",
+                    "source_url": "https://analyst.com/report",
+                    "excerpt": "Market is growing 14% YoY.",
+                    "retrieved_by": ["agent-vexx"],
+                }],
+                "recommendation": "r", "confidence": 0.8, "queried_count": 1, "quality_avg": 3,
+            },
+            {
+                "agent_id": "agent-nyxx",
+                "evidence": [{
+                    "id": "ev-nyx67890",
+                    "source_url": "https://analyst.com/report",
+                    "excerpt": "Market is growing 14% YoY.",
+                    "retrieved_by": ["agent-nyxx"],
+                }],
+                "recommendation": "r", "confidence": 0.8, "queried_count": 1, "quality_avg": 3,
+            },
+        ]
+        merged = merge_returns(returns)
+        self.assertEqual(len(merged["evidence"]), 1, "genuine duplicates collapse")
+        survivor = merged["evidence"][0]
+        self.assertEqual(set(survivor["retrieved_by"]), {"agent-vexx", "agent-nyxx"})
+
 
 class TestEvidenceAgentsTable(unittest.TestCase):
     def test_four_evidence_agents_defined(self):
@@ -242,6 +313,76 @@ class TestStripUnsupported(unittest.TestCase):
         text = "The market feels underserved [OPINION]."
         out = strip_unsupported_claims(text, set())
         self.assertEqual(out, text)
+
+    def test_naked_ev_id_bracket_with_unknown_id_gets_flagged(self):
+        """Agent prose uses naked '[ev-X, ev-Y]' — not '[FACT: ev-X]'.
+
+        The enforcement function must catch naked forms too. Unknown
+        IDs in a naked bracket get replaced with an inline '⚠ <ID> unsupported'
+        marker — the VALID IDs in the same bracket survive.
+        """
+        from evidence_orchestrator import strip_unsupported_claims
+        text = "Market size claim [ev-12345678, ev-ghostzzz] drives the thesis."
+        out = strip_unsupported_claims(text, {"ev-12345678"})
+        self.assertIn("ev-12345678", out, "valid ID must survive")
+        self.assertNotIn("ev-ghostzzz]", out, "invalid ID must be replaced")
+        # The survivor is still cited in some form; the unsupported marker appears
+        self.assertIn("unsupported", out.lower())
+
+    def test_naked_single_ev_id_bracket_with_unknown_id(self):
+        from evidence_orchestrator import strip_unsupported_claims
+        text = "Some claim [ev-ghost1234] anchoring the argument."
+        out = strip_unsupported_claims(text, {"ev-real12345"})
+        # The bracket becomes an UNSUPPORTED marker
+        self.assertNotIn("ev-ghost1234]", out)
+        self.assertIn("unsupported", out.lower())
+
+    def test_naked_single_ev_id_bracket_with_valid_id_survives(self):
+        from evidence_orchestrator import strip_unsupported_claims
+        text = "A claim [ev-real5678] backed by evidence."
+        out = strip_unsupported_claims(text, {"ev-real5678"})
+        self.assertEqual(out, text, "fully-valid bracket must pass through unchanged")
+
+    def test_multi_id_bracket_with_mix_of_valid_and_invalid(self):
+        from evidence_orchestrator import strip_unsupported_claims
+        text = "Supports the position [ev-valid123, ev-ghost456, ev-valid789]."
+        out = strip_unsupported_claims(text, {"ev-valid123", "ev-valid789"})
+        # Valid IDs preserved
+        self.assertIn("ev-valid123", out)
+        self.assertIn("ev-valid789", out)
+        # Invalid flagged, not silently surviving
+        self.assertNotIn("ev-ghost456,", out)
+        self.assertNotIn("ev-ghost456]", out)
+
+    def test_opinion_tag_still_left_alone(self):
+        """OPINION with no ev-* ID must still be left untouched."""
+        from evidence_orchestrator import strip_unsupported_claims
+        text = "In my view [OPINION] the market is ready."
+        out = strip_unsupported_claims(text, set())
+        self.assertEqual(out, text)
+
+    def test_nyx_deliverable_excerpt_flags_orphan_id(self):
+        """Regression from Task 14 deliverable — the exact Nyx prose citing
+        ev-f8a1c9e6 which got dedup'd out must produce an UNSUPPORTED marker
+        after merge-and-strip."""
+        from evidence_orchestrator import strip_unsupported_claims
+        text = "Regulatory framing [ev-a3f1c2d7, ev-b7e90014, ev-f8a1c9e6]"
+        valid_ids = {"ev-a3f1c2d7", "ev-b7e90014"}  # ev-f8a1c9e6 orphaned
+        out = strip_unsupported_claims(text, valid_ids)
+        self.assertIn("ev-a3f1c2d7", out)
+        self.assertIn("ev-b7e90014", out)
+        self.assertNotIn("ev-f8a1c9e6,", out)
+        self.assertNotIn("ev-f8a1c9e6]", out)
+        self.assertIn("unsupported", out.lower())
+
+
+class TestProjectQualityOverrides(unittest.TestCase):
+    """Confirm that evidence-quality-overrides.json at project root is loaded."""
+
+    def test_project_quality_rules_is_a_list(self):
+        from evidence_orchestrator import PROJECT_QUALITY_RULES
+        self.assertIsInstance(PROJECT_QUALITY_RULES, list)
+        self.assertGreater(len(PROJECT_QUALITY_RULES), 0)
 
 
 if __name__ == "__main__":

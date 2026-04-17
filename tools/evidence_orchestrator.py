@@ -9,6 +9,23 @@ import os
 import re as _re
 
 
+# Integrate user-provided quality overrides at module load.
+# Users drop an `evidence-quality-overrides.json` at project root (sibling to
+# forge-state.json) to extend tier mappings without editing Python. See
+# references/evidence-pipes-spec.md.
+def _load_project_overrides():
+    from evidence_quality import DEFAULT_RULES, load_overrides, merge_rules
+    # Walk up from this file to find the project root (contains forge-state.json)
+    here = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.dirname(here)  # tools/.. == repo root
+    overrides_path = os.path.join(root, "evidence-quality-overrides.json")
+    overrides = load_overrides(overrides_path)
+    return merge_rules(DEFAULT_RULES, overrides) if overrides else DEFAULT_RULES
+
+
+PROJECT_QUALITY_RULES = _load_project_overrides()
+
+
 EVIDENCE_AGENTS = {
     "agent-vexx": {
         "display_name": "Vex",
@@ -109,10 +126,14 @@ RETURN (structured JSON envelope):
 def merge_returns(returns):
     """Fan-in merge of N subagent returns.
 
-    Dedupes Evidence by source_url; retrieved_by grows into a list.
+    Dedupes Evidence by the (source_url, excerpt) tuple — distinct excerpts
+    from the same URL are KEPT as separate Evidence (they represent
+    different claims). Only genuinely-identical (URL + excerpt) Evidence
+    collapse; retrieved_by grows into a list on collapse.
+
     Returns a unified bundle: {evidence, agents, total_queries, avg_quality, recommendations}
     """
-    by_url = {}
+    by_key = {}
     agents = []
     total_q = 0
     quality_vals = []
@@ -130,18 +151,23 @@ def merge_returns(returns):
         })
 
         for ev in ret.get("evidence", []):
-            url = ev.get("source_url", ev.get("id"))
-            if url in by_url:
-                # Merge retrieved_by
-                existing_by = by_url[url].setdefault("retrieved_by", [])
+            # Dedup key: (source_url, excerpt). Fallback to id when URL absent.
+            url = ev.get("source_url") or ""
+            excerpt = ev.get("excerpt") or ""
+            if url or excerpt:
+                key = ("url+excerpt", url, excerpt)
+            else:
+                key = ("id", ev.get("id"))
+            if key in by_key:
+                existing_by = by_key[key].setdefault("retrieved_by", [])
                 for agent in ev.get("retrieved_by", []):
                     if agent not in existing_by:
                         existing_by.append(agent)
             else:
-                by_url[url] = dict(ev)
+                by_key[key] = dict(ev)
 
     return {
-        "evidence": list(by_url.values()),
+        "evidence": list(by_key.values()),
         "agents": agents,
         "total_queries": total_q,
         "avg_quality": sum(quality_vals) / len(quality_vals) if quality_vals else 0.0,
@@ -207,23 +233,59 @@ def append_evidence(project_id, bundle, evidence_path):
             pass
 
 
-# Matches [FACT], [FACT: ev-*], [INFERENCE], [INFERENCE: ev-*]
-# id pattern is intentionally broad: real ids are ev-<8hex> but we must
-# catch any ev-* string so unknown ids are checked against valid_evidence_ids.
-_CLAIM_RE = _re.compile(r"\[(FACT|INFERENCE)(?::\s*(ev-\w+))?\]")
+# Matches two citation forms used in agent prose:
+#   1. Tagged form:  [FACT], [FACT: ev-XXX], [INFERENCE], [INFERENCE: ev-XXX]
+#   2. Naked form:   [ev-XXX], [ev-XXX, ev-YYY, ...]
+# Both enforce Standing Rule 7: unlinked claims get flagged, not silently accepted.
+_TAGGED_CLAIM_RE = _re.compile(r"\[(FACT|INFERENCE)(?::\s*(ev-\w+))?\]")
+_NAKED_ID_BRACKET_RE = _re.compile(r"\[(ev-\w+(?:\s*,\s*ev-\w+)*)\]")
+_SINGLE_ID_RE = _re.compile(r"ev-\w+")
 
 
 def strip_unsupported_claims(text, valid_evidence_ids):
     """Enforce Standing Rule 7: no citation → no claim.
 
-    Replaces any [FACT] / [INFERENCE] without a valid Evidence ID
-    with [UNSUPPORTED — dropped by validator]. Leaves [OPINION] and
-    [HYPOTHESIS] alone.
+    Handles two citation forms in agent prose:
+
+    1. Tagged form `[FACT]` / `[FACT: ev-XXX]` / `[INFERENCE: ev-XXX]`:
+       If the tag has no ID or the ID is unknown, the whole tag is replaced with
+       '[UNSUPPORTED — dropped by validator]'.
+
+    2. Naked form `[ev-XXX]` or `[ev-XXX, ev-YYY, ...]`:
+       Valid IDs survive. Invalid IDs are replaced inline with
+       '⚠ <id> unsupported' so the reader can see which specific cite failed.
+       If every ID in a single-item bracket is invalid, the bracket becomes
+       '[UNSUPPORTED — dropped by validator]' to keep it scannable.
+
+    `[OPINION]` and `[HYPOTHESIS]` are left untouched.
     """
-    def _sub(m):
+    UNSUPPORTED = "[UNSUPPORTED — dropped by validator]"
+
+    def _tagged(m):
         tag, eid = m.group(1), m.group(2)
         if eid and eid in valid_evidence_ids:
             return m.group(0)
-        return "[UNSUPPORTED — dropped by validator]"
+        return UNSUPPORTED
 
-    return _CLAIM_RE.sub(_sub, text)
+    def _naked(m):
+        ids = [i.strip() for i in _SINGLE_ID_RE.findall(m.group(1))]
+        # All valid → pass through as-is
+        if all(i in valid_evidence_ids for i in ids):
+            return m.group(0)
+        # All invalid → single UNSUPPORTED marker
+        if not any(i in valid_evidence_ids for i in ids):
+            return UNSUPPORTED
+        # Mixed → rewrite inline, flagging only the bad ones
+        rewritten = []
+        for i in ids:
+            if i in valid_evidence_ids:
+                rewritten.append(i)
+            else:
+                rewritten.append(f"⚠ {i} unsupported")
+        return "[" + ", ".join(rewritten) + "]"
+
+    # Apply tagged form first (it's more specific: has FACT/INFERENCE word)
+    text = _TAGGED_CLAIM_RE.sub(_tagged, text)
+    # Then naked form
+    text = _NAKED_ID_BRACKET_RE.sub(_naked, text)
+    return text
