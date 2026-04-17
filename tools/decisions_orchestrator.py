@@ -55,7 +55,13 @@ def compute_review_at(decided_at_iso, reversibility):
             f"decided_at must be a valid ISO 8601 string, got: {decided_at_iso!r} ({e})"
         )
     review_dt = dt + timedelta(days=_REVIEW_DAYS[reversibility])
-    return _format_iso_utc(review_dt.replace(tzinfo=None))
+    # If tz-aware, convert to UTC before stripping tz — prevents silent
+    # offset drop (e.g., +03:00 would otherwise be reported as Z without
+    # the 3-hour shift being applied).
+    if review_dt.tzinfo is not None:
+        from datetime import timezone
+        review_dt = review_dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return _format_iso_utc(review_dt)
 
 
 import json as _json
@@ -145,10 +151,12 @@ def review_decisions_due(doc, now_iso):
 
 
 def close_decision(doc, decision_id, new_status):
-    """Transition a decision to 'reviewed' or 'committed'.
+    """Transition a decision from 'open' to 'reviewed' or 'committed'.
 
     Mutates doc in-place. Caller is responsible for persistence.
-    Raises ValueError on unknown status; KeyError on unknown decision_id.
+    Raises ValueError on unknown status OR on attempting to close a
+    decision whose current status is NOT 'open' (terminal states are
+    terminal). Raises KeyError on unknown decision_id.
 
     Note: use reverse_decision() to transition to 'reversed' (it needs
     a successor reference).
@@ -161,6 +169,12 @@ def close_decision(doc, decision_id, new_status):
         )
     for d in doc.get("decisions", []):
         if d.get("id") == decision_id:
+            current = d.get("status")
+            if current != "open":
+                raise ValueError(
+                    f"decision {decision_id} has status {current!r}; "
+                    f"close_decision only transitions from 'open'"
+                )
             d["status"] = new_status
             return
     raise KeyError(f"decision not found: {decision_id}")
@@ -169,9 +183,13 @@ def close_decision(doc, decision_id, new_status):
 def reverse_decision(doc, decision_id, successor_id):
     """Mark a decision as 'reversed' and link the successor that overrode it.
 
-    Mutates doc in-place. Both decisions must already exist.
-    The original decision cannot already be reversed.
+    Mutates doc in-place. Both decisions must already exist and must be
+    distinct. The original decision cannot already be reversed.
     """
+    if decision_id == successor_id:
+        raise ValueError(
+            f"decision cannot reverse itself: {decision_id}"
+        )
     decisions_by_id = {d.get("id"): d for d in doc.get("decisions", [])}
 
     if decision_id not in decisions_by_id:

@@ -71,6 +71,27 @@ class TestComputeReviewAt(unittest.TestCase):
         with self.assertRaises(ValueError):
             compute_review_at("last tuesday", "type_1")
 
+    def test_timezone_offset_normalized_to_utc(self):
+        """Explicit non-Z offset must convert to UTC, not strip the offset.
+
+        Regression: 2026-01-01T00:00:00+03:00 is 2025-12-31T21:00:00Z in UTC.
+        Adding 90 days yields 2026-03-31T21:00:00Z, not 2026-04-01T00:00:00Z.
+        """
+        review = compute_review_at("2026-01-01T00:00:00+03:00", "type_1")
+        self.assertEqual(review, "2026-03-31T21:00:00Z")
+
+    def test_timezone_negative_offset_normalized_to_utc(self):
+        """Western timezone (e.g., PST) also must normalize."""
+        review = compute_review_at("2026-01-01T00:00:00-08:00", "type_1")
+        # 2026-01-01T00:00:00-08:00 is 2026-01-01T08:00:00Z; +90 days:
+        self.assertEqual(review, "2026-04-01T08:00:00Z")
+
+    def test_accepts_fractional_seconds_full_output_stable(self):
+        """Strengthening: pin the full output shape, not just prefix."""
+        review = compute_review_at("2026-01-01T12:30:45.123Z", "type_1")
+        # fromisoformat preserves the time portion; _format_iso_utc drops fractional
+        self.assertEqual(review, "2026-04-01T12:30:45Z")
+
 
 import json
 import tempfile
@@ -283,6 +304,37 @@ class TestCloseDecision(unittest.TestCase):
             close_decision(doc, "dec-ghost000", "reviewed")
         self.assertIn("dec-ghost000", str(ctx.exception))
 
+    def test_rejects_closing_already_reviewed_decision(self):
+        """Lifecycle is open -> terminal; cannot re-close."""
+        from decisions_orchestrator import close_decision
+        doc = {
+            "decisions": [{"id": "dec-reviewed1", "status": "reviewed"}],
+            "project_decision_index": {}
+        }
+        with self.assertRaises(ValueError) as ctx:
+            close_decision(doc, "dec-reviewed1", "committed")
+        self.assertIn("open", str(ctx.exception).lower())
+
+    def test_rejects_closing_already_reversed_decision(self):
+        from decisions_orchestrator import close_decision
+        doc = {
+            "decisions": [{"id": "dec-reversed1", "status": "reversed"}],
+            "project_decision_index": {}
+        }
+        with self.assertRaises(ValueError) as ctx:
+            close_decision(doc, "dec-reversed1", "committed")
+        self.assertIn("open", str(ctx.exception).lower())
+
+    def test_rejects_closing_committed_decision(self):
+        from decisions_orchestrator import close_decision
+        doc = {
+            "decisions": [{"id": "dec-committed2", "status": "committed"}],
+            "project_decision_index": {}
+        }
+        with self.assertRaises(ValueError) as ctx:
+            close_decision(doc, "dec-committed2", "reviewed")
+        self.assertIn("open", str(ctx.exception).lower())
+
 
 class TestReverseDecision(unittest.TestCase):
     def test_marks_decision_reversed_and_links_successor(self):
@@ -320,6 +372,19 @@ class TestReverseDecision(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             reverse_decision(doc, "dec-orig00003", successor_id="dec-succ00003")
         self.assertIn("already reversed", str(ctx.exception).lower())
+
+    def test_rejects_self_reference(self):
+        """A decision cannot be its own successor."""
+        from decisions_orchestrator import reverse_decision
+        doc = {
+            "decisions": [{"id": "dec-narciss1", "status": "open"}],
+            "project_decision_index": {}
+        }
+        with self.assertRaises(ValueError) as ctx:
+            reverse_decision(doc, "dec-narciss1", successor_id="dec-narciss1")
+        # Match phrasing of the error message
+        err = str(ctx.exception).lower()
+        self.assertTrue("itself" in err or "self" in err, err)
 
 
 if __name__ == "__main__":
