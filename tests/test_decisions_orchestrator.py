@@ -120,7 +120,7 @@ class TestAppendDecision(unittest.TestCase):
                 "related_evidence": [],
                 "status": "open"
             }
-            append_decision_persist("proj-test", decision, path)
+            append_decision_persist(path, decision)
 
             with open(path) as f:
                 doc = json.load(f)
@@ -144,7 +144,7 @@ class TestAppendDecision(unittest.TestCase):
                 "review_at": "2026-05-17T00:00:00Z", "project_id": "proj-x",
                 "related_evidence": [], "status": "open"
             }
-            append_decision_persist("proj-x", new_decision, path)
+            append_decision_persist(path, new_decision)
 
             with open(path) as f:
                 doc = json.load(f)
@@ -174,7 +174,7 @@ class TestAppendDecision(unittest.TestCase):
                 "review_at": "2026-07-16T00:00:00Z", "project_id": "proj-mirror",
                 "related_evidence": [], "status": "open"
             }
-            append_decision_persist("proj-mirror", decision, root_path)
+            append_decision_persist(root_path, decision)
 
             with open(root_path) as f:
                 root_doc = json.load(f)
@@ -202,7 +202,7 @@ class TestAppendDecision(unittest.TestCase):
                 "review_at": "2026-05-17T00:00:00Z", "project_id": "proj-solo",
                 "related_evidence": [], "status": "open"
             }
-            append_decision_persist("proj-solo", decision, path)
+            append_decision_persist(path, decision)
             with open(path) as f:
                 doc = json.load(f)
             self.assertEqual(len(doc["decisions"]), 1)
@@ -223,7 +223,7 @@ class TestAppendDecision(unittest.TestCase):
                 "review_at": "2026-07-16T00:00:00Z", "project_id": "proj-atomic",
                 "related_evidence": [], "status": "open"
             }
-            append_decision_persist("proj-atomic", decision, path)
+            append_decision_persist(path, decision)
             tmps = glob.glob(os.path.join(tmp, "*.tmp"))
             self.assertEqual(tmps, [], f"stray tmp files: {tmps}")
 

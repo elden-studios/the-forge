@@ -170,8 +170,14 @@ def append_decision(doc, decision):
         index[pid] = sorted(current)
 
 
-def append_decision_persist(project_id, decision, decisions_path):
+def append_decision_persist(path, decision):
     """Persist a decision to forge-decisions.json atomically (I/O wrapper around append_decision).
+
+    Signature harmonized in Wave 4 to (path, decision) — path first, matching
+    close_decision_persist(path, ...) and reverse_decision_persist(path, ...).
+    The project_id is read from decision["project_id"] (validated present);
+    Wave 3's redundant separate project_id arg was removed along with its
+    forced-normalization block.
 
     Atomically writes to the primary path AND mirrors to <parent>/assets/<basename>
     when that sibling directory exists — the live dashboard reads from assets/
@@ -181,26 +187,23 @@ def append_decision_persist(project_id, decision, decisions_path):
     Delegates the in-memory mutation (append + project_decision_index update +
     upsert dedup) to the pure append_decision(doc, decision). Any caller that
     wants pure semantics can use append_decision() directly.
-    """
-    with open(decisions_path) as f:
-        doc = _json.load(f)
 
-    # Ensure the incoming decision carries the project_id so the pure function
-    # can update project_decision_index[project_id] without needing the separate
-    # argument (and without breaking backward compat — any existing callers pass
-    # project_id separately but also include it inside the decision dict per the
-    # Wave 2 schema).
-    if decision.get("project_id") != project_id:
-        decision = dict(decision, project_id=project_id)
+    Raises KeyError if decision["project_id"] is missing — surfaces misuse cleanly.
+    """
+    if not decision.get("project_id"):
+        raise KeyError("decision must carry a non-empty 'project_id' key")
+
+    with open(path) as f:
+        doc = _json.load(f)
 
     append_decision(doc, decision)
 
-    _atomic_write_json(decisions_path, doc)
+    _atomic_write_json(path, doc)
 
-    parent = os.path.dirname(os.path.abspath(decisions_path)) or "."
+    parent = os.path.dirname(os.path.abspath(path)) or "."
     assets_dir = os.path.join(parent, "assets")
     if os.path.isdir(assets_dir):
-        mirror_path = os.path.join(assets_dir, os.path.basename(decisions_path))
+        mirror_path = os.path.join(assets_dir, os.path.basename(path))
         try:
             _atomic_write_json(mirror_path, doc)
         except OSError as e:

@@ -140,7 +140,7 @@ def create_cabinet_verdict_decision(project_id, project_title, forge_decisions_p
         "related_evidence": [],
         "status": "open",
     }
-    append_decision_persist(project_id, decision, forge_decisions_path)
+    append_decision_persist(forge_decisions_path, decision)
     return decision
 
 
