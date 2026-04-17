@@ -282,3 +282,63 @@ def reverse_decision(doc, decision_id, successor_id):
 
     original["status"] = "reversed"
     original["reversed_by"] = successor_id
+
+
+def close_decision_persist(path, decision_id, new_status="committed"):
+    """Load-mutate-atomic-write-mirror wrapper around close_decision.
+
+    Opens `path`, parses as JSON, calls the pure close_decision, atomic-writes
+    back to `path`, and mirrors to <parent>/assets/<basename> if that sibling
+    directory exists (matches append_decision_persist's mirror convention —
+    the live dashboard reads from assets/).
+
+    Propagates ValueError / KeyError from the pure function unchanged so the
+    dashboard UI can distinguish "bad status" / "bad transition" / "not found"
+    signals.
+
+    Atomicity: if the pure function raises, the primary file is untouched
+    (no disk write attempted until after the mutation succeeds in memory).
+
+    Wave 3 — Task 0.2.
+    """
+    with open(path) as f:
+        doc = _json.load(f)
+    close_decision(doc, decision_id, new_status)  # pure — raises on bad state
+    _atomic_write_json(path, doc)
+    parent = os.path.dirname(os.path.abspath(path)) or "."
+    assets_dir = os.path.join(parent, "assets")
+    if os.path.isdir(assets_dir):
+        mirror_path = os.path.join(assets_dir, os.path.basename(path))
+        try:
+            _atomic_write_json(mirror_path, doc)
+        except OSError:
+            pass
+
+
+def reverse_decision_persist(path, decision_id, successor_id):
+    """Load-mutate-atomic-write-mirror wrapper around reverse_decision.
+
+    Opens `path`, parses as JSON, calls the pure reverse_decision (which sets
+    status='reversed' and reversed_by=successor_id on the original), atomic-writes
+    back, and mirrors to <parent>/assets/ if present.
+
+    Propagates ValueError (self-reference or already-reversed) and KeyError
+    (missing decision_id or missing successor_id) from the pure function.
+
+    The reversal reason is carried in the successor decision's `context` field,
+    not here — keep this wrapper's signature minimal.
+
+    Wave 3 — Task 0.2.
+    """
+    with open(path) as f:
+        doc = _json.load(f)
+    reverse_decision(doc, decision_id, successor_id)  # pure — raises on bad state
+    _atomic_write_json(path, doc)
+    parent = os.path.dirname(os.path.abspath(path)) or "."
+    assets_dir = os.path.join(parent, "assets")
+    if os.path.isdir(assets_dir):
+        mirror_path = os.path.join(assets_dir, os.path.basename(path))
+        try:
+            _atomic_write_json(mirror_path, doc)
+        except OSError:
+            pass

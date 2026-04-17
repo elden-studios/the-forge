@@ -4,11 +4,54 @@ Covers upsert semantics on the pure append_decision(doc, decision) entry point,
 persistence wrappers (close/reverse_decision_persist), query helpers, and
 heatmap bucket logic. Subsequent Wave 3 sub-tasks will extend this file.
 """
+import json
+import os
+import tempfile
 import unittest
 
 from tools.decisions_orchestrator import (
     append_decision,
+    close_decision_persist,
+    reverse_decision_persist,
 )
+
+
+def _sample_doc():
+    return {
+        "decisions": [
+            {
+                "id": "dec-aaaaaaaa",
+                "title": "Original",
+                "context": "c",
+                "alternatives_considered": [],
+                "decided_by": "agent-cade",
+                "dissenting": [],
+                "dissent_reason": "",
+                "decided_at": "2026-04-17T10:00:00Z",
+                "reversibility": "type_1",
+                "review_at": "2026-07-16T10:00:00Z",
+                "project_id": "proj-x",
+                "related_evidence": [],
+                "status": "open",
+            },
+            {
+                "id": "dec-bbbbbbbb",
+                "title": "Successor",
+                "context": "c2",
+                "alternatives_considered": [],
+                "decided_by": "agent-cade",
+                "dissenting": [],
+                "dissent_reason": "",
+                "decided_at": "2026-04-17T11:00:00Z",
+                "reversibility": "type_1",
+                "review_at": "2026-07-16T11:00:00Z",
+                "project_id": "proj-x",
+                "related_evidence": [],
+                "status": "open",
+            },
+        ],
+        "project_decision_index": {"proj-x": ["dec-aaaaaaaa", "dec-bbbbbbbb"]},
+    }
 
 
 class TestAppendDecisionUpsert(unittest.TestCase):
@@ -116,6 +159,133 @@ class TestAppendDecisionUpsert(unittest.TestCase):
         d_aware = self._decision(id="dec-bbbbbbbb", decided_at="2026-04-17T10:33:00Z")  # +96s
         append_decision(doc, d_aware)
         self.assertEqual(len(doc["decisions"]), 2)
+
+
+class TestCloseDecisionPersist(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.path = os.path.join(self.tmpdir, "forge-decisions.json")
+        self.assets_dir = os.path.join(self.tmpdir, "assets")
+        os.makedirs(self.assets_dir, exist_ok=True)
+        self.mirror_path = os.path.join(self.assets_dir, "forge-decisions.json")
+        doc = _sample_doc()
+        with open(self.path, "w") as f:
+            json.dump(doc, f)
+        with open(self.mirror_path, "w") as f:
+            json.dump(doc, f)
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_close_default_status_is_committed(self):
+        close_decision_persist(self.path, "dec-aaaaaaaa")
+        with open(self.path) as f:
+            primary = json.load(f)
+        self.assertEqual(primary["decisions"][0]["status"], "committed")
+
+    def test_close_updates_primary_and_mirror(self):
+        close_decision_persist(self.path, "dec-aaaaaaaa", new_status="reviewed")
+        with open(self.path) as f:
+            primary = json.load(f)
+        with open(self.mirror_path) as f:
+            mirror = json.load(f)
+        self.assertEqual(primary["decisions"][0]["status"], "reviewed")
+        self.assertEqual(mirror["decisions"][0]["status"], "reviewed")
+
+    def test_close_propagates_value_error_on_bad_status(self):
+        with self.assertRaises(ValueError):
+            close_decision_persist(self.path, "dec-aaaaaaaa", new_status="not-a-real-status")
+
+    def test_close_propagates_key_error_on_missing_decision(self):
+        with self.assertRaises(KeyError):
+            close_decision_persist(self.path, "dec-does-not-exist")
+
+    def test_close_rejects_terminal_state_transition(self):
+        close_decision_persist(self.path, "dec-aaaaaaaa", new_status="committed")
+        with self.assertRaises(ValueError):
+            close_decision_persist(self.path, "dec-aaaaaaaa", new_status="reviewed")
+
+    def test_close_preserves_primary_on_failure(self):
+        """Atomicity: ValueError/KeyError from pure function must leave disk untouched."""
+        with open(self.path) as f:
+            before = f.read()
+        with self.assertRaises(KeyError):
+            close_decision_persist(self.path, "dec-does-not-exist")
+        with open(self.path) as f:
+            after = f.read()
+        self.assertEqual(before, after, "primary file mutated on pure-function failure")
+
+    def test_close_without_assets_dir_does_not_crash(self):
+        """If the assets/ sibling doesn't exist, persist primary only (no crash)."""
+        import shutil
+        shutil.rmtree(self.assets_dir, ignore_errors=True)
+        close_decision_persist(self.path, "dec-aaaaaaaa", new_status="committed")
+        with open(self.path) as f:
+            primary = json.load(f)
+        self.assertEqual(primary["decisions"][0]["status"], "committed")
+
+
+class TestReverseDecisionPersist(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.path = os.path.join(self.tmpdir, "forge-decisions.json")
+        self.assets_dir = os.path.join(self.tmpdir, "assets")
+        os.makedirs(self.assets_dir, exist_ok=True)
+        self.mirror_path = os.path.join(self.assets_dir, "forge-decisions.json")
+        doc = _sample_doc()
+        with open(self.path, "w") as f:
+            json.dump(doc, f)
+        with open(self.mirror_path, "w") as f:
+            json.dump(doc, f)
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_reverse_sets_status_and_reversed_by(self):
+        reverse_decision_persist(self.path, "dec-aaaaaaaa", successor_id="dec-bbbbbbbb")
+        with open(self.path) as f:
+            primary = json.load(f)
+        self.assertEqual(primary["decisions"][0]["status"], "reversed")
+        self.assertEqual(primary["decisions"][0]["reversed_by"], "dec-bbbbbbbb")
+
+    def test_reverse_updates_mirror(self):
+        reverse_decision_persist(self.path, "dec-aaaaaaaa", successor_id="dec-bbbbbbbb")
+        with open(self.mirror_path) as f:
+            mirror = json.load(f)
+        self.assertEqual(mirror["decisions"][0]["status"], "reversed")
+        self.assertEqual(mirror["decisions"][0]["reversed_by"], "dec-bbbbbbbb")
+
+    def test_reverse_rejects_self_reference(self):
+        with self.assertRaises(ValueError):
+            reverse_decision_persist(self.path, "dec-aaaaaaaa", successor_id="dec-aaaaaaaa")
+
+    def test_reverse_rejects_missing_successor(self):
+        with self.assertRaises(KeyError):
+            reverse_decision_persist(self.path, "dec-aaaaaaaa", successor_id="dec-does-not-exist")
+
+    def test_reverse_rejects_already_reversed(self):
+        reverse_decision_persist(self.path, "dec-aaaaaaaa", successor_id="dec-bbbbbbbb")
+        with self.assertRaises(ValueError):
+            reverse_decision_persist(self.path, "dec-aaaaaaaa", successor_id="dec-bbbbbbbb")
+
+    def test_reverse_preserves_primary_on_failure(self):
+        with open(self.path) as f:
+            before = f.read()
+        with self.assertRaises(KeyError):
+            reverse_decision_persist(self.path, "dec-aaaaaaaa", successor_id="dec-does-not-exist")
+        with open(self.path) as f:
+            after = f.read()
+        self.assertEqual(before, after)
+
+    def test_reverse_without_assets_dir_does_not_crash(self):
+        import shutil
+        shutil.rmtree(self.assets_dir, ignore_errors=True)
+        reverse_decision_persist(self.path, "dec-aaaaaaaa", successor_id="dec-bbbbbbbb")
+        with open(self.path) as f:
+            primary = json.load(f)
+        self.assertEqual(primary["decisions"][0]["status"], "reversed")
 
 
 if __name__ == "__main__":
