@@ -89,6 +89,31 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 .ev-freshness{display:flex;gap:10px;margin-top:10px;font-size:11px;flex-wrap:wrap}
 .agent-fresh{color:var(--muted)}
 
+/* Cabinet block */
+.cabinet-block{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px}
+.cabinet-header{display:flex;justify-content:space-between;align-items:center;font-family:'Press Start 2P',monospace;font-size:11px;color:var(--brand);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+.cabinet-verdict{padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;margin-bottom:12px}
+.cabinet-verdict .verdict-title{font-weight:600;margin-bottom:8px;font-size:13px}
+.cabinet-verdict .verdict-meta{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--muted)}
+.cabinet-verdict .verdict-meta b{color:var(--text)}
+.cabinet-verdict .verdict-dissent{color:var(--red);margin-top:6px;font-size:11px}
+.cabinet-lenses{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+.lens-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:10px;min-height:100px}
+.lens-card .lens-title{color:var(--brand);font-weight:600;margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px;font-size:9px}
+.lens-card .lens-exec{color:var(--muted);font-size:9px;margin-bottom:6px}
+.lens-card .lens-body{color:var(--text);line-height:1.4;font-size:10px}
+.cabinet-risks{display:flex;flex-direction:column;gap:6px}
+.cabinet-risks-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.risk-row{display:flex;align-items:center;gap:10px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)}
+.risk-row:last-child{border-bottom:none}
+.risk-score{min-width:32px;height:24px;background:var(--red);color:#fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px}
+.risk-score.low{background:#5a5020;color:var(--yellow)}
+.risk-score.mid{background:#5a3020;color:#ff9060}
+.risk-score.hi{background:var(--red)}
+.risk-mode{flex:1}
+.risk-owner{color:var(--muted);font-size:11px}
+.cabinet-empty{padding:20px;text-align:center;color:var(--muted);font-size:12px;font-style:italic;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:16px}
+
 /* Sources tab */
 .sources-toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .sources-toolbar input,.sources-toolbar select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:5px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;border-radius:4px}
@@ -151,6 +176,19 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
         <span class="agent-fresh" data-agent="Echo">● Echo</span>
         <span class="agent-fresh" data-agent="Talon">● Talon</span>
       </div>
+    </div>
+    <div class="cabinet-block" id="cabinet-block" style="display:none">
+      <div class="cabinet-header">
+        <span>Cabinet Framing</span>
+        <span id="cabinet-status">—</span>
+      </div>
+      <div class="cabinet-verdict" id="cabinet-verdict"></div>
+      <div class="cabinet-lenses" id="cabinet-lenses"></div>
+      <div class="cabinet-risks-title">Top pre-mortem risks</div>
+      <div class="cabinet-risks" id="cabinet-risks"></div>
+    </div>
+    <div class="cabinet-empty" id="cabinet-empty" style="display:none">
+      Cabinet Framing hasn't run for the current project yet.
     </div>
     <div class="mc-grid" id="mcGrid"></div>
   </div>
@@ -247,6 +285,8 @@ async function loadData() {
   } catch(e) { console.error('Load error:', e); }
   applyEvidencePipesVisibility(STATE);
   render();
+  // Cabinet block refreshes whenever state/tasks change (not just when decisions update)
+  if (typeof renderCabinetBlock === 'function') renderCabinetBlock(STATE, TASKS, _decisionsDoc);
 }
 
 function getAgentName(id) { return STATE?.agents?.find(a=>a.id===id)?.name || id; }
@@ -625,6 +665,130 @@ function renderEvidenceBlock(doc) {
 }
 
 // ═══════════════════════════════════════
+// CABINET BLOCK — fetch decisions + render verdict/lenses/risks
+// ═══════════════════════════════════════
+let _decisionsDoc = null;
+
+// esc(): HTML-escape helper for safe interpolation of user-controlled strings.
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+}
+
+// agentName(): resolve agent ID → display name (fallback to raw ID if not found).
+function agentName(stateDoc, agentId) {
+  if (!stateDoc || !stateDoc.agents) return agentId || '';
+  const a = stateDoc.agents.find(x => x.id === agentId);
+  return a ? a.name : (agentId || '');
+}
+
+async function fetchDecisions() {
+  try {
+    const resp = await fetch('forge-decisions.json?_=' + Date.now(), { cache: 'no-store' });
+    if (!resp.ok) {
+      renderCabinetBlock(STATE, TASKS, _decisionsDoc);
+      return null;
+    }
+    const doc = await resp.json();
+    _decisionsDoc = doc;
+    renderCabinetBlock(STATE, TASKS, _decisionsDoc);
+    return doc;
+  } catch (e) {
+    renderCabinetBlock(STATE, TASKS, _decisionsDoc);
+    return null;
+  }
+}
+
+function renderCabinetBlock(stateDoc, tasksDoc, decisionsDoc) {
+  const block = document.getElementById('cabinet-block');
+  const empty = document.getElementById('cabinet-empty');
+  if (!block || !empty) return;
+
+  const framing = tasksDoc && tasksDoc.cabinet_framing;
+  const hasFraming = framing && framing.lenses && Object.keys(framing.lenses).length > 0;
+  if (!hasFraming) {
+    block.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  block.style.display = 'block';
+  empty.style.display = 'none';
+
+  const statusEl = document.getElementById('cabinet-status');
+  if (statusEl) statusEl.textContent = 'Active';
+
+  // Verdict — latest open decision for current_project
+  const currentProject = (tasksDoc && tasksDoc.current_project) || (stateDoc && stateDoc.current_project) || null;
+  const allDecisions = (decisionsDoc && decisionsDoc.decisions) || [];
+  const projectDecisions = allDecisions.filter(d => d.project_id === currentProject && d.status === 'open');
+  const latest = projectDecisions.sort((a, b) => (a.decided_at < b.decided_at ? 1 : -1))[0];
+
+  const verdictEl = document.getElementById('cabinet-verdict');
+  if (verdictEl) {
+    if (latest) {
+      const deciderName = agentName(stateDoc, latest.decided_by);
+      const dissenters = (latest.dissenting || [])
+        .map(id => agentName(stateDoc, id))
+        .filter(Boolean);
+      const reviewStr = latest.review_at ? new Date(latest.review_at).toLocaleDateString() : '—';
+      const dissentHtml = dissenters.length
+        ? `<div class="verdict-dissent">Dissent: ${esc(dissenters.join(', '))} — ${esc(latest.dissent_reason || '')}</div>`
+        : '';
+      verdictEl.innerHTML = `
+        <div class="verdict-title">${esc(latest.title)}</div>
+        <div class="verdict-meta">
+          <span>Decider: <b>${esc(deciderName)}</b></span>
+          <span>Reversibility: <b>${esc(latest.reversibility || '—')}</b></span>
+          <span>Review: <b>${esc(reviewStr)}</b></span>
+        </div>
+        ${dissentHtml}
+      `;
+    } else {
+      verdictEl.innerHTML = '<div style="color:var(--muted);font-size:12px;font-style:italic">No verdict recorded yet for this project.</div>';
+    }
+  }
+
+  // 5 lens cards
+  const lensDefs = [
+    ['strategic_kernel', 'Strategic Kernel', 'Flint'],
+    ['product_shape',    'Product Shape',    'Cade'],
+    ['build_class',      'Build Class',      'Helix'],
+    ['economic_shape',   'Economic Shape',   'Prism'],
+    ['market_bet',       'Market Bet',       'Dune'],
+  ];
+  const lensesEl = document.getElementById('cabinet-lenses');
+  if (lensesEl) {
+    lensesEl.innerHTML = lensDefs.map(([key, title, exec]) => {
+      const lens = framing.lenses[key];
+      const body = typeof lens === 'string' ? lens : ((lens && (lens.summary || lens.body)) || '—');
+      return `<div class="lens-card">
+        <div class="lens-title">${esc(title)}</div>
+        <div class="lens-exec">${esc(exec)}</div>
+        <div class="lens-body">${esc(body)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Top 3 pre-mortem risks by score (likelihood × impact)
+  const preMortem = (tasksDoc && tasksDoc.pre_mortem) || [];
+  const top3 = [...preMortem]
+    .sort((a, b) => ((b.likelihood || 0) * (b.impact || 0)) - ((a.likelihood || 0) * (a.impact || 0)))
+    .slice(0, 3);
+  const risksEl = document.getElementById('cabinet-risks');
+  if (risksEl) {
+    risksEl.innerHTML = top3.map(r => {
+      const score = (r.likelihood || 0) * (r.impact || 0);
+      const cls = score >= 16 ? 'hi' : (score >= 9 ? 'mid' : 'low');
+      const ownerLabel = agentName(stateDoc, r.owner_agent);
+      return `<div class="risk-row">
+        <span class="risk-score ${cls}">${score}</span>
+        <span class="risk-mode">${esc(r.failure_mode)}</span>
+        <span class="risk-owner">(${esc(ownerLabel)})</span>
+      </div>`;
+    }).join('') || '<div style="color:var(--muted);font-size:12px;font-style:italic">No pre-mortem risks recorded.</div>';
+  }
+}
+
+// ═══════════════════════════════════════
 // SOURCES TAB — render, filter, export
 // ═══════════════════════════════════════
 function freshnessBucket(it) {
@@ -742,6 +906,8 @@ loadData();
 setInterval(loadData, 3000); // refresh every 3 seconds
 fetchEvidence();
 setInterval(fetchEvidence, 3000); // evidence refreshes alongside state/tasks
+fetchDecisions();
+setInterval(fetchDecisions, 3000); // cabinet decisions refresh alongside state/tasks
 </script>
 </body>
 </html>
