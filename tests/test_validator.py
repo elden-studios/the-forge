@@ -997,5 +997,34 @@ class TestCacheStatsCli(unittest.TestCase):
             self.assertIn("1 entries", output)
 
 
+class TestV32PortfolioInvariants(unittest.TestCase):
+    """Pins the exact v3.2 Cabinet structure to catch future drift."""
+
+    def test_real_project_has_v32_cabinet_structure(self):
+        """Real forge-state.json has: 15 agents, 9 depts, 5 execs, 10 ICs, cabinet matches."""
+        repo = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        if not os.path.isfile(os.path.join(repo, 'forge-state.json')):
+            self.skipTest("No forge-state.json in repo root — not a Forge checkout")
+        with open(os.path.join(repo, 'forge-state.json')) as f:
+            s = json.load(f)
+        self.assertEqual(len(s['agents']), 15, "Expected 15 agents in v3.2 roster")
+        self.assertEqual(len(s['departments']), 9, "Expected 9 departments in v3.2")
+        execs = [a['id'] for a in s['agents'] if a.get('role') == 'executive']
+        ics = [a['id'] for a in s['agents'] if a.get('role') == 'ic']
+        self.assertEqual(len(execs), 5, f"Expected 5 executives, got {execs}")
+        self.assertEqual(len(ics), 10, f"Expected 10 ICs, got {ics}")
+        # Cabinet membership must match the executive set
+        self.assertEqual(
+            set(s['cabinet']['executives']),
+            set(execs),
+            "cabinet.executives must contain exactly the agents with role=executive"
+        )
+        # Every IC must have reports_to pointing to an executive
+        execs_set = set(execs)
+        for ic in [a for a in s['agents'] if a.get('role') == 'ic']:
+            self.assertIn(ic.get('reports_to'), execs_set,
+                         f"IC {ic['name']} reports_to {ic.get('reports_to')} which is not an executive")
+
+
 if __name__ == "__main__":
     unittest.main()

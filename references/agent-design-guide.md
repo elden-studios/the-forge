@@ -165,9 +165,9 @@ Departments group agents by functional area. Each department gets:
 | Royal | `#2C3E9B` | Legal, Compliance |
 | Magenta | `#E91E8C` | Brand, Identity |
 | Olive | `#6B8E23` | Sustainability, Impact |
-| Product | `#7E57C2` | Muted purple | CPO lives here. Distinct from Strategy's red-orange and Research's bright purple. |
-| Legal | `#546E7A` | Slate grey | Single-person dept. Legal's discipline is formal + sober; color matches. |
-| Finance | `#26A69A` | Teal | Single-person dept. Distinct from Engineering's blue and Design's green-teal (Ren). |
+| Product | `#7E57C2` | Muted purple — CPO lives here. Distinct from Strategy's red-orange and Research's bright purple. |
+| Legal | `#546E7A` | Slate grey — Single-person dept. Legal's discipline is formal + sober; color matches. |
+| Finance | `#26A69A` | Teal — Single-person dept. Distinct from Engineering's blue and Design's green-teal (Ren). |
 
 ### Naming Departments
 
