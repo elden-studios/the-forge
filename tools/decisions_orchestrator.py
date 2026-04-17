@@ -346,3 +346,97 @@ def reverse_decision_persist(path, decision_id, successor_id):
             _atomic_write_json(mirror_path, doc)
         except OSError:
             pass
+
+
+def query_by_project(doc, project_id):
+    """Return decisions belonging to `project_id`, in insertion order.
+
+    Unknown project_id → empty list. Does not consult project_decision_index —
+    scans the decisions array directly so the result is self-consistent even if
+    the index is stale.
+
+    Wave 3 — Task 0.3.
+    """
+    return [d for d in doc.get("decisions", []) if d.get("project_id") == project_id]
+
+
+def query_by_status(doc, status):
+    """Return decisions with matching status, in insertion order.
+
+    Raises ValueError if `status` is not one of DECISION_STATUSES.
+
+    Wave 3 — Task 0.3.
+    """
+    if status not in DECISION_STATUSES:
+        raise ValueError(
+            f"status must be one of {sorted(DECISION_STATUSES)}, got: {status!r}"
+        )
+    return [d for d in doc.get("decisions", []) if d.get("status") == status]
+
+
+def query_due_soon(doc, now, horizon_days=30):
+    """Return open decisions whose review_at is at or before `now + horizon_days`.
+
+    Only decisions with status == 'open' are eligible — reviewed, committed, and
+    reversed decisions are excluded regardless of review_at. This matches the
+    semantics of `review_decisions_due(doc, now_iso)` (which uses the same
+    open-only filter but takes a point-in-time rather than a look-ahead window).
+
+    `now` must be a timezone-aware datetime. Naive review_at values in the doc
+    are treated as UTC (matches `_to_naive_utc` / `compute_review_at` convention).
+
+    Decisions with missing or malformed review_at are silently skipped — they
+    can't be "due" if we don't know when.
+
+    Wave 3 — Task 0.3.
+    """
+    horizon = now + timedelta(days=horizon_days)
+    horizon_naive = _to_naive_utc(horizon)
+    out = []
+    for d in doc.get("decisions", []):
+        if d.get("status") != "open":
+            continue
+        review_at = d.get("review_at")
+        if not review_at:
+            continue
+        try:
+            review_dt = _parse_iso(review_at)
+        except (ValueError, TypeError, AttributeError):
+            continue
+        review_naive = _to_naive_utc(review_dt)
+        if review_naive <= horizon_naive:
+            out.append(d)
+    return out
+
+
+def query_sorted_by_review_at(doc, reverse=False):
+    """Return decisions sorted by review_at.
+
+    Ascending by default (due-soonest first); pass reverse=True for descending.
+    Decisions with missing or malformed review_at sort to the END regardless of
+    direction — graceful degradation so they don't crash the sort but don't
+    distract the operator either.
+
+    Implementation note: we partition into valid/invalid buckets and only sort
+    the valid bucket, then append invalid. A single `sorted(..., key=...)` with
+    a sentinel key doesn't work for both directions — `reverse=True` would flip
+    the valid/invalid ordering too, moving invalids to the front.
+
+    Wave 3 — Task 0.3.
+    """
+    valid = []
+    invalid = []
+    for d in doc.get("decisions", []):
+        review_at = d.get("review_at")
+        if not review_at:
+            invalid.append(d)
+            continue
+        try:
+            dt = _parse_iso(review_at)
+        except (ValueError, TypeError, AttributeError):
+            invalid.append(d)
+            continue
+        valid.append((_to_naive_utc(dt), d))
+
+    valid.sort(key=lambda pair: pair[0], reverse=reverse)
+    return [d for _, d in valid] + invalid

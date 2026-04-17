@@ -296,5 +296,132 @@ class TestReverseDecisionPersist(unittest.TestCase):
         self.assertEqual(primary["decisions"][0]["status"], "reversed")
 
 
+from datetime import datetime, timezone, timedelta
+
+from tools.decisions_orchestrator import (
+    query_by_project,
+    query_by_status,
+    query_due_soon,
+    query_sorted_by_review_at,
+)
+
+
+class TestQueryHelpers(unittest.TestCase):
+    def setUp(self):
+        self.now = datetime(2026, 4, 17, 10, 0, 0, tzinfo=timezone.utc)
+        self.doc = {
+            "decisions": [
+                {"id": "dec-a", "project_id": "proj-1", "status": "open",
+                 "review_at": (self.now + timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                 "title": "A", "decided_by": "agent-cade", "reversibility": "type_1"},
+                {"id": "dec-b", "project_id": "proj-1", "status": "committed",
+                 "review_at": (self.now + timedelta(days=100)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                 "title": "B", "decided_by": "agent-helx", "reversibility": "type_2"},
+                {"id": "dec-c", "project_id": "proj-2", "status": "open",
+                 "review_at": (self.now + timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                 "title": "C", "decided_by": "agent-cade", "reversibility": "type_1"},
+                {"id": "dec-d", "project_id": "proj-2", "status": "reversed",
+                 "review_at": (self.now - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                 "title": "D", "decided_by": "agent-flnt", "reversibility": "type_2"},
+                {"id": "dec-e", "project_id": "proj-2", "status": "reviewed",
+                 "review_at": (self.now + timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                 "title": "E", "decided_by": "agent-cade", "reversibility": "type_1"},
+            ],
+            "project_decision_index": {
+                "proj-1": ["dec-a", "dec-b"],
+                "proj-2": ["dec-c", "dec-d", "dec-e"],
+            },
+        }
+
+    def test_query_by_project_returns_matching_decisions(self):
+        rows = query_by_project(self.doc, "proj-1")
+        self.assertEqual([r["id"] for r in rows], ["dec-a", "dec-b"])
+
+    def test_query_by_project_preserves_insertion_order(self):
+        rows = query_by_project(self.doc, "proj-2")
+        self.assertEqual([r["id"] for r in rows], ["dec-c", "dec-d", "dec-e"])
+
+    def test_query_by_project_unknown_returns_empty(self):
+        self.assertEqual(query_by_project(self.doc, "proj-999"), [])
+
+    def test_query_by_status_open(self):
+        rows = query_by_status(self.doc, "open")
+        self.assertEqual(sorted([r["id"] for r in rows]), ["dec-a", "dec-c"])
+
+    def test_query_by_status_reviewed(self):
+        rows = query_by_status(self.doc, "reviewed")
+        self.assertEqual([r["id"] for r in rows], ["dec-e"])
+
+    def test_query_by_status_rejects_unknown_status(self):
+        with self.assertRaises(ValueError):
+            query_by_status(self.doc, "nonsense")
+
+    def test_query_due_soon_default_30d_only_includes_open(self):
+        rows = query_due_soon(self.doc, now=self.now, horizon_days=30)
+        # open: a(+10d), c(+5d). Reviewed (e), committed (b), reversed (d) excluded regardless of window.
+        self.assertEqual(sorted([r["id"] for r in rows]), ["dec-a", "dec-c"])
+
+    def test_query_due_soon_excludes_non_open_even_in_window(self):
+        """Reviewed/committed/reversed decisions are excluded even if review_at is near."""
+        rows = query_due_soon(self.doc, now=self.now, horizon_days=365)
+        # a, c = open & in-window; e = reviewed (excluded); b = committed (excluded); d = reversed (excluded)
+        self.assertEqual(sorted([r["id"] for r in rows]), ["dec-a", "dec-c"])
+
+    def test_query_due_soon_includes_overdue_open(self):
+        """An open decision with review_at in the past is still 'due'."""
+        overdue_doc = {
+            "decisions": [
+                {"id": "dec-overdue", "project_id": "proj-x", "status": "open",
+                 "review_at": (self.now - timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                 "title": "Overdue", "decided_by": "agent-cade", "reversibility": "type_1"},
+            ],
+            "project_decision_index": {"proj-x": ["dec-overdue"]},
+        }
+        rows = query_due_soon(overdue_doc, now=self.now, horizon_days=1)
+        self.assertEqual([r["id"] for r in rows], ["dec-overdue"])
+
+    def test_query_due_soon_handles_naive_review_at(self):
+        """Naive review_at values should be treated as UTC — matches _to_naive_utc convention."""
+        mixed_doc = {
+            "decisions": [
+                {"id": "dec-naive", "project_id": "proj-x", "status": "open",
+                 "review_at": "2026-04-20T10:00:00",  # naive; +3 days at UTC
+                 "title": "N", "decided_by": "agent-cade", "reversibility": "type_1"},
+            ],
+            "project_decision_index": {"proj-x": ["dec-naive"]},
+        }
+        rows = query_due_soon(mixed_doc, now=self.now, horizon_days=7)
+        self.assertEqual([r["id"] for r in rows], ["dec-naive"])
+
+    def test_query_sorted_by_review_at_asc(self):
+        rows = query_sorted_by_review_at(self.doc)
+        # Ascending: d(-2d), c(+5d), e(+7d), a(+10d), b(+100d)
+        self.assertEqual([r["id"] for r in rows], ["dec-d", "dec-c", "dec-e", "dec-a", "dec-b"])
+
+    def test_query_sorted_by_review_at_desc(self):
+        rows = query_sorted_by_review_at(self.doc, reverse=True)
+        self.assertEqual([r["id"] for r in rows], ["dec-b", "dec-a", "dec-e", "dec-c", "dec-d"])
+
+    def test_query_sorted_missing_review_at_goes_to_end(self):
+        """Decisions with missing/malformed review_at sort to end in either direction."""
+        doc = {
+            "decisions": [
+                {"id": "dec-none", "project_id": "p", "status": "open"},  # no review_at
+                {"id": "dec-a", "project_id": "p", "status": "open",
+                 "review_at": "2026-05-01T00:00:00Z", "title": "", "decided_by": "", "reversibility": "type_1"},
+                {"id": "dec-b", "project_id": "p", "status": "open",
+                 "review_at": "not-an-iso-date", "title": "", "decided_by": "", "reversibility": "type_1"},
+            ],
+            "project_decision_index": {"p": ["dec-none", "dec-a", "dec-b"]},
+        }
+        asc = query_sorted_by_review_at(doc, reverse=False)
+        desc = query_sorted_by_review_at(doc, reverse=True)
+        # 'dec-a' has a valid review_at; the two invalid entries go to the end in both directions.
+        self.assertEqual(asc[0]["id"], "dec-a")
+        self.assertEqual(desc[0]["id"], "dec-a")
+        # The invalid entries are at the end (their order between themselves is unspecified)
+        self.assertEqual(sorted([asc[1]["id"], asc[2]["id"]]), ["dec-b", "dec-none"])
+
+
 if __name__ == "__main__":
     unittest.main()
