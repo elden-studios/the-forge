@@ -285,10 +285,22 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
   <!-- Decisions -->
   <div class="panel" id="panel-decisions">
     <div class="sources-toolbar" id="dec-toolbar" style="margin-bottom:12px">
-      <!-- Filters & search toolbar goes here in T7 -->
-      <div style="color:var(--muted);font-size:11px;font-style:italic;padding:8px 0">
-        Filters, sort, and export will be added in T7-T8.
-      </div>
+      <input id="dec-search" placeholder="Search title or context…" style="flex:1;min-width:180px"/>
+      <select id="dec-project"><option value="">All projects</option></select>
+      <select id="dec-reversibility">
+        <option value="">All reversibility</option>
+        <option value="type_1">Type 1 (one-way door)</option>
+        <option value="type_2">Type 2 (two-way door)</option>
+      </select>
+      <select id="dec-status">
+        <option value="">All statuses</option>
+        <option value="open">Open</option>
+        <option value="reviewed">Reviewed</option>
+        <option value="committed">Committed</option>
+        <option value="reversed">Reversed</option>
+      </select>
+      <select id="dec-decider"><option value="">All deciders</option></select>
+      <!-- Export buttons added in T8 -->
     </div>
     <table class="decisions-table" id="decisions-table">
       <thead>
@@ -911,17 +923,55 @@ function renderHeatmap(preMortem) {
  * shape: { decisions: [...], project_decision_index: {...} }) and fills the
  * #decisions-tbody with one row per decision.
  *
- * T6 = unfiltered full table. T7 will add filter logic; T8 adds sort + export.
+ * T6 = unfiltered full table. T7 adds filter logic (search + project +
+ * reversibility + status + decider, AND-combined). T8 adds sort + export.
+ *
+ * The filter semantics mirror the pure Python helpers in
+ * tools/decisions_orchestrator.py (query_by_project, query_by_status); the
+ * substring search is new in JS — case-insensitive match on title + context.
  */
 function renderDecisionsTab(doc) {
   const tbody = document.getElementById('decisions-tbody');
   if (!tbody) return;
-  const rows = (doc && doc.decisions) || [];
-  if (rows.length === 0) {
+  // Attach filter listeners the first time the tab renders (covers the case
+  // where the tab is visited before DOMContentLoaded fires).
+  if (window.ensureDecisionFilterListeners) window.ensureDecisionFilterListeners();
+  const all = (doc && doc.decisions) || [];
+
+  // Populate dynamic dropdowns (project, decider) — guarded to "once per page"
+  // so the operator's selection isn't clobbered on the 3-second auto-refresh.
+  populateDecisionFilterDropdowns(all);
+
+  if (all.length === 0) {
     tbody.innerHTML = '<tr><td colspan="6" class="decisions-empty">No decisions recorded yet.</td></tr>';
     return;
   }
-  tbody.innerHTML = rows.map(d => {
+
+  // Read current filter values
+  const q    = (document.getElementById('dec-search')?.value || '').toLowerCase().trim();
+  const proj = document.getElementById('dec-project')?.value || '';
+  const rev  = document.getElementById('dec-reversibility')?.value || '';
+  const st   = document.getElementById('dec-status')?.value || '';
+  const dec  = document.getElementById('dec-decider')?.value || '';
+
+  const filtered = all.filter(d => {
+    if (q) {
+      const hay = ((d.title || '') + ' ' + (d.context || '')).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (proj && d.project_id !== proj)    return false;
+    if (rev  && d.reversibility !== rev)  return false;
+    if (st   && d.status !== st)          return false;
+    if (dec  && d.decided_by !== dec)     return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="decisions-empty">No decisions match the filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(d => {
     const deciderName = agentName(STATE, d.decided_by);
     const reviewStr = d.review_at ? new Date(d.review_at).toLocaleDateString() : '—';
     const revCls = d.reversibility === 'type_1' ? 'type_1' : 'type_2';
@@ -935,6 +985,35 @@ function renderDecisionsTab(doc) {
       <td>${esc(d.project_id || '—')}</td>
     </tr>`;
   }).join('');
+}
+
+/**
+ * Populate the project + decider dropdowns from the unique values in the
+ * decisions list. Guarded so that after the first successful populate the
+ * dropdowns are left alone — otherwise the 3-second auto-refresh would clear
+ * the operator's selection. If a new project/decider appears later, the page
+ * must be refreshed to see it (acceptable UX tradeoff for this task).
+ */
+function populateDecisionFilterDropdowns(allDecisions) {
+  const projectSel = document.getElementById('dec-project');
+  const deciderSel = document.getElementById('dec-decider');
+  if (projectSel && projectSel.options.length <= 1) {
+    const projects = Array.from(new Set(allDecisions.map(d => d.project_id).filter(Boolean))).sort();
+    if (projects.length > 0) {
+      projectSel.innerHTML = '<option value="">All projects</option>' +
+        projects.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+    }
+  }
+  if (deciderSel && deciderSel.options.length <= 1) {
+    const deciders = Array.from(new Set(allDecisions.map(d => d.decided_by).filter(Boolean))).sort();
+    if (deciders.length > 0) {
+      deciderSel.innerHTML = '<option value="">All deciders</option>' +
+        deciders.map(id => {
+          const name = agentName(STATE, id);
+          return `<option value="${esc(id)}">${esc(name)}</option>`;
+        }).join('');
+    }
+  }
 }
 
 // ═══════════════════════════════════════
@@ -1046,6 +1125,37 @@ function exportJson(items) {
   if (btnMd)   btnMd.addEventListener('click',   () => exportMd(_evidenceDoc.evidence || []));
   if (btnCsv)  btnCsv.addEventListener('click',  () => exportCsv(_evidenceDoc.evidence || []));
   if (btnJson) btnJson.addEventListener('click', () => exportJson(_evidenceDoc.evidence || []));
+})();
+
+// Decisions tab filter listeners — attached once, re-render on any input change.
+// Exposed as window.ensureDecisionFilterListeners so renderDecisionsTab can
+// call it defensively if the DOM wasn't ready when the script first ran.
+(function attachDecisionFilterListeners(){
+  let attached = false;
+  function attach() {
+    if (attached) return;
+    const rerender = () => renderDecisionsTab(_decisionsDoc);
+    // Use chained optional-chain + addEventListener calls so each listener is
+    // bound on one line (also makes the wiring trivially greppable).
+    const anyPresent = document.getElementById("dec-search")
+                    || document.getElementById("dec-project")
+                    || document.getElementById("dec-reversibility")
+                    || document.getElementById("dec-status")
+                    || document.getElementById("dec-decider");
+    if (!anyPresent) return;  // DOM not ready yet
+    document.getElementById("dec-search")?.addEventListener('input',  rerender);
+    document.getElementById("dec-project")?.addEventListener('change', rerender);
+    document.getElementById("dec-reversibility")?.addEventListener('change', rerender);
+    document.getElementById("dec-status")?.addEventListener('change', rerender);
+    document.getElementById("dec-decider")?.addEventListener('change', rerender);
+    attached = true;
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attach);
+  } else {
+    attach();
+  }
+  window.ensureDecisionFilterListeners = attach;
 })();
 
 // ═══════════════════════════════════════
