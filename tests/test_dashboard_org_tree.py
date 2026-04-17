@@ -30,10 +30,12 @@ class TestOrgTreeTabShell(unittest.TestCase):
                          "svg id=org-tree-svg missing")
 
     def test_switchtab_array_includes_org_tree(self):
+        # Array continues to grow as new tabs ship (e.g. 'tools'); assert the
+        # prefix through 'org-tree' is present, trailing entries accepted.
         self.assertRegex(
             self.src,
-            r"\['mc'\s*,\s*'network'\s*,\s*'kanban'\s*,\s*'timeline'\s*,\s*'sources'\s*,\s*'decisions'\s*,\s*'org-tree'\]",
-            "switchTab tab-name array must be extended with 'org-tree'"
+            r"\['mc'\s*,\s*'network'\s*,\s*'kanban'\s*,\s*'timeline'\s*,\s*'sources'\s*,\s*'decisions'\s*,\s*'org-tree'",
+            "switchTab tab-name array must include 'org-tree' (after decisions)"
         )
 
     def test_switchtab_handler_for_org_tree(self):

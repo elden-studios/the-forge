@@ -174,6 +174,44 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 .org-edge{stroke:var(--muted);stroke-width:1.5;fill:none}
 .org-edge.rivalry{stroke:var(--red);stroke-dasharray:4 3;stroke-width:1.2}
 .org-tree-empty{text-align:center;padding:40px;color:var(--muted);font-size:12px;font-style:italic}
+
+/* Tools & Platforms (Sub-project E) */
+.tools-summary-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.summary-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px}
+.summary-card .summary-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.summary-card .summary-value{font-size:22px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--text)}
+.summary-card.warning{border-color:var(--yellow)}
+.summary-card.warning .summary-value{color:var(--yellow)}
+.tools-section{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px}
+.tools-section h3{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+.tools-cat-group{margin-bottom:14px;border-left:3px solid var(--border);padding-left:10px}
+.tools-cat-header{font-size:12px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.tools-cat-swatch{width:10px;height:10px;border-radius:2px;display:inline-block}
+.tool-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:6px;border-left:4px solid var(--muted);display:grid;grid-template-columns:1.4fr 2fr auto auto;gap:10px;align-items:center}
+.tool-card .tool-name{font-weight:600;font-size:12px}
+.tool-card .tool-purpose{color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tool-card .tool-cost{font-family:'JetBrains Mono',monospace;font-size:12px;text-align:right}
+.tool-badges{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.tool-badge{font-size:9px;padding:2px 6px;border-radius:3px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.tool-badge.status-active{background:rgba(64,160,64,.2);color:var(--green)}
+.tool-badge.status-dormant{background:rgba(241,196,15,.2);color:var(--yellow)}
+.tool-badge.status-unused{background:rgba(138,128,112,.2);color:var(--muted)}
+.tool-badge.redundancy{background:rgba(192,64,64,.2);color:var(--red)}
+.tool-agents{margin-top:4px;grid-column:1/-1;display:flex;gap:4px;flex-wrap:wrap}
+.tool-chip{background:var(--border);color:var(--text);font-size:10px;padding:2px 6px;border-radius:10px}
+.tool-chip.gap{background:rgba(192,64,64,.25);color:var(--red)}
+.tool-chip.assigned{background:rgba(64,160,64,.2);color:var(--green)}
+.tool-chip.recommended{background:rgba(241,196,15,.2);color:var(--yellow)}
+.agent-tool-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;border-left:4px solid var(--muted)}
+.agent-tool-card .agent-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.agent-tool-card .agent-name{font-weight:600;font-size:12px}
+.agent-tool-card .agent-title{color:var(--muted);font-size:10px}
+.agent-tool-card .agent-cost{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+.recommendation-item{background:var(--bg);border-left:3px solid var(--brand);padding:8px 12px;margin-bottom:6px;font-size:12px;color:var(--text)}
+.recommendation-item.gap{border-left-color:var(--red)}
+.recommendation-item.dormant{border-left-color:var(--yellow)}
+.recommendation-item.redundancy{border-left-color:var(--purple)}
+.tools-empty{text-align:center;padding:20px;color:var(--muted);font-size:12px;font-style:italic}
 </style>
 </head>
 <body>
@@ -192,6 +230,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
   <div class="tab" id="tab-sources" onclick="switchTab('sources')">Sources</div>
   <div class="tab" id="tab-decisions" onclick="switchTab('decisions')">Decisions</div>
   <div class="tab" id="tab-org-tree" onclick="switchTab('org-tree')">Org Tree</div>
+  <div class="tab" id="tab-tools" onclick="switchTab('tools')">Tools</div>
 </div>
 
 <div class="content">
@@ -355,6 +394,43 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       <span class="legend-item"><span class="legend-line rivalry"></span> Rivalry</span>
     </div>
   </div>
+
+  <!-- Tools & Platforms (Sub-project E) -->
+  <div class="panel" id="panel-tools">
+    <div class="tools-summary-row">
+      <div class="summary-card">
+        <div class="summary-label">Active Tools</div>
+        <div class="summary-value" id="tools-active-count">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Monthly Spend</div>
+        <div class="summary-value" id="tools-total-cost">—</div>
+      </div>
+      <div class="summary-card warning">
+        <div class="summary-label">Dormant Waste</div>
+        <div class="summary-value" id="tools-dormant-cost">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Redundancies</div>
+        <div class="summary-value" id="tools-redundancy-count">—</div>
+      </div>
+    </div>
+
+    <section class="tools-section">
+      <h3>Recommendations</h3>
+      <div id="tools-recommendations"></div>
+    </section>
+
+    <section class="tools-section">
+      <h3>By Category</h3>
+      <div id="tools-by-category"></div>
+    </section>
+
+    <section class="tools-section">
+      <h3>By Agent</h3>
+      <div id="tools-by-agent"></div>
+    </section>
+  </div>
 </div>
 
 <script>
@@ -411,7 +487,7 @@ function getAgentStatus(id) {
 // ═══════════════════════════════════════
 function switchTab(id) {
   document.querySelectorAll('.tab').forEach((t,i) => {
-    t.classList.toggle('active', ['mc','network','kanban','timeline','sources','decisions','org-tree'][i] === id);
+    t.classList.toggle('active', ['mc','network','kanban','timeline','sources','decisions','org-tree','tools'][i] === id);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
@@ -419,6 +495,7 @@ function switchTab(id) {
   if (id === 'sources') fetchEvidence().then(d => renderSourcesTab(d || { evidence: [] }));
   if (id === 'decisions') fetchDecisions().then(() => renderDecisionsTab(_decisionsDoc));
   if (id === 'org-tree') renderOrgTree(STATE);
+  if (id === 'tools') fetchPlatforms().then(() => renderToolsTab(_platformsDoc, STATE));
 }
 
 // ═══════════════════════════════════════
@@ -430,6 +507,7 @@ function render() {
   renderKanban();
   renderTimeline();
   if (typeof renderOrgTree === 'function') renderOrgTree(STATE);
+  if (typeof renderToolsTab === 'function') renderToolsTab(_platformsDoc, STATE);
 }
 
 // ── HEADER (Phase Bar) ──
@@ -1572,6 +1650,154 @@ function renderOrgTree(state) {
 }
 
 // ═══════════════════════════════════════
+// TOOLS & PLATFORMS (Sub-project E)
+// ═══════════════════════════════════════
+let _platformsDoc = { tools: [], categories: [] };
+
+async function fetchPlatforms() {
+  try {
+    const res = await fetch('/forge-platforms.json?' + Date.now());
+    if (!res.ok) return _platformsDoc;
+    const doc = await res.json();
+    _platformsDoc = doc;
+    return doc;
+  } catch (e) {
+    console.error('Platforms fetch error:', e);
+    return _platformsDoc;
+  }
+}
+
+// Python mirror: tools/platforms_catalog.cost_breakdown
+function getCostBreakdown(catalog) {
+  let totalActive = 0, totalDormant = 0;
+  const byCategory = {};
+  const byAgent = {};
+  const tools = (catalog && catalog.tools) || [];
+  for (const t of tools) {
+    const cost = Number(t.cost_per_month_usd || 0);
+    if (t.status === 'active') {
+      totalActive += cost;
+      const cat = t.category_id;
+      if (cat) byCategory[cat] = (byCategory[cat] || 0) + cost;
+      const users = t.used_by_agents || [];
+      if (users.length && cost > 0) {
+        const share = cost / users.length;
+        for (const uid of users) byAgent[uid] = (byAgent[uid] || 0) + share;
+      }
+    } else if (t.status === 'dormant') {
+      totalDormant += cost;
+    }
+  }
+  return {
+    total_active_monthly_usd: totalActive,
+    total_dormant_monthly_usd: totalDormant,
+    by_category: byCategory,
+    by_agent: byAgent,
+  };
+}
+
+// Python mirror: tools/platforms_catalog.gap_analysis
+function getGapAnalysis(catalog, agentId) {
+  const out = [];
+  for (const t of (catalog && catalog.tools) || []) {
+    const rec = t.recommended_for_agents || [];
+    const used = t.used_by_agents || [];
+    if (rec.includes(agentId) && !used.includes(agentId)) out.push(t);
+  }
+  return out;
+}
+
+// Python mirror: tools/platforms_catalog.find_redundancies
+function getRedundancies(catalog) {
+  const tools = (catalog && catalog.tools) || [];
+  const active = tools.filter(t => t.status === 'active');
+  const activeIds = new Set(active.map(t => t.id));
+  const out = [];
+  const byCat = {};
+  for (const t of active) {
+    if (!byCat[t.category_id]) byCat[t.category_id] = [];
+    byCat[t.category_id].push(t.id);
+  }
+  for (const catId in byCat) {
+    if (byCat[catId].length >= 2) {
+      out.push({
+        kind: 'category_overlap',
+        tools: byCat[catId].slice().sort(),
+        category_id: catId,
+        note: `${byCat[catId].length} active tools in category ${catId} — review for overlap`,
+      });
+    }
+  }
+  const seen = new Set();
+  for (const t of active) {
+    for (const alt of (t.alternatives || [])) {
+      if (!activeIds.has(alt)) continue;
+      const pair = [t.id, alt].sort();
+      const key = pair.join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        kind: 'listed_alternative',
+        tools: pair,
+        note: `${pair[0]} lists ${pair[1]} as an alternative — both active, confirmed overlap`,
+      });
+    }
+  }
+  return out;
+}
+
+// Python mirror: tools/platforms_catalog.tools_by_agent
+function getToolsByAgent(catalog, agentId) {
+  const out = [];
+  for (const t of (catalog && catalog.tools) || []) {
+    const used = t.used_by_agents || [];
+    const rec = t.recommended_for_agents || [];
+    if (used.includes(agentId)) {
+      out.push(Object.assign({}, t, { assignment: 'assigned' }));
+    } else if (rec.includes(agentId)) {
+      out.push(Object.assign({}, t, { assignment: 'recommended' }));
+    }
+  }
+  return out;
+}
+
+function _toolsEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function _fmtUsd(n) {
+  if (n == null || isNaN(n)) return '$0';
+  return '$' + Math.round(n).toLocaleString('en-US');
+}
+
+function renderToolsTab(catalog, state) {
+  catalog = catalog || { tools: [], categories: [] };
+  const tools = catalog.tools || [];
+  const br = getCostBreakdown(catalog);
+  const reds = getRedundancies(catalog);
+
+  const activeEl = document.getElementById('tools-active-count');
+  const totalEl = document.getElementById('tools-total-cost');
+  const dormEl = document.getElementById('tools-dormant-cost');
+  const redEl = document.getElementById('tools-redundancy-count');
+  if (activeEl) activeEl.textContent = String(tools.filter(t => t.status === 'active').length);
+  if (totalEl) totalEl.textContent = _fmtUsd(br.total_active_monthly_usd) + '/mo';
+  if (dormEl) dormEl.textContent = _fmtUsd(br.total_dormant_monthly_usd) + '/mo';
+  if (redEl) redEl.textContent = String(reds.length);
+
+  // Section bodies are rendered by Task 3. For now, show empty-state
+  // placeholders — the renderer is already wired in so the data is live.
+  const recEl = document.getElementById('tools-recommendations');
+  const catEl = document.getElementById('tools-by-category');
+  const agEl = document.getElementById('tools-by-agent');
+  if (recEl && !recEl.innerHTML) recEl.innerHTML = '<div class="tools-empty">Loading…</div>';
+  if (catEl && !catEl.innerHTML) catEl.innerHTML = '<div class="tools-empty">Loading…</div>';
+  if (agEl && !agEl.innerHTML) agEl.innerHTML = '<div class="tools-empty">Loading…</div>';
+}
+
+// ═══════════════════════════════════════
 // AUTO-REFRESH
 // ═══════════════════════════════════════
 loadData();
@@ -1580,6 +1806,8 @@ fetchEvidence();
 setInterval(fetchEvidence, 3000); // evidence refreshes alongside state/tasks
 fetchDecisions();
 setInterval(fetchDecisions, 3000); // cabinet decisions refresh alongside state/tasks
+fetchPlatforms();
+setInterval(fetchPlatforms, 3000); // tools catalog refresh alongside state
 </script>
 </body>
 </html>
