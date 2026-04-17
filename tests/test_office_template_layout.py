@@ -80,5 +80,46 @@ class TestOfficeLayoutGrid3x3(unittest.TestCase):
                           f"'{name}' missing from office-live.html — re-hydrate from the template")
 
 
+class TestBoardroom(unittest.TestCase):
+    def test_boardroom_constants_declared(self):
+        src = _read_template()
+        self.assertRegex(src, r"BOARDROOM_W", "BOARDROOM_W constant required")
+        self.assertRegex(src, r"BOARDROOM_H", "BOARDROOM_H constant required")
+
+    def test_layout_has_boardroom_entry(self):
+        src = _read_template()
+        self.assertRegex(src, r"this\.boardroom\s*=", "Layout.constructor must set this.boardroom")
+
+    def test_chair_positions_helper_declared(self):
+        src = _read_template()
+        self.assertRegex(src, r"function\s+chairPositions|chairPositions\s*[:=]\s*function|const\s+chairPositions\s*=")
+
+    def test_chair_positions_has_5_labels(self):
+        src = _read_template()
+        for label in ['head', 'top-left', 'top-right', 'bot-left', 'bot-right']:
+            self.assertIn(f"'{label}'", src, f"chair label '{label}' missing from chairPositions")
+
+    def test_draw_boardroom_method_present(self):
+        src = _read_template()
+        self.assertRegex(src, r"drawBoardroom", "Scene.drawBoardroom method missing")
+
+    def test_boardroom_nameplate_text_present(self):
+        src = _read_template()
+        self.assertRegex(src, r"(EXEC SUITE|Executive Suite|Exec Suite|CABINET|Boardroom)", "boardroom nameplate text missing")
+
+    def test_hydrated_live_file_mentions_boardroom(self):
+        import os
+        live_path = os.path.join(REPO_ROOT, "assets", "office-live.html")
+        with open(live_path) as f:
+            live = f.read()
+        self.assertRegex(live, r"(EXEC SUITE|Executive Suite|Exec Suite|CABINET|Boardroom)",
+                         "office-live.html must contain boardroom marker after regen")
+
+    def test_canvas_widens_to_accommodate_boardroom(self):
+        src = _read_template()
+        # Look for explicit widen logic via Math.max on this.W
+        self.assertRegex(src, r"this\.W\s*=\s*Math\.max\(this\.W\s*,", "canvas width must grow to fit boardroom")
+
+
 if __name__ == "__main__":
     unittest.main()

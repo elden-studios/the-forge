@@ -69,6 +69,9 @@ const ROWS=3;
 const MARGIN=12; // outer margin
 const TOTAL_W = MARGIN*2 + COLS*ROOM_W + (COLS-1)*WALL;
 const BREAK_W=180, BREAK_H=130;
+// Executive Suite boardroom — row 0, right of the dept grid
+const BOARDROOM_W = 260;
+const BOARDROOM_H = 210;
 const ROW0_Y = MARGIN;
 const HALL_Y  = ROW0_Y + ROOM_H + WALL;
 const ROW1_Y  = HALL_Y + HALL_H + WALL;
@@ -160,6 +163,16 @@ class Layout {
     this.breakH = BREAK_H;
     this.H = Math.max(this.H, this.breakY + this.breakH + MARGIN);
 
+    // Executive Suite boardroom — top-right, row 0 only, separate from dept grid.
+    // x = right edge of last dept column (MARGIN + COLS*ROOM_W + (COLS-1)*WALL) + WALL gap
+    this.boardroom = {
+      x: MARGIN + COLS*ROOM_W + (COLS-1)*WALL + WALL,
+      y: ROW0_Y,
+      w: BOARDROOM_W,
+      h: BOARDROOM_H,
+    };
+    this.W = Math.max(this.W, this.boardroom.x + this.boardroom.w + MARGIN);
+
     // Agent positions within rooms
     this.agentPos = {};
     this.depts.forEach(d=>{
@@ -179,6 +192,29 @@ class Layout {
     // Hallway center
     this.hallCenter = {x:this.hallX+this.hallW/2, y:this.hallY+this.hallH/2};
   }
+}
+
+/**
+ * Return the 5 chair positions around the conference table in the Executive
+ * Suite boardroom. Order: [head (Flint/CSO), top-left (Cade/CPO),
+ * top-right (Helix/CTO), bot-left (Prism/CFO), bot-right (Dune/CMO)].
+ *
+ * Pure function — consumed by Task 3's cabinet_dispatched / cabinet_arrived
+ * animation events.
+ */
+function chairPositions(layout) {
+  if (!layout || !layout.boardroom) return [];
+  const { x, y, w, h } = layout.boardroom;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const tW = 120, tH = 56;
+  return [
+    { x: x + w - 22,  y: cy,             label: 'head' },
+    { x: cx - 30,     y: cy - tH/2 - 10, label: 'top-left' },
+    { x: cx + 30,     y: cy - tH/2 - 10, label: 'top-right' },
+    { x: cx - 30,     y: cy + tH/2 + 10, label: 'bot-left' },
+    { x: cx + 30,     y: cy + tH/2 + 10, label: 'bot-right' },
+  ];
 }
 
 // ═══════════════════════════════════════════════════════
@@ -574,6 +610,8 @@ class Scene {
     this.drawHallwayProps();
     // 6. Break room
     this.drawBreakRoom();
+    // 6b. Executive Suite boardroom (self-contained — floor, walls, table, chairs)
+    this.drawBoardroom();
     // 7. Room props (wall decorations, bookshelves, ceiling lights, dept props, floor plants — NOT desks/chairs)
     this.drawRoomDecor();
     // 8. Agents drawn ON TOP of furniture, clearly visible
@@ -1010,6 +1048,77 @@ class Scene {
 
     // Potted plant
     this.drawPlant(bx+L.breakW-20,by+L.breakH-25);
+  }
+
+  // ── EXECUTIVE SUITE BOARDROOM (self-contained: floor, walls, table, chairs) ──
+  drawBoardroom(){
+    const ctx=this.ctx,L=this.L;
+    const br=L.boardroom;if(!br)return;
+    const s=WALL_S;
+
+    // Floor — wood for executive feel
+    this.drawFloorPattern(br.x,br.y,br.w,br.h,FLOORS.wood);
+
+    // Wall shadow cast into boardroom (top + left edges)
+    ctx.fillStyle='rgba(0,0,0,0.12)';
+    ctx.fillRect(br.x,br.y,br.w,6);
+    ctx.fillRect(br.x,br.y,6,br.h);
+
+    // 4-sided wall frame (self-contained)
+    this.drawThickWallH(br.x,br.y-WALL,br.w,WALL,s);      // top
+    this.drawThickWallH(br.x,br.y+br.h,br.w,WALL,s);      // bottom
+    this.drawThickWallV(br.x-WALL,br.y-WALL,WALL,br.h+WALL*2,s); // left
+    this.drawThickWallV(br.x+br.w,br.y-WALL,WALL,br.h+WALL*2,s); // right
+
+    // Nameplate banner — brand-colored band at top (matches dept style)
+    const npW=120, npH=14;
+    const npX=br.x+4, npY=br.y+4;
+    ctx.fillStyle=PC.brand;ctx.fillRect(npX,npY,npW,npH);
+    ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(npX,npY,npW,4);
+    ctx.fillStyle='rgba(0,0,0,0.2)';ctx.fillRect(npX,npY+npH-2,npW,2);
+    ctx.fillStyle='#FFF';ctx.font='7px "Press Start 2P"';ctx.textAlign='left';
+    ctx.fillText('EXEC SUITE',npX+6,npY+10);
+
+    // Conference table (centered, 120×56, 2-tone wood)
+    const cx=br.x+br.w/2, cy=br.y+br.h/2;
+    const tW=120, tH=56;
+    const tx=cx-tW/2, ty=cy-tH/2;
+    // Cast shadow
+    PA.floorShadow(ctx,tx,ty,tW,tH,5);
+    // Main body
+    ctx.fillStyle='#8b5a2a';ctx.fillRect(tx,ty,tW,tH);
+    // Top-left highlight band
+    ctx.fillStyle='#a87c44';ctx.fillRect(tx,ty,tW,4);
+    ctx.fillStyle='#a87c44';ctx.fillRect(tx,ty,4,tH);
+    // Bottom-right shadow band
+    ctx.fillStyle='#1a1530';ctx.fillRect(tx,ty+tH-3,tW,3);
+    ctx.fillStyle='#1a1530';ctx.fillRect(tx+tW-3,ty,3,tH);
+    // Subtle grain lines
+    ctx.fillStyle='rgba(0,0,0,0.08)';
+    ctx.fillRect(tx+8,ty+18,tW-16,1);
+    ctx.fillRect(tx+8,ty+36,tW-16,1);
+
+    // 5 chair sprites from pure helper
+    const chairs=chairPositions(L);
+    chairs.forEach(ch=>{
+      const cW=12, cH=10;
+      const chX=Math.round(ch.x-cW/2), chY=Math.round(ch.y-cH/2);
+      // Cast shadow
+      ctx.fillStyle='rgba(0,0,0,0.18)';ctx.fillRect(chX+1,chY+cH,cW,2);
+      // Chair main (dark tone)
+      ctx.fillStyle=PC.chair;ctx.fillRect(chX,chY,cW,cH);
+      // Highlight top
+      ctx.fillStyle=PC.chairHi;ctx.fillRect(chX,chY,cW,2);
+      // Left edge lit
+      ctx.fillStyle=PC.chairHi;ctx.fillRect(chX,chY,2,cH);
+      // Right edge shadow
+      ctx.fillStyle=PA.dk(PC.chair,15);ctx.fillRect(chX+cW-1,chY+1,1,cH-1);
+    });
+
+    // Ceiling light fixture (centered, brand-accented)
+    ctx.fillStyle='#888';ctx.fillRect(cx-10,br.y+2,20,4);
+    ctx.fillStyle='#FFE8A0';ctx.fillRect(cx-6,br.y+4,12,2);
+    PA.dither(ctx,cx-30,br.y+6,60,30,'rgba(255,240,200,0.05)','rgba(255,240,200,0.02)');
   }
 
   // ── ROOM DECOR (wall decorations only — no desks/chairs) ──
