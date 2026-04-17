@@ -6,7 +6,7 @@ Atomic writes via tempfile + os.replace (same pattern as evidence_orchestrator).
 CLI-free — all entrypoints are Python functions consumed by the validator and
 by scripts/cabinet_framing_simulate.py.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 import uuid
 
@@ -40,7 +40,6 @@ def _to_naive_utc(dt):
     Used by append_decision to make datetime subtraction safe across
     mixed aware/naive pairs. Matches compute_review_at's tz handling.
     """
-    from datetime import timezone
     if dt.tzinfo is not None:
         return dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt
@@ -74,7 +73,6 @@ def compute_review_at(decided_at_iso, reversibility):
     # offset drop (e.g., +03:00 would otherwise be reported as Z without
     # the 3-hour shift being applied).
     if review_dt.tzinfo is not None:
-        from datetime import timezone
         review_dt = review_dt.astimezone(timezone.utc).replace(tzinfo=None)
     return _format_iso_utc(review_dt)
 
