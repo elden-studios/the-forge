@@ -119,3 +119,69 @@ def append_decision(project_id, decision, decisions_path):
             _atomic_write_json(mirror_path, doc)
         except OSError:
             pass
+
+
+def review_decisions_due(doc, now_iso):
+    """Return the list of open decisions whose review_at has passed.
+
+    A decision is 'due' only if status == 'open' AND review_at <= now.
+    Already-reviewed / reversed / committed decisions are excluded.
+    """
+    now_dt = _parse_iso(now_iso)
+    due = []
+    for d in doc.get("decisions", []):
+        if d.get("status") != "open":
+            continue
+        review_at = d.get("review_at")
+        if not review_at:
+            continue
+        try:
+            review_dt = _parse_iso(review_at)
+        except (ValueError, TypeError):
+            continue
+        if review_dt <= now_dt:
+            due.append(d)
+    return due
+
+
+def close_decision(doc, decision_id, new_status):
+    """Transition a decision to 'reviewed' or 'committed'.
+
+    Mutates doc in-place. Caller is responsible for persistence.
+    Raises ValueError on unknown status; KeyError on unknown decision_id.
+
+    Note: use reverse_decision() to transition to 'reversed' (it needs
+    a successor reference).
+    """
+    CLOSE_TARGETS = {"reviewed", "committed"}
+    if new_status not in CLOSE_TARGETS:
+        raise ValueError(
+            f"close_decision status must be one of {sorted(CLOSE_TARGETS)}, "
+            f"got: {new_status!r}. Use reverse_decision() for 'reversed'."
+        )
+    for d in doc.get("decisions", []):
+        if d.get("id") == decision_id:
+            d["status"] = new_status
+            return
+    raise KeyError(f"decision not found: {decision_id}")
+
+
+def reverse_decision(doc, decision_id, successor_id):
+    """Mark a decision as 'reversed' and link the successor that overrode it.
+
+    Mutates doc in-place. Both decisions must already exist.
+    The original decision cannot already be reversed.
+    """
+    decisions_by_id = {d.get("id"): d for d in doc.get("decisions", [])}
+
+    if decision_id not in decisions_by_id:
+        raise KeyError(f"decision not found: {decision_id}")
+    if successor_id not in decisions_by_id:
+        raise KeyError(f"successor decision not found: {successor_id}")
+
+    original = decisions_by_id[decision_id]
+    if original.get("status") == "reversed":
+        raise ValueError(f"decision {decision_id} is already reversed")
+
+    original["status"] = "reversed"
+    original["reversed_by"] = successor_id

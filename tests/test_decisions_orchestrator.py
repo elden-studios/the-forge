@@ -207,5 +207,120 @@ class TestAppendDecision(unittest.TestCase):
             self.assertEqual(tmps, [], f"stray tmp files: {tmps}")
 
 
+class TestReviewDecisionsDue(unittest.TestCase):
+    def test_returns_empty_when_none_due(self):
+        from decisions_orchestrator import review_decisions_due
+        doc = {
+            "decisions": [
+                {"id": "dec-future001", "status": "open", "review_at": "2027-01-01T00:00:00Z"}
+            ],
+            "project_decision_index": {}
+        }
+        due = review_decisions_due(doc, now_iso="2026-04-17T00:00:00Z")
+        self.assertEqual(due, [])
+
+    def test_returns_decisions_past_review_at(self):
+        from decisions_orchestrator import review_decisions_due
+        doc = {
+            "decisions": [
+                {"id": "dec-due000001", "status": "open", "review_at": "2026-01-01T00:00:00Z"},
+                {"id": "dec-future002", "status": "open", "review_at": "2027-01-01T00:00:00Z"},
+            ],
+            "project_decision_index": {}
+        }
+        due = review_decisions_due(doc, now_iso="2026-04-17T00:00:00Z")
+        self.assertEqual(len(due), 1)
+        self.assertEqual(due[0]["id"], "dec-due000001")
+
+    def test_skips_already_reviewed_decisions(self):
+        """A decision with status != open is not 'due' even if review_at has passed."""
+        from decisions_orchestrator import review_decisions_due
+        doc = {
+            "decisions": [
+                {"id": "dec-closed0001", "status": "reviewed", "review_at": "2026-01-01T00:00:00Z"},
+                {"id": "dec-committed1", "status": "committed", "review_at": "2026-01-01T00:00:00Z"},
+                {"id": "dec-reversed01", "status": "reversed", "review_at": "2026-01-01T00:00:00Z"},
+            ],
+            "project_decision_index": {}
+        }
+        due = review_decisions_due(doc, now_iso="2026-04-17T00:00:00Z")
+        self.assertEqual(due, [])
+
+
+class TestCloseDecision(unittest.TestCase):
+    def test_transitions_open_to_reviewed(self):
+        from decisions_orchestrator import close_decision
+        doc = {
+            "decisions": [{"id": "dec-abc00001", "status": "open"}],
+            "project_decision_index": {}
+        }
+        close_decision(doc, "dec-abc00001", "reviewed")
+        self.assertEqual(doc["decisions"][0]["status"], "reviewed")
+
+    def test_transitions_open_to_committed(self):
+        from decisions_orchestrator import close_decision
+        doc = {
+            "decisions": [{"id": "dec-commit001", "status": "open"}],
+            "project_decision_index": {}
+        }
+        close_decision(doc, "dec-commit001", "committed")
+        self.assertEqual(doc["decisions"][0]["status"], "committed")
+
+    def test_rejects_unknown_status(self):
+        from decisions_orchestrator import close_decision
+        doc = {
+            "decisions": [{"id": "dec-abc00002", "status": "open"}],
+            "project_decision_index": {}
+        }
+        with self.assertRaises(ValueError) as ctx:
+            close_decision(doc, "dec-abc00002", "maybe")
+        self.assertIn("status", str(ctx.exception).lower())
+
+    def test_rejects_nonexistent_decision_id(self):
+        from decisions_orchestrator import close_decision
+        doc = {"decisions": [], "project_decision_index": {}}
+        with self.assertRaises(KeyError) as ctx:
+            close_decision(doc, "dec-ghost000", "reviewed")
+        self.assertIn("dec-ghost000", str(ctx.exception))
+
+
+class TestReverseDecision(unittest.TestCase):
+    def test_marks_decision_reversed_and_links_successor(self):
+        from decisions_orchestrator import reverse_decision
+        doc = {
+            "decisions": [
+                {"id": "dec-orig00001", "status": "open"},
+                {"id": "dec-succ00001", "status": "open"},
+            ],
+            "project_decision_index": {}
+        }
+        reverse_decision(doc, "dec-orig00001", successor_id="dec-succ00001")
+        self.assertEqual(doc["decisions"][0]["status"], "reversed")
+        self.assertEqual(doc["decisions"][0].get("reversed_by"), "dec-succ00001")
+
+    def test_rejects_nonexistent_successor(self):
+        from decisions_orchestrator import reverse_decision
+        doc = {
+            "decisions": [{"id": "dec-orig00002", "status": "open"}],
+            "project_decision_index": {}
+        }
+        with self.assertRaises(KeyError) as ctx:
+            reverse_decision(doc, "dec-orig00002", successor_id="dec-ghost000")
+        self.assertIn("successor", str(ctx.exception).lower())
+
+    def test_rejects_reversing_already_reversed_decision(self):
+        from decisions_orchestrator import reverse_decision
+        doc = {
+            "decisions": [
+                {"id": "dec-orig00003", "status": "reversed"},
+                {"id": "dec-succ00003", "status": "open"},
+            ],
+            "project_decision_index": {}
+        }
+        with self.assertRaises(ValueError) as ctx:
+            reverse_decision(doc, "dec-orig00003", successor_id="dec-succ00003")
+        self.assertIn("already reversed", str(ctx.exception).lower())
+
+
 if __name__ == "__main__":
     unittest.main()
