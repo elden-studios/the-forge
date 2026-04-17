@@ -1,0 +1,32 @@
+[
+  {
+    "failure_mode": "SAMA refuses escrow license → no transaction trust layer",
+    "likelihood": 3, "impact": 5, "score": 15,
+    "owner_agent": "agent-lexx",
+    "mitigation_phase": "phase_5_gtm"
+  },
+  {
+    "failure_mode": "Nafath API rate limits at scale break onboarding",
+    "likelihood": 4, "impact": 4, "score": 16,
+    "owner_agent": "agent-helx",
+    "mitigation_phase": "phase_4_arch"
+  },
+  {
+    "failure_mode": "Bayut counter-moves with their own transaction layer",
+    "likelihood": 4, "impact": 4, "score": 16,
+    "owner_agent": "agent-dune",
+    "mitigation_phase": "phase_5_gtm"
+  },
+  {
+    "failure_mode": "Unit economics break below SAR 500K properties",
+    "likelihood": 3, "impact": 4, "score": 12,
+    "owner_agent": "agent-prsm",
+    "mitigation_phase": "phase_6_challenge"
+  },
+  {
+    "failure_mode": "Regulatory change in 2026 invalidates remote-purchase flow",
+    "likelihood": 2, "impact": 5, "score": 10,
+    "owner_agent": "agent-nyxx",
+    "mitigation_phase": "phase_5_gtm"
+  }
+]

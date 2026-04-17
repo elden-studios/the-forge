@@ -72,6 +72,50 @@ def validate_project(project_dir):
             return (False, errors)
         errors.extend(validate_evidence(evidence_doc, state)[1])
 
+    # Decision Log (Wave 2)
+    dec_path = os.path.join(project_dir, "forge-decisions.json")
+    if os.path.isfile(dec_path):
+        try:
+            with open(dec_path) as f:
+                decisions_doc = json.load(f)
+        except json.JSONDecodeError as e:
+            errors.append(f"forge-decisions.json is not valid json: {e}")
+            return (False, errors)
+        # Re-load evidence if available (cheap, predictable scoping)
+        ev_for_decisions = None
+        ev_path_local = os.path.join(project_dir, "forge-evidence.json")
+        if os.path.isfile(ev_path_local):
+            try:
+                with open(ev_path_local) as f:
+                    ev_for_decisions = json.load(f)
+            except json.JSONDecodeError:
+                ev_for_decisions = None
+        errors.extend(validate_decisions(decisions_doc, state, ev_for_decisions)[1])
+
+        # Standing Rule 11 (v3.2): every Cabinet Verdict must log ≥1 decision.
+        # Cross-file check: if forge-tasks has cabinet_framing AND current_project,
+        # project_decision_index[current_project] must be non-empty.
+        if os.path.isfile(tasks_path):
+            try:
+                # tasks may have been loaded earlier; re-load here for clean scoping
+                with open(tasks_path) as f:
+                    tasks_doc = json.load(f)
+                if tasks_doc.get("cabinet_framing") is not None:
+                    current_project = tasks_doc.get("current_project")
+                    if current_project:
+                        proj_decisions = (
+                            decisions_doc.get("project_decision_index", {}).get(current_project, [])
+                        )
+                        if not proj_decisions:
+                            errors.append(
+                                f"Standing Rule 11 violated: project {current_project!r} has "
+                                f"cabinet_framing set but no decision in project_decision_index. "
+                                f"Every Cabinet Verdict must log ≥1 Decision Log entry."
+                            )
+            except (json.JSONDecodeError, OSError):
+                # tasks file issues were already reported earlier; don't duplicate
+                pass
+
     return (len(errors) == 0, errors)
 
 
@@ -109,6 +153,75 @@ def validate_tasks(tasks, state):
     phase = tasks.get("current_phase", 0)
     if not isinstance(phase, int) or phase < 0 or phase > 8:
         errors.append(f"Invalid phase number: {phase} (must be 0-8)")
+
+    # Pre-Mortem (Wave 2 — Phase 1.5 Cabinet Framing output)
+    ALLOWED_MITIGATION_PHASES = {
+        "phase_4_arch", "phase_5_gtm", "phase_6_challenge", "phase_7_delivery"
+    }
+    pre_mortem = tasks.get("pre_mortem")
+    if pre_mortem is not None:
+        if not isinstance(pre_mortem, list):
+            errors.append(f"pre_mortem must be a list, got: {type(pre_mortem).__name__}")
+        else:
+            for idx, item in enumerate(pre_mortem):
+                prefix = f"pre_mortem[{idx}]"
+                if not isinstance(item, dict):
+                    errors.append(f"{prefix} must be a dict")
+                    continue
+                fm = item.get("failure_mode")
+                if not fm or not isinstance(fm, str):
+                    errors.append(f"{prefix} missing required field: failure_mode")
+                for field_name in ("likelihood", "impact"):
+                    v = item.get(field_name)
+                    if not isinstance(v, int) or isinstance(v, bool) or v < 1 or v > 5:
+                        errors.append(
+                            f"{prefix} {field_name} must be int 1-5, got: {v!r}"
+                        )
+                owner = item.get("owner_agent")
+                if owner and owner not in agent_ids:
+                    errors.append(
+                        f"{prefix} owner_agent references non-existent agent: {owner}"
+                    )
+                mp = item.get("mitigation_phase")
+                if mp and mp not in ALLOWED_MITIGATION_PHASES:
+                    errors.append(
+                        f"{prefix} mitigation_phase invalid: {mp!r} "
+                        f"(expected one of {sorted(ALLOWED_MITIGATION_PHASES)})"
+                    )
+
+    # Cabinet Framing (Wave 2 — Phase 1.5)
+    CANONICAL_LENSES = {
+        "strategic_kernel", "product_shape", "build_class",
+        "economic_shape", "market_bet"
+    }
+    cf = tasks.get("cabinet_framing")
+    if cf is not None:
+        if not isinstance(cf, dict):
+            errors.append(f"cabinet_framing must be a dict, got: {type(cf).__name__}")
+        else:
+            fb = cf.get("framing_brief")
+            if not fb or not isinstance(fb, str):
+                errors.append("cabinet_framing.framing_brief missing or not a string")
+            lenses = cf.get("lenses")
+            if lenses is None:
+                errors.append("cabinet_framing.lenses is required")
+            elif not isinstance(lenses, dict):
+                errors.append(
+                    f"cabinet_framing.lenses must be a dict, got: {type(lenses).__name__}"
+                )
+            else:
+                present = set(lenses.keys())
+                missing = CANONICAL_LENSES - present
+                extra = present - CANONICAL_LENSES
+                for m in sorted(missing):
+                    errors.append(f"cabinet_framing.lenses missing required lens: {m}")
+                for e in sorted(extra):
+                    errors.append(f"cabinet_framing.lenses has unknown lens key: {e}")
+                for name, text in lenses.items():
+                    if name in CANONICAL_LENSES and (not text or not isinstance(text, str)):
+                        errors.append(
+                            f"cabinet_framing.lenses.{name} must be a non-empty string"
+                        )
 
     return (len(errors) == 0, errors)
 
@@ -185,6 +298,101 @@ def validate_evidence(evidence_doc, state):
                 datetime.fromisoformat(ts.replace("Z", "+00:00"))
             except (ValueError, TypeError):
                 errors.append(f"Evidence {eid} malformed retrieved_at: {ts}")
+
+    return (len(errors) == 0, errors)
+
+
+def validate_decisions(decisions_doc, state, evidence_doc=None):
+    """Validate forge-decisions.json against forge-state.json (and optionally
+    forge-evidence.json).
+
+    Rules:
+    - id format matches 'dec-[0-9a-f]{8}'
+    - ids unique across decisions
+    - decided_by + dissenting agents must exist in state
+    - reversibility in {type_1, type_2}
+    - status in {open, reviewed, reversed, committed}
+    - decided_at + review_at parse as ISO 8601
+    - project_decision_index refs must exist in decisions
+    - If evidence_doc provided: related_evidence IDs must exist
+
+    Returns (ok: bool, errors: list[str]).
+    """
+    import re
+
+    errors = []
+    items = decisions_doc.get("decisions", [])
+    index = decisions_doc.get("project_decision_index", {})
+    agent_ids = {a["id"] for a in state.get("agents", [])}
+    evidence_ids = None
+    if evidence_doc is not None:
+        evidence_ids = {e.get("id") for e in evidence_doc.get("evidence", [])}
+
+    ALLOWED_STATUSES = {"open", "reviewed", "reversed", "committed"}
+    ALLOWED_REVERSIBILITY = {"type_1", "type_2"}
+    ID_RE = re.compile(r"^dec-[0-9a-f]{8}$")
+
+    seen_ids = set()
+    for idx, d in enumerate(items):
+        did = d.get("id")
+        if not did:
+            errors.append(f"Decision at index {idx} is missing required field: id")
+            continue
+        if not ID_RE.match(did):
+            errors.append(f"Decision id invalid format: {did} (expected dec-[0-9a-f]{{8}})")
+        if did in seen_ids:
+            errors.append(f"Decision duplicate id: {did}")
+            continue
+        seen_ids.add(did)
+
+        decided_by = d.get("decided_by")
+        if decided_by and decided_by not in agent_ids:
+            errors.append(
+                f"Decision {did} decided_by references non-existent agent: {decided_by}"
+            )
+        for dissent in d.get("dissenting", []) or []:
+            if dissent not in agent_ids:
+                errors.append(
+                    f"Decision {did} dissenting references non-existent agent: {dissent}"
+                )
+
+        rev = d.get("reversibility")
+        if rev not in ALLOWED_REVERSIBILITY:
+            errors.append(
+                f"Decision {did} reversibility must be one of "
+                f"{sorted(ALLOWED_REVERSIBILITY)}, got: {rev!r}"
+            )
+        status = d.get("status")
+        if status not in ALLOWED_STATUSES:
+            errors.append(
+                f"Decision {did} status must be one of {sorted(ALLOWED_STATUSES)}, "
+                f"got: {status!r}"
+            )
+
+        for field_name in ("decided_at", "review_at"):
+            ts = d.get(field_name)
+            if not isinstance(ts, str) or not ts:
+                errors.append(f"Decision {did} malformed {field_name}: {ts!r}")
+                continue
+            try:
+                datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                errors.append(f"Decision {did} malformed {field_name}: {ts!r}")
+
+        if evidence_ids is not None:
+            for ev_id in d.get("related_evidence", []) or []:
+                if ev_id not in evidence_ids:
+                    errors.append(
+                        f"Decision {did} related_evidence references "
+                        f"non-existent Evidence: {ev_id}"
+                    )
+
+    for proj, ids in index.items():
+        for ref in ids:
+            if ref not in seen_ids:
+                errors.append(
+                    f"project_decision_index[{proj}] references non-existent Decision: {ref}"
+                )
 
     return (len(errors) == 0, errors)
 

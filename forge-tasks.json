@@ -1,8 +1,26 @@
 {
-  "current_project": "Pet Healthcare Platform",
-  "current_phase": 3,
-  "phase_names": ["Intake","Intelligence","War Room","Architecture","GTM","Challenge","Delivery","Retro"],
-  "phase_status": ["done","done","active","pending","pending","pending","pending","pending"],
+  "current_project": "proj-simulation",
+  "current_phase": 1,
+  "phase_names": [
+    "Intake",
+    "Intelligence",
+    "War Room",
+    "Architecture",
+    "GTM",
+    "Challenge",
+    "Delivery",
+    "Retro"
+  ],
+  "phase_status": [
+    "done",
+    "done",
+    "active",
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending"
+  ],
   "tasks": [
     {
       "id": "task-001",
@@ -71,7 +89,7 @@
     },
     {
       "id": "task-006",
-      "name": "War Room — Market Position",
+      "name": "War Room \u2014 Market Position",
       "agent": "agent-vexx",
       "status": "in_progress",
       "phase": 3,
@@ -84,7 +102,7 @@
     },
     {
       "id": "task-007",
-      "name": "War Room — User Evidence",
+      "name": "War Room \u2014 User Evidence",
       "agent": "agent-echo",
       "status": "in_progress",
       "phase": 3,
@@ -162,23 +180,148 @@
     }
   ],
   "handoffs": [
-    { "from": "agent-flnt", "to": "agent-vexx", "label": "Brief validated", "timestamp": "2026-04-07T10:02:00", "status": "complete" },
-    { "from": "agent-flnt", "to": "agent-nyxx", "label": "Brief validated", "timestamp": "2026-04-07T10:02:00", "status": "complete" },
-    { "from": "agent-flnt", "to": "agent-echo", "label": "Brief validated", "timestamp": "2026-04-07T10:02:00", "status": "complete" },
-    { "from": "agent-vexx", "to": "agent-flnt", "label": "Competitive Matrix", "timestamp": "2026-04-07T10:05:00", "status": "complete" },
-    { "from": "agent-nyxx", "to": "agent-flnt", "label": "Saudi Entry Brief", "timestamp": "2026-04-07T10:05:00", "status": "complete" },
-    { "from": "agent-echo", "to": "agent-flnt", "label": "User Pain Map", "timestamp": "2026-04-07T10:04:30", "status": "complete" },
-    { "from": "agent-flnt", "to": "agent-atls", "label": "Direction decided", "timestamp": null, "status": "pending" }
+    {
+      "from": "agent-flnt",
+      "to": "agent-vexx",
+      "label": "Brief validated",
+      "timestamp": "2026-04-07T10:02:00",
+      "status": "complete"
+    },
+    {
+      "from": "agent-flnt",
+      "to": "agent-nyxx",
+      "label": "Brief validated",
+      "timestamp": "2026-04-07T10:02:00",
+      "status": "complete"
+    },
+    {
+      "from": "agent-flnt",
+      "to": "agent-echo",
+      "label": "Brief validated",
+      "timestamp": "2026-04-07T10:02:00",
+      "status": "complete"
+    },
+    {
+      "from": "agent-vexx",
+      "to": "agent-flnt",
+      "label": "Competitive Matrix",
+      "timestamp": "2026-04-07T10:05:00",
+      "status": "complete"
+    },
+    {
+      "from": "agent-nyxx",
+      "to": "agent-flnt",
+      "label": "Saudi Entry Brief",
+      "timestamp": "2026-04-07T10:05:00",
+      "status": "complete"
+    },
+    {
+      "from": "agent-echo",
+      "to": "agent-flnt",
+      "label": "User Pain Map",
+      "timestamp": "2026-04-07T10:04:30",
+      "status": "complete"
+    },
+    {
+      "from": "agent-flnt",
+      "to": "agent-atls",
+      "label": "Direction decided",
+      "timestamp": null,
+      "status": "pending"
+    }
   ],
   "checkpoints": [
-    { "id": 1, "name": "Problem Confirmation", "status": "answered", "decision": "Confirmed — scale play, not build" },
-    { "id": 2, "name": "Direction Choice", "status": "pending", "decision": null },
-    { "id": 3, "name": "Risk Prioritization", "status": "not_yet", "decision": null }
+    {
+      "id": 1,
+      "name": "Problem Confirmation",
+      "status": "answered",
+      "decision": "Confirmed \u2014 scale play, not build"
+    },
+    {
+      "id": 2,
+      "name": "Direction Choice",
+      "status": "pending",
+      "decision": null
+    },
+    {
+      "id": 3,
+      "name": "Risk Prioritization",
+      "status": "not_yet",
+      "decision": null
+    }
   ],
   "risks_flagged": [
-    { "agent": "agent-flnt", "risk": "No revenue model defined", "severity": "high" },
-    { "agent": "agent-vexx", "risk": "Super-app entry threat (Jahez/Careem)", "severity": "medium" },
-    { "agent": "agent-nyxx", "risk": "Telehealth platform classification unclear", "severity": "medium" },
-    { "agent": "agent-echo", "risk": "WhatsApp habit deeply embedded", "severity": "low" }
+    {
+      "agent": "agent-flnt",
+      "risk": "No revenue model defined",
+      "severity": "high"
+    },
+    {
+      "agent": "agent-vexx",
+      "risk": "Super-app entry threat (Jahez/Careem)",
+      "severity": "medium"
+    },
+    {
+      "agent": "agent-nyxx",
+      "risk": "Telehealth platform classification unclear",
+      "severity": "medium"
+    },
+    {
+      "agent": "agent-echo",
+      "risk": "WhatsApp habit deeply embedded",
+      "severity": "low"
+    }
+  ],
+  "cabinet_framing": {
+    "framing_brief": "Expat Saudi residents want to buy property remotely, verified via Nafath. The obstacle is trust + liquidity; diagnosis is that existing portals optimize for listings, not for verified transactions. Guiding policy: position as 'Nafath-verified property transactions', not 'property listings'. Coherent action: 3 pilot cities, SAMA-regulated escrow partner, Arabic/Urdu/Tagalog funnels.",
+    "lenses": {
+      "strategic_kernel": "Diagnosis: the portals are list-led; expats need transaction-verified trust. Guiding policy: Nafath-anchored transactions. Coherent action: Riyadh/Jeddah/Dammam pilots + SAMA-regulated escrow partner.",
+      "product_shape": "User: Saudi-resident South Asian expat buying first property remotely. Outcome: 100 completed Nafath-verified transactions in 12 months. Non-goals: not a listing portal, not a brokerage, not financing.",
+      "build_class": "Retrofit onto existing SaaS CRM (Salesforce REIQ) \u2014 build Nafath integration + escrow API. Buy the listings layer (partner with Bayut feed).",
+      "economic_shape": "Transaction fee 0.5% of property value \u2192 avg SAR 7,500 per deal at SAR 1.5M median. CAC target < SAR 2,000. Break-even at 500 deals / year.",
+      "market_bet": "Position as 'the only Nafath-verified property transaction platform in Saudi'. Fight for shelf space against Bayut (listings-led, no transaction trust) and manual brokers (high-touch but slow). Category: transaction-verified real estate."
+    }
+  },
+  "pre_mortem": [
+    {
+      "failure_mode": "SAMA refuses escrow license \u2192 no transaction trust layer",
+      "likelihood": 3,
+      "impact": 5,
+      "score": 15,
+      "owner_agent": "agent-lexx",
+      "mitigation_phase": "phase_5_gtm"
+    },
+    {
+      "failure_mode": "Nafath API rate limits at scale break onboarding",
+      "likelihood": 4,
+      "impact": 4,
+      "score": 16,
+      "owner_agent": "agent-helx",
+      "mitigation_phase": "phase_4_arch"
+    },
+    {
+      "failure_mode": "Bayut counter-moves with their own transaction layer",
+      "likelihood": 4,
+      "impact": 4,
+      "score": 16,
+      "owner_agent": "agent-dune",
+      "mitigation_phase": "phase_5_gtm"
+    },
+    {
+      "failure_mode": "Unit economics break below SAR 500K properties",
+      "likelihood": 3,
+      "impact": 4,
+      "score": 12,
+      "owner_agent": "agent-prsm",
+      "mitigation_phase": "phase_6_challenge"
+    },
+    {
+      "failure_mode": "Regulatory change in 2026 invalidates remote-purchase flow",
+      "likelihood": 2,
+      "impact": 5,
+      "score": 10,
+      "owner_agent": "agent-nyxx",
+      "mitigation_phase": "phase_5_gtm"
+    }
   ]
 }

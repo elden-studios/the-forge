@@ -1,0 +1,74 @@
+{
+  "decisions": [
+    {
+      "id": "dec-1d7bd38b",
+      "title": "GO at 75% confidence \u2014 Saudi PropTech for expats (simulation)",
+      "context": "Phase 1.5 Cabinet Framing produced a clean 5-lens diagnosis with 5 pre-mortem risks (top: Bayut counter-move F=16, Nafath rate limits F=16). Cabinet reached majority GO; Prism dissented on unit-econ below SAR 500K.",
+      "alternatives_considered": [
+        "NO-GO (reject: market window closing)",
+        "ITERATE with Bahrain pilot first (reject: loses Saudi-first positioning)",
+        "GO with Riyadh-only pilot (selected \u2014 this decision)"
+      ],
+      "decided_by": "agent-cade",
+      "dissenting": [
+        "agent-prsm"
+      ],
+      "dissent_reason": "Unit economics break below SAR 500K properties",
+      "decided_at": "2026-04-17T10:31:24Z",
+      "reversibility": "type_1",
+      "review_at": "2026-07-16T10:31:24Z",
+      "project_id": "proj-simulation",
+      "related_evidence": [],
+      "status": "open"
+    },
+    {
+      "id": "dec-5b30ea9a",
+      "title": "GO at 75% confidence \u2014 Saudi PropTech for expats (simulation)",
+      "context": "Phase 1.5 Cabinet Framing produced a clean 5-lens diagnosis with 5 pre-mortem risks (top: Bayut counter-move F=16, Nafath rate limits F=16). Cabinet reached majority GO; Prism dissented on unit-econ below SAR 500K.",
+      "alternatives_considered": [
+        "NO-GO (reject: market window closing)",
+        "ITERATE with Bahrain pilot first (reject: loses Saudi-first positioning)",
+        "GO with Riyadh-only pilot (selected \u2014 this decision)"
+      ],
+      "decided_by": "agent-cade",
+      "dissenting": [
+        "agent-prsm"
+      ],
+      "dissent_reason": "Unit economics break below SAR 500K properties",
+      "decided_at": "2026-04-17T10:35:49Z",
+      "reversibility": "type_1",
+      "review_at": "2026-07-16T10:35:49Z",
+      "project_id": "proj-simulation",
+      "related_evidence": [],
+      "status": "open"
+    },
+    {
+      "id": "dec-f9d41f2a",
+      "title": "GO at 75% confidence \u2014 Saudi PropTech for expats (simulation)",
+      "context": "Phase 1.5 Cabinet Framing produced a clean 5-lens diagnosis with 5 pre-mortem risks (top: Bayut counter-move F=16, Nafath rate limits F=16). Cabinet reached majority GO; Prism dissented on unit-econ below SAR 500K.",
+      "alternatives_considered": [
+        "NO-GO (reject: market window closing)",
+        "ITERATE with Bahrain pilot first (reject: loses Saudi-first positioning)",
+        "GO with Riyadh-only pilot (selected \u2014 this decision)"
+      ],
+      "decided_by": "agent-cade",
+      "dissenting": [
+        "agent-prsm"
+      ],
+      "dissent_reason": "Unit economics break below SAR 500K properties",
+      "decided_at": "2026-04-17T10:43:20Z",
+      "reversibility": "type_1",
+      "review_at": "2026-07-16T10:43:20Z",
+      "project_id": "proj-simulation",
+      "related_evidence": [],
+      "status": "open"
+    }
+  ],
+  "project_decision_index": {
+    "proj-simulation": [
+      "dec-1d7bd38b",
+      "dec-5b30ea9a",
+      "dec-f9d41f2a"
+    ]
+  }
+}

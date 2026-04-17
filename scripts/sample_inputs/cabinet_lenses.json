@@ -1,0 +1,12 @@
+{
+  "project_id": "proj-simulation",
+  "project_title": "Saudi PropTech for expats (simulation)",
+  "framing_brief": "Expat Saudi residents want to buy property remotely, verified via Nafath. The obstacle is trust + liquidity; diagnosis is that existing portals optimize for listings, not for verified transactions. Guiding policy: position as 'Nafath-verified property transactions', not 'property listings'. Coherent action: 3 pilot cities, SAMA-regulated escrow partner, Arabic/Urdu/Tagalog funnels.",
+  "lenses": {
+    "strategic_kernel": "Diagnosis: the portals are list-led; expats need transaction-verified trust. Guiding policy: Nafath-anchored transactions. Coherent action: Riyadh/Jeddah/Dammam pilots + SAMA-regulated escrow partner.",
+    "product_shape": "User: Saudi-resident South Asian expat buying first property remotely. Outcome: 100 completed Nafath-verified transactions in 12 months. Non-goals: not a listing portal, not a brokerage, not financing.",
+    "build_class": "Retrofit onto existing SaaS CRM (Salesforce REIQ) — build Nafath integration + escrow API. Buy the listings layer (partner with Bayut feed).",
+    "economic_shape": "Transaction fee 0.5% of property value → avg SAR 7,500 per deal at SAR 1.5M median. CAC target < SAR 2,000. Break-even at 500 deals / year.",
+    "market_bet": "Position as 'the only Nafath-verified property transaction platform in Saudi'. Fight for shelf space against Bayut (listings-led, no transaction trust) and manual brokers (high-touch but slow). Category: transaction-verified real estate."
+  }
+}

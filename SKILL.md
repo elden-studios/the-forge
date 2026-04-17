@@ -231,6 +231,219 @@ See `references/cabinet-framing-spec.md` for the full operator protocol.
 - **Wave 2 (next):** Phase 1.5 mechanics — decisions_orchestrator.py, validate_decisions, forge-decisions.json, Pre-Mortem output validators
 - **Wave 3 (after):** Pixel Office Executive Suite + Dashboard Cabinet block + Decisions tab + live end-to-end validation run
 
+### Phase 1.5 mechanics — how each lens actually gets produced (v3.2 Wave 2)
+
+**Flint (CSO) — Strategic Kernel**
+- Prompt self with Rumelt's 3-part kernel: diagnosis, guiding policy, coherent action.
+- Output format: "Diagnosis: [obstacle]. Guiding policy: [direction]. Coherent action: [2-3 concrete moves]."
+- 3 sentences max. If diagnosis is actually an aspiration ("we want to be #1"), reject and re-prompt.
+
+**Cade (CPO) — Product Shape**
+- Format: "User: [persona]. Outcome: [KR, measurable]. Non-goals: [at least 3]."
+- If fewer than 3 non-goals, reject — Cagan's discipline: scope is what you say no to.
+
+**Helix (CTO) — Build Class**
+- Format: "Greenfield/retrofit: [pick]. Buy/build/partner: [per major component]."
+- Must surface a risk: onboarding time estimate for a new engineer.
+
+**Prism (CFO) — Economic Shape**
+- Format: "Unit: [per-transaction/per-user]. Fee: [amount]. CAC target: [amount]. Break-even: [N units/year]."
+- All four numbers required. No ranges.
+
+**Dune (CMO) — Market Bet**
+- Format: "Position as: [1 sentence]. Fight: [named competitors]. Category: [Dunford's market category]."
+- Category must be opinionated and narrow, not "fintech" or "AI tool".
+
+**Framing Brief synthesis (Flint)**
+After the 5 lenses, Flint writes the 1-page framing brief that weaves them. Not a summary — a synthesis that commits to the kernel.
+
+**Pre-Mortem scoring (Cabinet ranks together)**
+
+Each exec provides 2 failure modes from their lens (10 total). Cabinet ranks them on likelihood × impact (1-5 scale each), keeps top 5, assigns mitigation owner + phase.
+
+Allowed `mitigation_phase` values (enforced by validator):
+- `phase_4_arch` — mitigation is architectural (Helix/Atlas own)
+- `phase_5_gtm` — mitigation is go-to-market (Dune/Talon/Kira/Lex/Nyx)
+- `phase_6_challenge` — mitigation is challenge-round stress test
+- `phase_7_delivery` — mitigation is deliverable-level QA
+
+**Output lands on `forge-tasks.json`**
+
+```json
+{
+  "cabinet_framing": {
+    "framing_brief": "...",
+    "lenses": {
+      "strategic_kernel": "...",
+      "product_shape": "...",
+      "build_class": "...",
+      "economic_shape": "...",
+      "market_bet": "..."
+    }
+  },
+  "pre_mortem": [
+    {"failure_mode": "...", "likelihood": 4, "impact": 5, "score": 20,
+     "owner_agent": "agent-X", "mitigation_phase": "phase_5_gtm"},
+    ...
+  ]
+}
+```
+
+Validator (`validate_tasks`) enforces: all 5 lenses present + non-empty, pre_mortem owners exist as agents, likelihood + impact are ints 1-5, mitigation_phase is from the allowed enum.
+
+See `scripts/cabinet_framing_simulate.py` for a worked example of the output structure.
+
+### Phase 3 two-floor mechanics — who fires which floor, how escalation works (v3.2 Wave 2)
+
+**IC Floor** — evidence-grounded specialist debate.
+- **Fires when:** `evidence_conflict.detect_conflicts()` returns ≥1 conflict OR an IC flags a factual disagreement with another IC's Evidence during Phase 2 fan-in.
+- **Participants:** ICs whose Evidence is disputed. Cabinet execs are NOT present.
+- **Max rounds:** 2. Each round: claim → counter-evidence → synthesis attempt.
+- **Resolution rule:** scope > tier > recency (from `evidence_conflict.resolve`). Already implemented and tested in v3.1.
+- **Output:** Evidence bundle is updated (no new decisions logged unless escalated).
+- **Escalation trigger:** If 2 rounds don't resolve, escalate to the owning C-Suite exec.
+
+**Cabinet Floor** — cross-functional trade-off arbitration.
+- **Fires when:** (a) an IC Floor escalation lands on 2+ execs in tension, or (b) Cabinet independently detects a cross-functional trade-off during Phase 1.5 or Phase 3.
+- **Participants:** 2+ C-Suite execs whose functions are in tension (e.g., Cade vs Helix on ship-vs-debt, Prism vs Dune on LTV vs brand).
+- **Ammunition:** each exec's signature artifact (Product One-Pager, Tech Strategy Memo, Unit Economics Model, Positioning Document, Strategy Kernel).
+- **Max rounds:** 2. Each exec presents their artifact-backed case; rebuttal allowed.
+- **Resolution rule:** majority vote + dissent logged.
+- **Output:** a Decision Log entry (via `decisions_orchestrator.append_decision`). The decision records: context, alternatives considered, decided_by, dissenting, reversibility, review_at.
+
+**Escalation ladder (Standing Rule 10 implementation)**
+
+```
+IC Floor (2 rounds) → IC escalates to owning C-Suite exec
+   ↓
+Owning exec takes a side → decision logged (Type 1 if hard-to-reverse, Type 2 otherwise)
+   ↓ (if exec can't take a side alone:)
+Cabinet Floor arbitration
+   ↓ (if deadlock:)
+User (CEO/Board) decides → decision logged with `decided_by: user` marker
+```
+
+All decisions at any tier get logged in `forge-decisions.json`.
+
+**When to log Type 1 vs Type 2:**
+
+- **Type 1 (one-way door):** cannot be reversed without re-running a major phase. Examples: licensing path choice, founding team hire, brand naming, pricing floor commitment, exclusive partnership. Reviewed at 90 days.
+- **Type 2 (two-way door):** can be reversed cheaply. Examples: feature prioritization swap, channel-mix adjustment, landing-page copy variant. Reviewed at 30 days.
+
+If unsure: default to Type 1 (conservative). Cabinet can down-classify to Type 2 if challenged.
+
+**Decision Log write point**
+
+At every Cabinet Floor resolution OR IC Floor escalation that reaches an exec-level decision:
+
+```python
+from decisions_orchestrator import new_decision_id, compute_review_at, append_decision
+from datetime import datetime, timezone
+
+decision = {
+    "id": new_decision_id(),
+    "title": "<short imperative, verb + object>",
+    "context": "<what triggered this decision>",
+    "alternatives_considered": ["A (reject: why)", "B (selected)", ...],
+    "decided_by": "<agent-id of the deciding exec; 'user' if escalated to CEO>",
+    "dissenting": ["<agent-id>", ...],
+    "dissent_reason": "<why the dissenter disagreed>",
+    "decided_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "reversibility": "type_1" | "type_2",
+    "review_at": compute_review_at(decided_at, reversibility),
+    "project_id": "<current project>",
+    "related_evidence": ["<ev-...>", ...],  # Evidence IDs that grounded the decision
+    "status": "open",
+}
+append_decision(project_id, decision, "forge-decisions.json")
+```
+
+Validator (`validate_decisions`) enforces referential integrity of `decided_by`, `dissenting`, and `related_evidence`.
+
+### Phase 7 deliverable format — Cabinet Verdict + 5 artifacts + Decision Log (v3.2 Wave 2)
+
+Every project deliverable in v3.2 format has this structure:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚒ THE FORGE — FINAL DELIVERABLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT: <title>
+CABINET VERDICT: <GO / NO-GO / ITERATE> at <N>% confidence
+  Decider: <exec> (<role>) — <led|majority|unanimous>
+  Dissent: <exec> — <reason>
+  Reversibility: Type 1 | Type 2
+  Decision id: <dec-...>
+
+EVIDENCE SUMMARY [v3.1 — unchanged]
+  <N> queries · <M> sources cited · quality <X>/5 · conflicts <K>
+
+PRE-MORTEM TOP RISKS [v3.2]
+  1. [F=<score>] <failure mode> — owner <agent>, mitigation
+  2. ...
+  5. ...
+
+CABINET ARTIFACTS [v3.2] (5 items, one per exec)
+  ⚡ Strategy Kernel (Flint — Rumelt): <filled 3-part kernel>
+  📋 Product One-Pager (Cade — Cagan): <Problem / User / Outcome / Non-goals / Release>
+  🏗  Technology Strategy Memo (Helix — Fournier): <3-year horizon + build-vs-buy + tech-debt>
+  💰 Unit Economics Model (Prism — Tunguz/Sacks): <LTV/CAC/payback/contribution margin/Rule of 40>
+  📣 Positioning Document (Dune — Dunford): <5 components>
+
+IC DELIVERABLES [existing v3.0/v3.1]
+  <per-agent Phase 4-6 outputs, unchanged>
+
+DECISION LOG [v3.2]
+  • <dec-id>: <title> (Type <N>, review <date>, status open)
+  • ...
+
+SOURCES APPENDIX [v3.1 — unchanged]
+  <tier-grouped Evidence list>
+```
+
+**Rules:**
+
+1. **Cabinet Verdict is mandatory** when Cabinet Framing has fired (i.e., `forge-tasks.cabinet_framing` is non-null). If no Cabinet Framing ran, skip this section (Q&A-level briefs, simple hires, show-office).
+
+2. **All 5 Cabinet Artifacts must render** when Cabinet Framing fired. If an exec didn't produce (e.g., Helix's memo for a pure marketing brief), include the header + "(not applicable for this project)" — the format stays consistent.
+
+3. **Decision Log section** — contains every decision with `project_id == <current>` from `forge-decisions.json`, sorted by `decided_at` descending. Each entry is one line: id, title, reversibility, review_at, status.
+
+4. **At least one Decision Log entry** must exist for every Phase 7 deliverable with a Cabinet Verdict (Standing Rule 11). If only the Verdict itself was logged, that counts as one.
+
+**How the deliverable is assembled:**
+
+```python
+# Pseudocode for operator reference
+cabinet_framing = tasks.get("cabinet_framing")
+pre_mortem = tasks.get("pre_mortem", [])
+
+verdict = build_cabinet_verdict(cabinet_framing, cabinet_debate_outcome)  # from Phase 3
+
+artifacts = {
+    "strategy_kernel":        produce_strategy_kernel(agent-flnt, cabinet_framing),
+    "product_one_pager":      produce_product_one_pager(agent-cade, cabinet_framing),
+    "tech_strategy_memo":     produce_tech_strategy_memo(agent-helx, phase4_outputs),
+    "unit_economics_model":   produce_unit_economics(agent-prsm, evidence),
+    "positioning_document":   produce_positioning(agent-dune, cabinet_framing, evidence),
+}
+
+decisions = get_project_decisions(project_id, "forge-decisions.json")
+evidence_appendix = render_compact(get_project_evidence(project_id, "forge-evidence.json"))
+
+deliverable = render_v32_deliverable(
+    project_title, verdict, pre_mortem, artifacts,
+    ic_deliverables, decisions, evidence_appendix
+)
+```
+
+The `produce_*` helpers are operator prompts in SKILL.md (they instruct Claude, at protocol runtime, how to assemble each artifact from the relevant agent's brain file + the Cabinet Framing output). They are NOT Python functions — Wave 2 does not implement an artifact-rendering engine. Wave 3 may add JSON rendering for dashboard ingestion.
+
+**What the validator enforces on this section:**
+
+- Standing Rule 11: every Cabinet Verdict must have a corresponding Decision Log entry. This is enforced at validate_decisions time via `project_decision_index[project_id]` non-empty when `cabinet_framing` is non-null.
+- Actually — **this rule is NOT implemented in validator.py in Wave 2** (it requires cross-file validation between forge-tasks and forge-decisions). It's documented here as a runtime invariant; Wave 3 may add automated checking.
+
 ---
 
 ## Evidence Pipes

@@ -997,6 +997,153 @@ class TestCacheStatsCli(unittest.TestCase):
             self.assertIn("1 entries", output)
 
 
+class TestCabinetEnabledKillSwitch(unittest.TestCase):
+    """cabinet.enabled: false is the canonical v3.2 kill switch.
+    cabinet.executives: [] is accepted as an alias for backward compat.
+    Both coexist with the existing 'executives list references executives' rule."""
+
+    def test_cabinet_enabled_false_passes(self):
+        """cabinet.enabled: false is the canonical kill switch."""
+        from validator import validate_state
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [],
+            "agents": [],
+            "cabinet": {"enabled": False},
+        }
+        ok, errors = validate_state(state)
+        self.assertTrue(ok, errors)
+
+    def test_cabinet_enabled_true_with_populated_executives_passes(self):
+        """When enabled and executives are listed, they still must be real agents."""
+        from validator import validate_state
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [{
+                "id": "agent-real",
+                "name": "Real",
+                "department_id": "dept-a",
+                "status": "active",
+                "role": "executive"
+            }],
+            "cabinet": {"enabled": True, "executives": ["agent-real"]},
+        }
+        ok, errors = validate_state(state)
+        self.assertTrue(ok, errors)
+
+    def test_cabinet_executives_empty_list_alias_passes(self):
+        """cabinet.executives: [] (Wave 1 kill switch) still works as alias."""
+        from validator import validate_state
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [],
+            "agents": [],
+            "cabinet": {"executives": []},
+        }
+        ok, errors = validate_state(state)
+        self.assertTrue(ok, errors)
+
+
+class TestStandingRule11(unittest.TestCase):
+    """Every Cabinet Verdict (cabinet_framing present) must have at least one
+    Decision Log entry for the current project."""
+
+    def _write(self, tmp, fname, obj):
+        with open(os.path.join(tmp, fname), "w") as f:
+            json.dump(obj, f)
+
+    def _state(self):
+        return {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [],
+            "agents": [{"id": "agent-flnt", "name": "Flint", "status": "active"}],
+        }
+
+    def _tasks_with_cabinet(self, project_id):
+        return {
+            "current_project": project_id,
+            "tasks": [],
+            "handoffs": [],
+            "current_phase": 1,
+            "cabinet_framing": {
+                "framing_brief": "x",
+                "lenses": {
+                    "strategic_kernel": "x", "product_shape": "x",
+                    "build_class": "x", "economic_shape": "x", "market_bet": "x"
+                }
+            }
+        }
+
+    def test_cabinet_framing_without_any_decision_fails(self):
+        """Project with cabinet_framing but no decision in project_decision_index fails."""
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", self._state())
+            self._write(tmp, "forge-tasks.json", self._tasks_with_cabinet("proj-test"))
+            self._write(tmp, "forge-decisions.json", {
+                "decisions": [],
+                "project_decision_index": {}
+            })
+            ok, errors = validate_project(tmp)
+            self.assertFalse(ok)
+            self.assertTrue(
+                any("Rule 11" in e or "decision" in e.lower() for e in errors),
+                f"Expected rule 11 error, got: {errors}"
+            )
+
+    def test_cabinet_framing_with_at_least_one_decision_passes(self):
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", self._state())
+            self._write(tmp, "forge-tasks.json", self._tasks_with_cabinet("proj-test"))
+            self._write(tmp, "forge-decisions.json", {
+                "decisions": [{
+                    "id": "dec-abc12345",
+                    "title": "Test", "context": "", "alternatives_considered": [],
+                    "decided_by": "agent-flnt", "dissenting": [], "dissent_reason": "",
+                    "decided_at": "2026-04-17T00:00:00Z",
+                    "reversibility": "type_1", "review_at": "2026-07-16T00:00:00Z",
+                    "project_id": "proj-test", "related_evidence": [],
+                    "status": "open"
+                }],
+                "project_decision_index": {"proj-test": ["dec-abc12345"]}
+            })
+            ok, errors = validate_project(tmp)
+            self.assertTrue(ok, errors)
+
+    def test_no_cabinet_framing_skips_rule_11_check(self):
+        """Backward compat: pre-v3.2 projects (no cabinet_framing) don't trigger rule 11."""
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", self._state())
+            self._write(tmp, "forge-tasks.json", {
+                "tasks": [], "handoffs": [], "current_phase": 0
+                # no cabinet_framing, no current_project
+            })
+            self._write(tmp, "forge-decisions.json", {
+                "decisions": [], "project_decision_index": {}
+            })
+            ok, errors = validate_project(tmp)
+            self.assertTrue(ok, errors)
+
+    def test_cabinet_framing_without_current_project_field_skips_check(self):
+        """If current_project is not set in tasks, can't enforce rule 11. Backward compat."""
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", self._state())
+            tasks = self._tasks_with_cabinet("proj-test")
+            del tasks["current_project"]  # no project to correlate decisions with
+            self._write(tmp, "forge-tasks.json", tasks)
+            self._write(tmp, "forge-decisions.json", {
+                "decisions": [],
+                "project_decision_index": {}
+            })
+            ok, errors = validate_project(tmp)
+            # Without current_project, we skip the rule 11 check
+            self.assertTrue(ok, errors)
+
+
 class TestV32PortfolioInvariants(unittest.TestCase):
     """Pins the exact v3.2 Cabinet structure to catch future drift."""
 
@@ -1024,6 +1171,375 @@ class TestV32PortfolioInvariants(unittest.TestCase):
         for ic in [a for a in s['agents'] if a.get('role') == 'ic']:
             self.assertIn(ic.get('reports_to'), execs_set,
                          f"IC {ic['name']} reports_to {ic.get('reports_to')} which is not an executive")
+
+
+class TestValidateCabinetFraming(unittest.TestCase):
+    """validate_tasks enforces cabinet_framing schema when present."""
+
+    def _state(self):
+        return {
+            "agents": [
+                {"id": "agent-flnt", "name": "Flint", "status": "active"},
+            ]
+        }
+
+    def _base_tasks(self, cabinet_framing=None):
+        return {
+            "tasks": [],
+            "handoffs": [],
+            "current_phase": 0,
+            "cabinet_framing": cabinet_framing,
+        }
+
+    def test_cabinet_framing_absent_passes(self):
+        from validator import validate_tasks
+        tasks = {"tasks": [], "handoffs": [], "current_phase": 0}
+        ok, errors = validate_tasks(tasks, self._state())
+        self.assertTrue(ok, errors)
+
+    def test_cabinet_framing_valid_structure_passes(self):
+        from validator import validate_tasks
+        cf = {
+            "framing_brief": "1-page synthesis",
+            "lenses": {
+                "strategic_kernel": "Diagnosis...",
+                "product_shape": "User is...",
+                "build_class": "Greenfield",
+                "economic_shape": "Unit econ...",
+                "market_bet": "Position as..."
+            }
+        }
+        ok, errors = validate_tasks(self._base_tasks(cabinet_framing=cf), self._state())
+        self.assertTrue(ok, errors)
+
+    def test_cabinet_framing_missing_lens_fails(self):
+        from validator import validate_tasks
+        cf = {
+            "framing_brief": "x",
+            "lenses": {
+                "strategic_kernel": "x",
+            }
+        }
+        ok, errors = validate_tasks(self._base_tasks(cabinet_framing=cf), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("product_shape" in e for e in errors), errors)
+
+    def test_cabinet_framing_extra_lens_key_fails(self):
+        from validator import validate_tasks
+        cf = {
+            "framing_brief": "x",
+            "lenses": {
+                "strategic_kernel": "x", "product_shape": "x", "build_class": "x",
+                "economic_shape": "x", "market_bet": "x",
+                "seventh_lens": "oops"
+            }
+        }
+        ok, errors = validate_tasks(self._base_tasks(cabinet_framing=cf), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("seventh_lens" in e for e in errors), errors)
+
+    def test_cabinet_framing_missing_framing_brief_fails(self):
+        from validator import validate_tasks
+        cf = {
+            "lenses": {
+                "strategic_kernel": "x", "product_shape": "x",
+                "build_class": "x", "economic_shape": "x", "market_bet": "x"
+            }
+        }
+        ok, errors = validate_tasks(self._base_tasks(cabinet_framing=cf), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("framing_brief" in e.lower() for e in errors), errors)
+
+    def test_cabinet_framing_non_dict_fails(self):
+        from validator import validate_tasks
+        ok, errors = validate_tasks(
+            self._base_tasks(cabinet_framing="not a dict"), self._state()
+        )
+        self.assertFalse(ok)
+        self.assertTrue(any("cabinet_framing" in e.lower() for e in errors), errors)
+
+
+class TestValidatePreMortem(unittest.TestCase):
+    """validate_tasks enforces pre_mortem schema when present."""
+
+    def _state(self, agent_ids=("agent-flnt", "agent-lexx")):
+        return {
+            "agents": [{"id": a, "name": a, "status": "active"} for a in agent_ids]
+        }
+
+    def _base_tasks(self, pre_mortem=None):
+        return {
+            "tasks": [],
+            "handoffs": [],
+            "current_phase": 0,
+            "pre_mortem": pre_mortem,
+        }
+
+    def test_pre_mortem_absent_passes(self):
+        """Backward compat: forge-tasks without pre_mortem still validates."""
+        from validator import validate_tasks
+        tasks = {"tasks": [], "handoffs": [], "current_phase": 0}
+        ok, errors = validate_tasks(tasks, self._state())
+        self.assertTrue(ok, errors)
+
+    def test_pre_mortem_empty_list_passes(self):
+        from validator import validate_tasks
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=[]), self._state())
+        self.assertTrue(ok, errors)
+
+    def test_pre_mortem_valid_entry_passes(self):
+        from validator import validate_tasks
+        pm = [{
+            "failure_mode": "PDPL non-compliance",
+            "likelihood": 4, "impact": 5, "score": 20,
+            "owner_agent": "agent-lexx",
+            "mitigation_phase": "phase_5_gtm"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertTrue(ok, errors)
+
+    def test_pre_mortem_owner_agent_nonexistent_fails(self):
+        from validator import validate_tasks
+        pm = [{
+            "failure_mode": "x", "likelihood": 3, "impact": 3, "score": 9,
+            "owner_agent": "agent-ghost", "mitigation_phase": "phase_5_gtm"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("agent-ghost" in e for e in errors), errors)
+
+    def test_pre_mortem_likelihood_out_of_range_fails(self):
+        from validator import validate_tasks
+        pm = [{
+            "failure_mode": "x", "likelihood": 7, "impact": 3, "score": 21,
+            "owner_agent": "agent-lexx", "mitigation_phase": "phase_5_gtm"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("likelihood" in e.lower() for e in errors), errors)
+
+    def test_pre_mortem_impact_out_of_range_fails(self):
+        from validator import validate_tasks
+        pm = [{
+            "failure_mode": "x", "likelihood": 3, "impact": 0, "score": 0,
+            "owner_agent": "agent-lexx", "mitigation_phase": "phase_5_gtm"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("impact" in e.lower() for e in errors), errors)
+
+    def test_pre_mortem_invalid_mitigation_phase_fails(self):
+        from validator import validate_tasks
+        pm = [{
+            "failure_mode": "x", "likelihood": 3, "impact": 3, "score": 9,
+            "owner_agent": "agent-lexx", "mitigation_phase": "phase_99_yolo"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("mitigation_phase" in e.lower() for e in errors), errors)
+
+    def test_pre_mortem_missing_failure_mode_fails(self):
+        from validator import validate_tasks
+        pm = [{
+            "likelihood": 3, "impact": 3, "score": 9,
+            "owner_agent": "agent-lexx", "mitigation_phase": "phase_5_gtm"
+        }]
+        ok, errors = validate_tasks(self._base_tasks(pre_mortem=pm), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("failure_mode" in e.lower() for e in errors), errors)
+
+
+class TestValidateProjectLoadsDecisions(unittest.TestCase):
+    def _write(self, tmp, fname, obj):
+        with open(os.path.join(tmp, fname), "w") as f:
+            json.dump(obj, f)
+
+    def test_validate_project_loads_forge_decisions_when_present(self):
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", {
+                "company": {"name": "T", "founded": "2026-01-01"},
+                "departments": [],
+                "agents": [{"id": "agent-flnt", "name": "Flint", "status": "active"}],
+            })
+            self._write(tmp, "forge-decisions.json", {
+                "decisions": [],
+                "project_decision_index": {}
+            })
+            ok, errors = validate_project(tmp)
+            self.assertTrue(ok, errors)
+
+    def test_validate_project_catches_decisions_json_malformed(self):
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", {
+                "company": {"name": "T", "founded": "2026-01-01"},
+                "departments": [],
+                "agents": [],
+            })
+            with open(os.path.join(tmp, "forge-decisions.json"), "w") as f:
+                f.write("{ broken ]")
+            ok, errors = validate_project(tmp)
+            self.assertFalse(ok)
+            self.assertTrue(
+                any("forge-decisions.json" in e and "json" in e.lower() for e in errors),
+                errors,
+            )
+
+    def test_validate_project_catches_bad_decision_data(self):
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", {
+                "company": {"name": "T", "founded": "2026-01-01"},
+                "departments": [],
+                "agents": [{"id": "agent-flnt", "name": "Flint", "status": "active"}],
+            })
+            self._write(tmp, "forge-decisions.json", {
+                "decisions": [{
+                    "id": "BADID",
+                    "title": "bad decision", "context": "",
+                    "alternatives_considered": [], "decided_by": "agent-flnt",
+                    "dissenting": [], "dissent_reason": "",
+                    "decided_at": "2026-04-17T00:00:00Z",
+                    "reversibility": "type_1", "review_at": "2026-07-16T00:00:00Z",
+                    "project_id": "proj-001", "related_evidence": [],
+                    "status": "open"
+                }],
+                "project_decision_index": {}
+            })
+            ok, errors = validate_project(tmp)
+            self.assertFalse(ok)
+            self.assertTrue(any("BADID" in e for e in errors), errors)
+
+    def test_validate_project_passes_when_decisions_absent(self):
+        """Projects without a forge-decisions.json still validate (backward compat)."""
+        from validator import validate_project
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "forge-state.json", {
+                "company": {"name": "T", "founded": "2026-01-01"},
+                "departments": [],
+                "agents": [],
+            })
+            ok, errors = validate_project(tmp)
+            self.assertTrue(ok, errors)
+
+
+class TestValidateDecisions(unittest.TestCase):
+    """validate_decisions(doc, state, evidence_doc=None) -> (ok, errors)"""
+
+    def _doc(self, decisions=None, index=None):
+        return {
+            "decisions": decisions or [],
+            "project_decision_index": index or {},
+        }
+
+    def _state(self, agent_ids=("agent-flnt",)):
+        return {
+            "agents": [{"id": a, "name": a, "status": "active"} for a in agent_ids]
+        }
+
+    def _decision(self, **kwargs):
+        base = {
+            "id": "dec-abc12345",
+            "title": "Test decision",
+            "context": "unit test",
+            "alternatives_considered": ["A (reject: x)", "B (selected)"],
+            "decided_by": "agent-flnt",
+            "dissenting": [],
+            "dissent_reason": "",
+            "decided_at": "2026-04-17T00:00:00Z",
+            "reversibility": "type_1",
+            "review_at": "2026-07-16T00:00:00Z",
+            "project_id": "proj-001",
+            "related_evidence": [],
+            "status": "open",
+        }
+        base.update(kwargs)
+        return base
+
+    def test_empty_doc_passes(self):
+        from validator import validate_decisions
+        ok, errors = validate_decisions(self._doc(), self._state())
+        self.assertTrue(ok, errors)
+
+    def test_invalid_id_format_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(id="BADID")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("id" in e.lower() and "BADID" in e for e in errors), errors)
+
+    def test_duplicate_ids_fail(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[
+            self._decision(id="dec-aaaabbbb"),
+            self._decision(id="dec-aaaabbbb"),
+        ])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("duplicate" in e.lower() for e in errors), errors)
+
+    def test_decided_by_nonexistent_agent_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(decided_by="agent-ghost")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("agent-ghost" in e for e in errors), errors)
+
+    def test_dissenting_nonexistent_agent_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(dissenting=["agent-ghost"])])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("agent-ghost" in e for e in errors), errors)
+
+    def test_bad_reversibility_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(reversibility="maybe")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("reversibility" in e.lower() for e in errors), errors)
+
+    def test_bad_status_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(status="pending")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("status" in e.lower() for e in errors), errors)
+
+    def test_malformed_decided_at_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(decided_at="yesterday")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+
+    def test_malformed_review_at_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(review_at="tomorrow")])
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+
+    def test_related_evidence_nonexistent_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(related_evidence=["ev-ghost000"])])
+        evidence_doc = {"evidence": [], "project_evidence_index": {}}
+        ok, errors = validate_decisions(doc, self._state(), evidence_doc)
+        self.assertFalse(ok)
+        self.assertTrue(any("ev-ghost000" in e for e in errors), errors)
+
+    def test_related_evidence_not_checked_when_evidence_doc_absent(self):
+        """If no evidence_doc is provided, skip related_evidence validation."""
+        from validator import validate_decisions
+        doc = self._doc(decisions=[self._decision(related_evidence=["ev-anyid0001"])])
+        ok, errors = validate_decisions(doc, self._state())  # no evidence_doc arg
+        self.assertTrue(ok, errors)
+
+    def test_project_decision_index_ref_missing_fails(self):
+        from validator import validate_decisions
+        doc = self._doc(index={"proj-001": ["dec-ghost000"]})
+        ok, errors = validate_decisions(doc, self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("dec-ghost000" in e for e in errors), errors)
 
 
 if __name__ == "__main__":
