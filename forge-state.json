@@ -88,7 +88,8 @@
         "department_accent_color": "#E74C3C"
       },
       "status": "active",
-      "hired": "2026-04-05"
+      "hired": "2026-04-05",
+      "role": "executive"
     },
     {
       "id": "agent-vexx",
@@ -136,7 +137,8 @@
         "department_accent_color": "#9B59B6"
       },
       "status": "active",
-      "hired": "2026-04-06"
+      "hired": "2026-04-06",
+      "role": "ic"
     },
     {
       "id": "agent-nyxx",
@@ -184,7 +186,8 @@
         "department_accent_color": "#9B59B6"
       },
       "status": "active",
-      "hired": "2026-04-06"
+      "hired": "2026-04-06",
+      "role": "ic"
     },
     {
       "id": "agent-renn",
@@ -235,7 +238,8 @@
         "department_accent_color": "#1ABC9C"
       },
       "status": "active",
-      "hired": "2026-04-06"
+      "hired": "2026-04-06",
+      "role": "ic"
     },
     {
       "id": "agent-taln",
@@ -283,7 +287,8 @@
         "department_accent_color": "#2ECC71"
       },
       "status": "active",
-      "hired": "2026-04-06"
+      "hired": "2026-04-06",
+      "role": "ic"
     },
     {
       "id": "agent-atls",
@@ -324,7 +329,8 @@
         "department_accent_color": "#3498DB"
       },
       "status": "active",
-      "hired": "2026-04-06"
+      "hired": "2026-04-06",
+      "role": "ic"
     },
     {
       "id": "agent-kira",
@@ -371,7 +377,8 @@
         "department_accent_color": "#F1C40F"
       },
       "status": "active",
-      "hired": "2026-04-06"
+      "hired": "2026-04-06",
+      "role": "ic"
     },
     {
       "id": "agent-sabl",
@@ -414,7 +421,8 @@
         "department_accent_color": "#1ABC9C"
       },
       "status": "active",
-      "hired": "2026-04-06"
+      "hired": "2026-04-06",
+      "role": "ic"
     },
     {
       "id": "agent-echo",
@@ -458,7 +466,8 @@
         "department_accent_color": "#9B59B6"
       },
       "status": "active",
-      "hired": "2026-04-06"
+      "hired": "2026-04-06",
+      "role": "ic"
     }
   ],
   "routing_overrides": {
