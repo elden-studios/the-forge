@@ -179,6 +179,60 @@ Wait for the user to approve, request changes, or reject. On approval:
 
 ---
 
+## Cabinet Framing (v3.2)
+
+When `cabinet.executives` in `forge-state.json` is non-empty (default in v3.2), project briefs get Phase 1.5 Cabinet Framing before Phase 2 Evidence Pipes.
+
+See `references/cabinet-framing-spec.md` for the full operator protocol.
+
+### When Cabinet fires
+
+- Brief is a substantive project (not "show office" / simple Q&A)
+- `cabinet.executives` is populated
+- User didn't say "skip cabinet" / "no framing"
+
+### The flow
+
+1. Flint convenes Cabinet (5 execs: Flint, Cade, Helix, Prism, Dune)
+2. Each exec writes their lens (≤3 sentences) — Strategic Kernel / Product shape / Build class / Economic shape / Market bet
+3. Cabinet compiles the 1-page Framing Brief
+4. Pre-Mortem — each exec lists top 2 failure modes; Cabinet ranks by likelihood × impact, keeps top 5 with owners
+5. Write `cabinet_framing` + `pre_mortem` blocks to `forge-tasks.json`
+6. Phase 2 Evidence Pipes runs with the Framing Brief as orienting context
+
+### What each exec brings
+
+| Exec | Role | Playbook |
+|---|---|---|
+| Flint | CSO | Rumelt — Strategy Kernel |
+| Cade | CPO | Cagan — Empowered Teams |
+| Helix | CTO | Fournier — Manager's Path |
+| Prism | CFO | Tunguz/Sacks — unit economics |
+| Dune | CMO | Dunford/Moesta — positioning |
+
+### Activation triggers (v3.2 table)
+
+| User input | Cabinet fires? | Phases |
+|---|---|---|
+| "show office" / "team roster" / "hire X" | ❌ | Direct response |
+| Q&A / research question | ❌ | Phase 2 Evidence Pipes only |
+| Project brief | ✅ | Full Phase 1 → 8 with Phase 1.5 Cabinet Framing |
+| "continue project proj-X" | ✅ (review-only) | Cabinet reads Decision Log + evidence, then resumes |
+| `auto-approve` meta-command | ✅ (compressed) | Framing still runs, checkpoints auto-pass |
+
+### Kill switch
+
+- `forge-state.json` → `cabinet.executives: []` (empty array) or absent → Cabinet Framing disabled, Phase 1.5 skipped, v3.1 behavior preserved byte-for-byte
+- User phrase "skip cabinet" → skip for this brief only
+
+### Wave rollout notes
+
+- **Wave 1 (this release):** v3.2 agent roster, Cabinet data model, docs
+- **Wave 2 (next):** Phase 1.5 mechanics — decisions_orchestrator.py, validate_decisions, forge-decisions.json, Pre-Mortem output validators
+- **Wave 3 (after):** Pixel Office Executive Suite + Dashboard Cabinet block + Decisions tab + live end-to-end validation run
+
+---
+
 ## Evidence Pipes
 
 When `evidence_pipes.enabled` is `true` in `forge-state.json` (default), Phase 2 (Intelligence) runs in **parallel-dispatch mode**. The four **evidence agents** — Vex, Nyx, Echo, Talon — fan out as independent subagents, each running real WebSearch (and Chrome MCP in phase 2) against their sub-brief. Every `[FACT]` tag in the final deliverable must reference a valid Evidence ID or it gets stripped.
@@ -264,6 +318,8 @@ Skip the multi-agent protocol. The sole agent delivers:
 ### Multi-Agent Mode (2+ active agents)
 1. **Intake**: Each relevant agent independently assesses the prompt (parallel)
 2. **Phase 2 (Intelligence):** now runs via parallel dispatch when pipes are enabled. See the "Evidence Pipes" section above. Sequential v3.0 behavior preserved when `evidence_pipes.enabled: false`.
+
+   > **v3.2:** Phase 2 runs after Phase 1.5 Cabinet Framing when pipes and cabinet are both enabled. Framing Brief orients the Evidence Pipes sub-briefs. Otherwise Phase 2 runs as in v3.1.
 3. **Synthesis Round**: Each agent presents structured perspective (Assessment, Key Insight, Recommendation, optional Handoff Request)
 4. **Meeting Room** (if 2+ agents conflict): Structured debate, max 2 rounds, then resolution
 5. **Final Deliverable**: Executive summary → agent contributions → meeting transcript (if any) → consolidated recommendation → gaps & hire suggestions → next steps
@@ -312,6 +368,11 @@ When Evidence Pipes fired:
 - Deliverable ends with a Sources Appendix (use `evidence_appendix.render_compact` inline, `render_markdown` for export).
 - Every `[FACT]` / `[INFERENCE]` must reference a valid Evidence ID or be downgraded to `[OPINION]`. The validator strips non-compliant claims automatically.
 
+When Cabinet Framing fired:
+- When Cabinet Framing fires, deliverable starts with **Cabinet Verdict** (decider + dissent + reversibility) above the Evidence Summary.
+- **Five signature artifacts** (one per C-Suite exec) render in Phase 7 when their content is non-empty.
+- **Decision Log section** between the IC deliverables and Sources Appendix, summarizing decisions logged in this brief (Wave 2+).
+
 For simple commands (show office, team roster), skip sections that don't apply.
 
 ---
@@ -327,6 +388,8 @@ These are non-negotiable. Every output must meet these bars:
 - **No filler**: Every sentence must be actionable or insightful. No placeholder content, no padding, no "it depends" without a framework for deciding.
 - **Delightful visualization**: The pixel office should make the user smile. It's a key part of the experience.
 - **No citation, no claim.** Every `[FACT]` or `[INFERENCE]` must reference a valid Evidence ID. The validator strips non-compliant claims; agents must re-run queries or downgrade the claim to `[OPINION]`.
+- **Every Cabinet Verdict logs a decision.** Standing Rule 11. Projects that reach a GO/NO-GO/ITERATE verdict without a `project_decision_index` entry are malformed; validator flags this in Wave 2.
+- **Every pre-mortem risk has a mitigation owner.** Standing Rule 10 corollary. A risk without an owning agent is rejected — Cabinet cannot pass a brief with "ownerless" risks.
 
 ---
 
