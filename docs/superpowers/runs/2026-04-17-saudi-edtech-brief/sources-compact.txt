@@ -1,0 +1,18 @@
+Simulation mode — no WebSearch queries made.
+
+This Wave 3 Task 10 run exercises the Cabinet Framing plumbing (Phase 1.5)
+with canned 5-lens + pre-mortem fixtures, not live research. A live run
+would include per-agent Sources Appendix per the Evidence Pipes v1 pattern
+shipped in Task 14 / Task 15 (see ../2026-04-17-neobank-brief/sources-compact.txt
+for the shape of a real sources file).
+
+Live-run agents (when invoked from SKILL.md Phase 2):
+  - Vex (Market Intel) — Abwaab/Noon/Kheyala ARPU + funding rounds
+  - Nyx (Saudi Market) — MOE + Madrasati + Nafath + Ramadan cadence
+  - Echo (User Research) — Saudi parent purchase behavior, tutoring baseline
+  - Talon (Growth) — TikTok/Snap MENA CAC benchmarks, referral mechanics
+
+None of these were dispatched in this simulation. All 5 cabinet-lens
+propositions and 5 pre-mortem risks are authored content grounded in
+publicly-known Saudi market facts (Vision 2030, Madrasati, Nafath,
+Mada/STC Pay, competitor landscape) but not individually sourced.

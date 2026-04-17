@@ -1,0 +1,16 @@
+{
+  "brief": "Saudi K-12 exam-prep EdTech",
+  "project_id": "proj-edtech-ksa",
+  "run_date": "2026-04-17",
+  "mode": "simulation",
+  "cabinet_lenses_count": 5,
+  "pre_mortem_count": 5,
+  "decisions_written": 1,
+  "decision_id": "dec-736a45fc",
+  "validator_rule_11": "satisfied",
+  "elapsed_sec": 0,
+  "artifacts": {
+    "forge_tasks_diff": "cabinet_framing + pre_mortem blocks added; current_project set to proj-edtech-ksa",
+    "forge_decisions_diff": "1 new decision (dec-736a45fc) for proj-edtech-ksa; mirror at assets/forge-decisions.json"
+  }
+}

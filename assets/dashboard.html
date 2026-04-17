@@ -89,6 +89,45 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 .ev-freshness{display:flex;gap:10px;margin-top:10px;font-size:11px;flex-wrap:wrap}
 .agent-fresh{color:var(--muted)}
 
+/* Cabinet block */
+.cabinet-block{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px}
+.cabinet-header{display:flex;justify-content:space-between;align-items:center;font-family:'Press Start 2P',monospace;font-size:11px;color:var(--brand);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+.cabinet-verdict{padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;margin-bottom:12px}
+.cabinet-verdict .verdict-title{font-weight:600;margin-bottom:8px;font-size:13px}
+.cabinet-verdict .verdict-meta{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--muted)}
+.cabinet-verdict .verdict-meta b{color:var(--text)}
+.cabinet-verdict .verdict-dissent{color:var(--red);margin-top:6px;font-size:11px}
+.cabinet-lenses{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+.lens-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:10px;min-height:100px}
+.lens-card .lens-title{color:var(--brand);font-weight:600;margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px;font-size:9px}
+.lens-card .lens-exec{color:var(--muted);font-size:9px;margin-bottom:6px}
+.lens-card .lens-body{color:var(--text);line-height:1.4;font-size:10px}
+.cabinet-risks{display:flex;flex-direction:column;gap:6px}
+.cabinet-risks-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.risk-row{display:flex;align-items:center;gap:10px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)}
+.risk-row:last-child{border-bottom:none}
+.risk-score{min-width:32px;height:24px;background:var(--red);color:#fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px}
+.risk-score.low{background:#5a5020;color:var(--yellow)}
+.risk-score.mid{background:#5a3020;color:#ff9060}
+.risk-score.hi{background:var(--red)}
+.risk-mode{flex:1}
+.risk-owner{color:var(--muted);font-size:11px}
+.cabinet-empty{padding:20px;text-align:center;color:var(--muted);font-size:12px;font-style:italic;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:16px}
+
+/* Pre-mortem 5x5 heatmap (embedded in cabinet-block) */
+.heatmap{margin-top:16px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px}
+.heatmap-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.heatmap-grid{display:grid;grid-template-columns:18px repeat(5,1fr);grid-template-rows:repeat(5,24px) 18px;gap:3px;align-items:center}
+.heatmap-ylabel{grid-column:1;grid-row:1/6;writing-mode:vertical-rl;transform:rotate(180deg);color:var(--muted);font-size:10px;text-align:center;align-self:center}
+.heatmap-cell{background:var(--border);color:var(--muted);border-radius:3px;padding:2px 4px;min-height:22px;text-align:center;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.heatmap-cell.c0{background:var(--border);color:transparent}
+.heatmap-cell.c1{background:#3a3a1a;color:var(--yellow)}
+.heatmap-cell.c2{background:#4a3818;color:#f0c060}
+.heatmap-cell.c3{background:#5a2e14;color:#ff9050}
+.heatmap-cell.c4{background:#6a2010;color:#ff7040}
+.heatmap-cell.c5{background:var(--red);color:#fff;font-weight:800}
+.heatmap-xlabel{grid-column:2/-1;grid-row:6;text-align:center;color:var(--muted);font-size:10px;padding-top:4px}
+
 /* Sources tab */
 .sources-toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .sources-toolbar input,.sources-toolbar select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:5px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;border-radius:4px}
@@ -101,6 +140,18 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 #src-table tr:hover td{background:var(--card)}
 #src-table a{color:var(--blue);text-decoration:none}
 #src-table a:hover{text-decoration:underline}
+.decisions-table{width:100%;border-collapse:collapse;font-size:12px}
+.decisions-table th{text-align:left;padding:8px;border-bottom:2px solid var(--border);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.decisions-table td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top}
+.decisions-table tr:hover td{background:var(--card)}
+.decisions-table .badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.decisions-table .badge.type_1{background:#4a2a20;color:#ff9060}
+.decisions-table .badge.type_2{background:#2a3a4a;color:#60a0ff}
+.decisions-table .badge.status-open{background:#2a4a2a;color:var(--green)}
+.decisions-table .badge.status-reviewed{background:#2a3a4a;color:#60a0ff}
+.decisions-table .badge.status-committed{background:#444;color:var(--muted)}
+.decisions-table .badge.status-reversed{background:#4a2a2a;color:var(--red)}
+.decisions-empty{text-align:center;padding:24px;color:var(--muted);font-size:12px;font-style:italic}
 </style>
 </head>
 <body>
@@ -117,6 +168,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
   <div class="tab" onclick="switchTab('kanban')">Kanban Board</div>
   <div class="tab" onclick="switchTab('timeline')">Timeline</div>
   <div class="tab" id="tab-sources" onclick="switchTab('sources')">Sources</div>
+  <div class="tab" id="tab-decisions" onclick="switchTab('decisions')">Decisions</div>
 </div>
 
 <div class="content">
@@ -151,6 +203,23 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
         <span class="agent-fresh" data-agent="Echo">● Echo</span>
         <span class="agent-fresh" data-agent="Talon">● Talon</span>
       </div>
+    </div>
+    <div class="cabinet-block" id="cabinet-block" style="display:none">
+      <div class="cabinet-header">
+        <span>Cabinet Framing</span>
+        <span id="cabinet-status">—</span>
+      </div>
+      <div class="cabinet-verdict" id="cabinet-verdict"></div>
+      <div class="cabinet-lenses" id="cabinet-lenses"></div>
+      <div class="cabinet-risks-title">Top pre-mortem risks</div>
+      <div class="cabinet-risks" id="cabinet-risks"></div>
+      <div class="heatmap" id="cabinet-heatmap-container">
+        <div class="heatmap-title">Pre-mortem distribution (5×5)</div>
+        <div class="heatmap-grid" id="cabinet-heatmap"></div>
+      </div>
+    </div>
+    <div class="cabinet-empty" id="cabinet-empty" style="display:none">
+      Cabinet Framing hasn't run for the current project yet.
     </div>
     <div class="mc-grid" id="mcGrid"></div>
   </div>
@@ -212,6 +281,43 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       No evidence yet. Run a brief with pipes enabled.
     </div>
   </div>
+
+  <!-- Decisions -->
+  <div class="panel" id="panel-decisions">
+    <div class="sources-toolbar" id="dec-toolbar" style="margin-bottom:12px">
+      <input id="dec-search" placeholder="Search title or context…" style="flex:1;min-width:180px"/>
+      <select id="dec-project"><option value="">All projects</option></select>
+      <select id="dec-reversibility">
+        <option value="">All reversibility</option>
+        <option value="type_1">Type 1 (one-way door)</option>
+        <option value="type_2">Type 2 (two-way door)</option>
+      </select>
+      <select id="dec-status">
+        <option value="">All statuses</option>
+        <option value="open">Open</option>
+        <option value="reviewed">Reviewed</option>
+        <option value="committed">Committed</option>
+        <option value="reversed">Reversed</option>
+      </select>
+      <select id="dec-decider"><option value="">All deciders</option></select>
+      <button id="dec-export-md">Export MD</button>
+      <button id="dec-export-csv">Export CSV</button>
+      <button id="dec-export-json">Export JSON</button>
+    </div>
+    <table class="decisions-table" id="decisions-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Decider</th>
+          <th>Reversibility</th>
+          <th>Status</th>
+          <th id="dec-col-review" style="cursor:pointer;user-select:none" title="Click to toggle sort direction">Review At <span id="dec-col-review-arrow">↑</span></th>
+          <th>Project</th>
+        </tr>
+      </thead>
+      <tbody id="decisions-tbody"></tbody>
+    </table>
+  </div>
 </div>
 
 <script>
@@ -247,6 +353,8 @@ async function loadData() {
   } catch(e) { console.error('Load error:', e); }
   applyEvidencePipesVisibility(STATE);
   render();
+  // Cabinet block refreshes whenever state/tasks change (not just when decisions update)
+  if (typeof renderCabinetBlock === 'function') renderCabinetBlock(STATE, TASKS, _decisionsDoc);
 }
 
 function getAgentName(id) { return STATE?.agents?.find(a=>a.id===id)?.name || id; }
@@ -267,12 +375,13 @@ function getAgentStatus(id) {
 // ═══════════════════════════════════════
 function switchTab(id) {
   document.querySelectorAll('.tab').forEach((t,i) => {
-    t.classList.toggle('active', ['mc','network','kanban','timeline','sources'][i] === id);
+    t.classList.toggle('active', ['mc','network','kanban','timeline','sources','decisions'][i] === id);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
   if (id === 'network') renderNetwork();
   if (id === 'sources') fetchEvidence().then(d => renderSourcesTab(d || { evidence: [] }));
+  if (id === 'decisions') fetchDecisions().then(() => renderDecisionsTab(_decisionsDoc));
 }
 
 // ═══════════════════════════════════════
@@ -625,6 +734,433 @@ function renderEvidenceBlock(doc) {
 }
 
 // ═══════════════════════════════════════
+// CABINET BLOCK — fetch decisions + render verdict/lenses/risks
+// ═══════════════════════════════════════
+let _decisionsDoc = null;
+// T8 — Decisions tab sort + export state.
+// decSortDir: current sort direction for the Review At column ('asc' | 'desc').
+// _decisionsVisible: filtered+sorted slice currently rendered, captured at
+// render time so the export buttons emit exactly what the operator sees.
+let decSortDir = 'asc';
+let _decisionsVisible = [];
+
+// esc(): HTML-escape helper for safe interpolation of user-controlled strings.
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+}
+
+// agentName(): resolve agent ID → display name (fallback to raw ID if not found).
+function agentName(stateDoc, agentId) {
+  if (!stateDoc || !stateDoc.agents) return agentId || '';
+  const a = stateDoc.agents.find(x => x.id === agentId);
+  return a ? a.name : (agentId || '');
+}
+
+async function fetchDecisions() {
+  try {
+    const resp = await fetch('forge-decisions.json?_=' + Date.now(), { cache: 'no-store' });
+    if (!resp.ok) {
+      renderCabinetBlock(STATE, TASKS, _decisionsDoc);
+      return null;
+    }
+    const doc = await resp.json();
+    _decisionsDoc = doc;
+    renderCabinetBlock(STATE, TASKS, _decisionsDoc);
+    return doc;
+  } catch (e) {
+    renderCabinetBlock(STATE, TASKS, _decisionsDoc);
+    return null;
+  }
+}
+
+function renderCabinetBlock(stateDoc, tasksDoc, decisionsDoc) {
+  const block = document.getElementById('cabinet-block');
+  const empty = document.getElementById('cabinet-empty');
+  if (!block || !empty) return;
+
+  const framing = tasksDoc && tasksDoc.cabinet_framing;
+  const hasFraming = framing && framing.lenses && Object.keys(framing.lenses).length > 0;
+  if (!hasFraming) {
+    block.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  block.style.display = 'block';
+  empty.style.display = 'none';
+
+  const statusEl = document.getElementById('cabinet-status');
+  if (statusEl) statusEl.textContent = 'Active';
+
+  // Verdict — latest non-reversed decision for current_project
+  const currentProject = (tasksDoc && tasksDoc.current_project) || (stateDoc && stateDoc.current_project) || null;
+  const verdictEl = document.getElementById('cabinet-verdict');
+  if (verdictEl) {
+    if (!decisionsDoc) {
+      // Wave 3 Foundation review (I2): on first paint, decisionsDoc may be null
+      // because fetchDecisions() is async and fires alongside loadData(). Leave
+      // the verdict pane empty rather than flashing "No verdict recorded yet" —
+      // the 3s auto-refresh will populate it on the next tick. Lens cards, risks,
+      // and heatmap below are tasks-driven and render regardless.
+      verdictEl.innerHTML = '';
+    } else {
+      // Wave 3 Foundation review (C2): include non-reversed decisions in verdict
+      // candidates. Reversed decisions are superseded by their successor;
+      // open/committed/reviewed all represent valid current-state verdicts.
+      // Previously filtered on status==='open' only, which made the Verdict pane
+      // evaporate once the Cabinet closed a decision.
+      const allDecisions = (decisionsDoc && decisionsDoc.decisions) || [];
+      const projectDecisions = allDecisions
+        .filter(d => d.project_id === currentProject && d.status !== 'reversed')
+        .sort((a, b) => {
+          // Prefer open > committed > reviewed; within each bucket, newest decided_at first.
+          const rank = s => s === 'open' ? 0 : s === 'committed' ? 1 : 2;
+          const ra = rank(a.status), rb = rank(b.status);
+          if (ra !== rb) return ra - rb;
+          return (a.decided_at < b.decided_at ? 1 : -1);
+        });
+      const latest = projectDecisions[0];
+      if (latest) {
+        const deciderName = agentName(stateDoc, latest.decided_by);
+        const dissenters = (latest.dissenting || [])
+          .map(id => agentName(stateDoc, id))
+          .filter(Boolean);
+        const reviewStr = latest.review_at ? new Date(latest.review_at).toLocaleDateString() : '—';
+        const dissentHtml = dissenters.length
+          ? `<div class="verdict-dissent">Dissent: ${esc(dissenters.join(', '))} — ${esc(latest.dissent_reason || '')}</div>`
+          : '';
+        verdictEl.innerHTML = `
+          <div class="verdict-title">${esc(latest.title)}</div>
+          <div class="verdict-meta">
+            <span>Decider: <b>${esc(deciderName)}</b></span>
+            <span>Reversibility: <b>${esc(latest.reversibility || '—')}</b></span>
+            <span>Review: <b>${esc(reviewStr)}</b></span>
+          </div>
+          ${dissentHtml}
+        `;
+      } else {
+        verdictEl.innerHTML = '<div style="color:var(--muted);font-size:12px;font-style:italic">No verdict recorded yet for this project.</div>';
+      }
+    }
+  }
+
+  // 5 lens cards
+  const lensDefs = [
+    ['strategic_kernel', 'Strategic Kernel', 'Flint'],
+    ['product_shape',    'Product Shape',    'Cade'],
+    ['build_class',      'Build Class',      'Helix'],
+    ['economic_shape',   'Economic Shape',   'Prism'],
+    ['market_bet',       'Market Bet',       'Dune'],
+  ];
+  const lensesEl = document.getElementById('cabinet-lenses');
+  if (lensesEl) {
+    lensesEl.innerHTML = lensDefs.map(([key, title, exec]) => {
+      const lens = framing.lenses[key];
+      const body = typeof lens === 'string' ? lens : ((lens && (lens.summary || lens.body)) || '—');
+      return `<div class="lens-card">
+        <div class="lens-title">${esc(title)}</div>
+        <div class="lens-exec">${esc(exec)}</div>
+        <div class="lens-body">${esc(body)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Top 3 pre-mortem risks by score (likelihood × impact)
+  const preMortem = (tasksDoc && tasksDoc.pre_mortem) || [];
+  const top3 = [...preMortem]
+    .sort((a, b) => ((b.likelihood || 0) * (b.impact || 0)) - ((a.likelihood || 0) * (a.impact || 0)))
+    .slice(0, 3);
+  const risksEl = document.getElementById('cabinet-risks');
+  if (risksEl) {
+    risksEl.innerHTML = top3.map(r => {
+      const score = (r.likelihood || 0) * (r.impact || 0);
+      const cls = score >= 16 ? 'hi' : (score >= 9 ? 'mid' : 'low');
+      const ownerLabel = agentName(stateDoc, r.owner_agent);
+      return `<div class="risk-row">
+        <span class="risk-score ${cls}">${score}</span>
+        <span class="risk-mode">${esc(r.failure_mode)}</span>
+        <span class="risk-owner">(${esc(ownerLabel)})</span>
+      </div>`;
+    }).join('') || '<div style="color:var(--muted);font-size:12px;font-style:italic">No pre-mortem risks recorded.</div>';
+  }
+
+  // 5x5 heatmap showing full pre-mortem distribution (complements top-3 list above)
+  renderHeatmap(preMortem);
+}
+
+/**
+ * JS mirror of tools.decisions_orchestrator.heatmap_buckets.
+ *
+ * Returns a dict keyed by "L,I" strings (JS can't use tuples) for all 25 cells
+ * in the 5x5 grid. Values are counts. Items with non-integer likelihood/impact,
+ * booleans, or values outside [1,5] are silently dropped — matches Python semantics.
+ *
+ * Python uses (l, i) tuples as keys; JS uses "l,i" strings. Any divergence in
+ * aggregation semantics is a bug — keep this in sync with the Python helper.
+ */
+function heatmapBuckets(items) {
+  const buckets = {};
+  for (let l = 1; l <= 5; l++) {
+    for (let i = 1; i <= 5; i++) {
+      buckets[`${l},${i}`] = 0;
+    }
+  }
+  for (const it of items || []) {
+    const l = it.likelihood;
+    const i = it.impact;
+    // Booleans fail Number.isInteger in JS (unlike Python where isinstance(True, int)
+    // is True), so the explicit boolean guard is belt-and-suspenders — kept for
+    // symmetry with the Python helper's isinstance(x, bool) check.
+    if (typeof l === 'boolean' || typeof i === 'boolean') continue;
+    if (!Number.isInteger(l) || !Number.isInteger(i)) continue;
+    if (l < 1 || l > 5 || i < 1 || i > 5) continue;
+    buckets[`${l},${i}`] += 1;
+  }
+  return buckets;
+}
+
+/**
+ * Render the 5x5 pre-mortem heatmap. Y-axis = likelihood 5→1 top to bottom;
+ * X-axis = impact 1→5 left to right. Color bucket by score (likelihood × impact):
+ *   0 → c0 (muted), 1-3 → c1, 4-7 → c2, 8-11 → c3, 12-19 → c4, 20-25 → c5.
+ */
+function renderHeatmap(preMortem) {
+  const el = document.getElementById('cabinet-heatmap');
+  if (!el) return;
+  const buckets = heatmapBuckets(preMortem || []);
+  let html = '<div class="heatmap-ylabel">Likelihood ↑</div>';
+  for (let l = 5; l >= 1; l--) {
+    for (let i = 1; i <= 5; i++) {
+      const count = buckets[`${l},${i}`];
+      const score = l * i;
+      let cls = 'c0';
+      if (count > 0) {
+        if (score >= 20) cls = 'c5';
+        else if (score >= 12) cls = 'c4';
+        else if (score >= 8) cls = 'c3';
+        else if (score >= 4) cls = 'c2';
+        else cls = 'c1';
+      }
+      html += `<div class="heatmap-cell ${cls}" title="L${l}×I${i} score=${score} count=${count}">${count || ''}</div>`;
+    }
+  }
+  html += '<div class="heatmap-xlabel">Impact →</div>';
+  el.innerHTML = html;
+}
+
+/**
+ * Render the Decisions tab body. Reads decisions from the passed doc (expected
+ * shape: { decisions: [...], project_decision_index: {...} }) and fills the
+ * #decisions-tbody with one row per decision.
+ *
+ * T6 = unfiltered full table. T7 adds filter logic (search + project +
+ * reversibility + status + decider, AND-combined). T8 adds sort + export.
+ *
+ * The filter semantics mirror the pure Python helpers in
+ * tools/decisions_orchestrator.py (query_by_project, query_by_status); the
+ * substring search is new in JS — case-insensitive match on title + context.
+ */
+function renderDecisionsTab(doc) {
+  const tbody = document.getElementById('decisions-tbody');
+  if (!tbody) return;
+  // Attach filter listeners the first time the tab renders (covers the case
+  // where the tab is visited before DOMContentLoaded fires).
+  if (window.ensureDecisionFilterListeners) window.ensureDecisionFilterListeners();
+  const all = (doc && doc.decisions) || [];
+
+  // Populate dynamic dropdowns (project, decider) — guarded to "once per page"
+  // so the operator's selection isn't clobbered on the 3-second auto-refresh.
+  populateDecisionFilterDropdowns(all);
+
+  if (all.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="decisions-empty">No decisions recorded yet.</td></tr>';
+    return;
+  }
+
+  // Read current filter values
+  const q    = (document.getElementById('dec-search')?.value || '').toLowerCase().trim();
+  const proj = document.getElementById('dec-project')?.value || '';
+  const rev  = document.getElementById('dec-reversibility')?.value || '';
+  const st   = document.getElementById('dec-status')?.value || '';
+  const dec  = document.getElementById('dec-decider')?.value || '';
+
+  const filtered = all.filter(d => {
+    if (q) {
+      const hay = ((d.title || '') + ' ' + (d.context || '')).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (proj && d.project_id !== proj)    return false;
+    if (rev  && d.reversibility !== rev)  return false;
+    if (st   && d.status !== st)          return false;
+    if (dec  && d.decided_by !== dec)     return false;
+    return true;
+  });
+
+  // Sort after filtering so pagination/export honour both filter + sort. The
+  // partition-based sortedByReviewAt mirrors the Python
+  // query_sorted_by_review_at helper (invalid review_at → END, both dirs).
+  const sorted = sortedByReviewAt(filtered, decSortDir);
+  _decisionsVisible = sorted;
+
+  // Keep the column-header arrow in sync with the current direction.
+  const arrow = document.getElementById('dec-col-review-arrow');
+  if (arrow) arrow.textContent = decSortDir === 'asc' ? '↑' : '↓';
+
+  if (sorted.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="decisions-empty">No decisions match the filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = sorted.map(d => {
+    const deciderName = agentName(STATE, d.decided_by);
+    const reviewStr = d.review_at ? new Date(d.review_at).toLocaleDateString() : '—';
+    const revCls = d.reversibility === 'type_1' ? 'type_1' : 'type_2';
+    const statusCls = 'status-' + (d.status || 'open');
+    return `<tr>
+      <td>${esc(d.title || '(untitled)')}</td>
+      <td>${esc(deciderName)}</td>
+      <td><span class="badge ${revCls}">${esc(d.reversibility || '—')}</span></td>
+      <td><span class="badge ${statusCls}">${esc(d.status || '—')}</span></td>
+      <td>${esc(reviewStr)}</td>
+      <td>${esc(d.project_id || '—')}</td>
+    </tr>`;
+  }).join('');
+}
+
+/**
+ * Populate the project + decider dropdowns from the unique values in the
+ * decisions list. Guarded so that after the first successful populate the
+ * dropdowns are left alone — otherwise the 3-second auto-refresh would clear
+ * the operator's selection. If a new project/decider appears later, the page
+ * must be refreshed to see it (acceptable UX tradeoff for this task).
+ */
+function populateDecisionFilterDropdowns(allDecisions) {
+  const projectSel = document.getElementById('dec-project');
+  const deciderSel = document.getElementById('dec-decider');
+  if (projectSel && projectSel.options.length <= 1) {
+    const projects = Array.from(new Set(allDecisions.map(d => d.project_id).filter(Boolean))).sort();
+    if (projects.length > 0) {
+      projectSel.innerHTML = '<option value="">All projects</option>' +
+        projects.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+    }
+  }
+  if (deciderSel && deciderSel.options.length <= 1) {
+    const deciders = Array.from(new Set(allDecisions.map(d => d.decided_by).filter(Boolean))).sort();
+    if (deciders.length > 0) {
+      deciderSel.innerHTML = '<option value="">All deciders</option>' +
+        deciders.map(id => {
+          const name = agentName(STATE, id);
+          return `<option value="${esc(id)}">${esc(name)}</option>`;
+        }).join('');
+    }
+  }
+}
+
+/**
+ * JS mirror of tools/decisions_orchestrator.query_sorted_by_review_at.
+ * Returns a new sorted array (doesn't mutate input).
+ * Invalid or missing review_at entries sort to the END in both directions
+ * (partition approach — matches the Python helper's behavior). A single
+ * comparator with Infinity sentinel would flip the invalids to the front on
+ * desc sort, which is why we partition instead.
+ */
+function sortedByReviewAt(decisions, dir) {
+  const valid = [];
+  const invalid = [];
+  for (const d of decisions) {
+    const t = d.review_at ? Date.parse(d.review_at) : NaN;
+    if (Number.isFinite(t)) {
+      valid.push({ d, t });
+    } else {
+      invalid.push(d);
+    }
+  }
+  valid.sort((a, b) => dir === 'desc' ? b.t - a.t : a.t - b.t);
+  return valid.map(x => x.d).concat(invalid);
+}
+
+// ───────────────────────────────────────
+// Decisions tab export helpers (T8). Scope = what the operator sees in the
+// table right now — i.e. the filtered + sorted subset captured in
+// _decisionsVisible at renderDecisionsTab time. downloadBlob is already
+// defined further down (shared with the Sources tab exports); csvEscape is
+// new here because the Sources tab's simpler quoting (quotes everything) is
+// good enough for that tab but we want per-value escaping here to keep the
+// CSV output readable.
+// ───────────────────────────────────────
+function csvEscape(v) {
+  const s = String(v == null ? '' : v);
+  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function exportDecisionsMd(stateDoc, decisions) {
+  const lines = ['# Decision Log', ''];
+  for (const d of decisions) {
+    const decider = agentName(stateDoc, d.decided_by);
+    lines.push(`## ${d.title || '(untitled)'}`);
+    lines.push('');
+    lines.push(`- **ID:** ${d.id || '—'}`);
+    lines.push(`- **Decider:** ${decider || d.decided_by || '—'}`);
+    lines.push(`- **Reversibility:** ${d.reversibility || '—'}`);
+    lines.push(`- **Status:** ${d.status || '—'}`);
+    lines.push(`- **Decided at:** ${d.decided_at || '—'}`);
+    lines.push(`- **Review at:** ${d.review_at || '—'}`);
+    lines.push(`- **Project:** ${d.project_id || '—'}`);
+    if (d.dissenting && d.dissenting.length > 0) {
+      const names = d.dissenting.map(id => agentName(stateDoc, id) || id).join(', ');
+      lines.push(`- **Dissent:** ${names}${d.dissent_reason ? ' — ' + d.dissent_reason : ''}`);
+    }
+    lines.push('');
+    if (d.context) {
+      lines.push(d.context);
+      lines.push('');
+    }
+    if (d.alternatives_considered && d.alternatives_considered.length > 0) {
+      lines.push('**Alternatives considered:**');
+      d.alternatives_considered.forEach(a => lines.push(`- ${a}`));
+      lines.push('');
+    }
+    lines.push('---');
+    lines.push('');
+  }
+  downloadBlob(lines.join('\n'), 'forge-decisions.md', 'text/markdown');
+}
+
+function exportDecisionsCsv(stateDoc, decisions) {
+  const cols = ['id','title','decided_by','decider_name','reversibility','status','decided_at','review_at','project_id','dissenting','dissent_reason'];
+  const rows = [cols.join(',')];
+  for (const d of decisions) {
+    const name = agentName(stateDoc, d.decided_by) || '';
+    const dissent = (d.dissenting || []).join(';');
+    const row = [
+      d.id, d.title, d.decided_by, name, d.reversibility, d.status,
+      d.decided_at, d.review_at || '', d.project_id || '',
+      dissent, d.dissent_reason || '',
+    ].map(csvEscape).join(',');
+    rows.push(row);
+  }
+  downloadBlob(rows.join('\n'), 'forge-decisions.csv', 'text/csv');
+}
+
+function exportDecisionsJson(decisions) {
+  // Produce a valid forge-decisions.json-shaped doc so the output can be
+  // re-ingested: { decisions: [...], project_decision_index: {proj: [ids]} }.
+  // The index is derived from the exported subset, not the full doc, so the
+  // export is self-consistent.
+  const pdi = {};
+  for (const d of decisions) {
+    if (d.project_id) {
+      if (!pdi[d.project_id]) pdi[d.project_id] = [];
+      if (!pdi[d.project_id].includes(d.id)) pdi[d.project_id].push(d.id);
+    }
+  }
+  const doc = { decisions, project_decision_index: pdi };
+  downloadBlob(JSON.stringify(doc, null, 2), 'forge-decisions.json', 'application/json');
+}
+
+// ═══════════════════════════════════════
 // SOURCES TAB — render, filter, export
 // ═══════════════════════════════════════
 function freshnessBucket(it) {
@@ -735,6 +1271,49 @@ function exportJson(items) {
   if (btnJson) btnJson.addEventListener('click', () => exportJson(_evidenceDoc.evidence || []));
 })();
 
+// Decisions tab filter listeners — attached once, re-render on any input change.
+// Exposed as window.ensureDecisionFilterListeners so renderDecisionsTab can
+// call it defensively if the DOM wasn't ready when the script first ran.
+(function attachDecisionFilterListeners(){
+  let attached = false;
+  function attach() {
+    if (attached) return;
+    const rerender = () => renderDecisionsTab(_decisionsDoc);
+    // Use chained optional-chain + addEventListener calls so each listener is
+    // bound on one line (also makes the wiring trivially greppable).
+    const anyPresent = document.getElementById("dec-search")
+                    || document.getElementById("dec-project")
+                    || document.getElementById("dec-reversibility")
+                    || document.getElementById("dec-status")
+                    || document.getElementById("dec-decider");
+    if (!anyPresent) return;  // DOM not ready yet
+    document.getElementById("dec-search")?.addEventListener('input',  rerender);
+    document.getElementById("dec-project")?.addEventListener('change', rerender);
+    document.getElementById("dec-reversibility")?.addEventListener('change', rerender);
+    document.getElementById("dec-status")?.addEventListener('change', rerender);
+    document.getElementById("dec-decider")?.addEventListener('change', rerender);
+    // T8 — clickable Review At header toggles sort direction.
+    document.getElementById("dec-col-review")?.addEventListener('click', () => {
+      decSortDir = decSortDir === 'asc' ? 'desc' : 'asc';
+      rerender();
+    });
+    // T8 — export buttons emit the filtered+sorted subset (_decisionsVisible).
+    document.getElementById("dec-export-md")?.addEventListener('click',
+      () => exportDecisionsMd(STATE, _decisionsVisible));
+    document.getElementById("dec-export-csv")?.addEventListener('click',
+      () => exportDecisionsCsv(STATE, _decisionsVisible));
+    document.getElementById("dec-export-json")?.addEventListener('click',
+      () => exportDecisionsJson(_decisionsVisible));
+    attached = true;
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attach);
+  } else {
+    attach();
+  }
+  window.ensureDecisionFilterListeners = attach;
+})();
+
 // ═══════════════════════════════════════
 // AUTO-REFRESH
 // ═══════════════════════════════════════
@@ -742,6 +1321,8 @@ loadData();
 setInterval(loadData, 3000); // refresh every 3 seconds
 fetchEvidence();
 setInterval(fetchEvidence, 3000); // evidence refreshes alongside state/tasks
+fetchDecisions();
+setInterval(fetchDecisions, 3000); // cabinet decisions refresh alongside state/tasks
 </script>
 </body>
 </html>

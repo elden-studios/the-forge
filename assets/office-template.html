@@ -64,14 +64,23 @@ const PA = {
 // CONSTANTS
 // ═══════════════════════════════════════════════════════
 const ROOM_W=220, ROOM_H=210, HALL_H=52, WALL=8, DOOR_W=32;
-const COLS=3, ROWS=2;
+const COLS=3;
+const ROWS=3;
 const MARGIN=12; // outer margin
 const TOTAL_W = MARGIN*2 + COLS*ROOM_W + (COLS-1)*WALL;
 const BREAK_W=180, BREAK_H=130;
+// Executive Suite boardroom — row 0, right of the dept grid
+const BOARDROOM_W = 260;
+const BOARDROOM_H = 210;
+// Conference table dimensions (centered in the boardroom)
+const TABLE_W = 120;
+const TABLE_H = 56;
 const ROW0_Y = MARGIN;
-const HALL_Y = ROW0_Y + ROOM_H + WALL;
-const ROW1_Y = HALL_Y + HALL_H + WALL;
-const TOTAL_H = ROW1_Y + ROOM_H + MARGIN + WALL;
+const HALL_Y  = ROW0_Y + ROOM_H + WALL;
+const ROW1_Y  = HALL_Y + HALL_H + WALL;
+const HALL2_Y = ROW1_Y + ROOM_H + WALL;
+const ROW2_Y  = HALL2_Y + HALL_H + WALL;
+const TOTAL_H = ROW2_Y + ROOM_H + MARGIN + WALL;
 const CPX=3, CH_W=16, CH_H=24;
 
 // Wall color
@@ -91,10 +100,11 @@ const FLOORS = {
 };
 
 // Department info (order maps to grid position)
-const DEPT_ORDER = ['dept-strt','dept-rsch','dept-dsgn','dept-grwt','dept-engr','dept-cont'];
+const DEPT_ORDER = ['dept-strt','dept-rsch','dept-dsgn','dept-grwt','dept-engr','dept-cont','dept-product','dept-legal','dept-finance'];
 const DEPT_FLOOR = {
   'dept-strt':'carpet','dept-rsch':'lino','dept-dsgn':'wood',
-  'dept-grwt':'linoG','dept-engr':'concrete','dept-cont':'carpetS'
+  'dept-grwt':'linoG','dept-engr':'concrete','dept-cont':'carpetS',
+  'dept-product':'wood','dept-legal':'tile','dept-finance':'concrete'
 };
 
 // Prop colors
@@ -129,27 +139,44 @@ class Layout {
     this.W = TOTAL_W;
     this.H = TOTAL_H;
 
-    // Room positions (grid: col 0-2, row 0-1)
+    // Room positions (grid: col 0-2, row 0-2)
     this.rooms = {};
     DEPT_ORDER.forEach((did,i)=>{
       const col=i%COLS, row=Math.floor(i/COLS);
       const x = MARGIN + col*(ROOM_W+WALL);
-      const y = row===0 ? ROW0_Y : ROW1_Y;
+      const y = [ROW0_Y, ROW1_Y, ROW2_Y][row];
       this.rooms[did]={x,y,w:ROOM_W,h:ROOM_H,col,row};
     });
 
-    // Hallway
+    // Hallways (two: between row 0/1 and between row 1/2)
     this.hallX = MARGIN;
     this.hallY = HALL_Y;
     this.hallW = COLS*ROOM_W+(COLS-1)*WALL;
     this.hallH = HALL_H;
+    // Second hallway (row 1 ↔ row 2)
+    this.hall2X = MARGIN;
+    this.hall2Y = HALL2_Y;
+    this.hall2W = this.hallW;
+    this.hall2H = HALL_H;
 
-    // Break room (attached to bottom-right)
+    // Break room (attached below bottom row, right column)
     this.breakX = MARGIN + 2*(ROOM_W+WALL);
-    this.breakY = ROW1_Y + ROOM_H + WALL;
+    this.breakY = ROW2_Y + ROOM_H + WALL;
     this.breakW = ROOM_W;
     this.breakH = BREAK_H;
     this.H = Math.max(this.H, this.breakY + this.breakH + MARGIN);
+
+    // Executive Suite boardroom — top-right, row 0 only, shares the dept grid's
+    // outer-right wall as its west wall (no seam, no duplicated wall draw).
+    // boardroom.x is the same as the grid's outer-right wall position, so the
+    // wall IS the boardroom's west boundary. drawBoardroom skips the left-wall draw.
+    this.boardroom = {
+      x: MARGIN + COLS * ROOM_W + (COLS - 1) * WALL,
+      y: ROW0_Y,
+      w: BOARDROOM_W,
+      h: BOARDROOM_H,
+    };
+    this.W = Math.max(this.W, this.boardroom.x + this.boardroom.w + MARGIN);
 
     // Agent positions within rooms
     this.agentPos = {};
@@ -170,6 +197,67 @@ class Layout {
     // Hallway center
     this.hallCenter = {x:this.hallX+this.hallW/2, y:this.hallY+this.hallH/2};
   }
+}
+
+/**
+ * Return the 5 chair positions around the conference table in the Executive
+ * Suite boardroom. Order: [head (Flint/CSO), top-left (Cade/CPO),
+ * top-right (Helix/CTO), bot-left (Prism/CFO), bot-right (Dune/CMO)].
+ *
+ * Pure function — consumed by Task 3's cabinet_dispatched / cabinet_arrived
+ * animation events.
+ */
+function chairPositions(layout) {
+  if (!layout || !layout.boardroom) return [];
+  const { x, y, w, h } = layout.boardroom;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  return [
+    { x: x + w - 22,  y: cy,                  label: 'head' },
+    { x: cx - 30,     y: cy - TABLE_H/2 - 10, label: 'top-left' },
+    { x: cx + 30,     y: cy - TABLE_H/2 - 10, label: 'top-right' },
+    { x: cx - 30,     y: cy + TABLE_H/2 + 10, label: 'bot-left' },
+    { x: cx + 30,     y: cy + TABLE_H/2 + 10, label: 'bot-right' },
+  ];
+}
+
+/**
+ * Route the C-Suite to the boardroom chairs.
+ *
+ * mode='walk' — tween each exec from their current position to their chair
+ *   using scene.sendWalk's existing after-state hook, so the sprite flips to
+ *   'cabinet_seated' automatically once the tween lands.
+ * mode='seat' — snap each exec directly to their chair with state='cabinet_seated'
+ *   (no walk animation — used when restoring from persisted cabinet_arrived state
+ *   where the dispatch animation has already played in a previous frame).
+ *
+ * Exec → chair mapping: first N IDs from state.cabinet.executives are mapped to
+ * chairPositions(layout) in declaration order:
+ *   [0]=head (Flint/CSO), [1]=top-left (Cade/CPO), [2]=top-right (Helix/CTO),
+ *   [3]=bot-left (Prism/CFO), [4]=bot-right (Dune/CMO).
+ * If fewer than 5 execs are declared, remaining chairs stay empty. Excess execs
+ * (beyond 5) are ignored — the boardroom has exactly 5 seats.
+ *
+ * Wave 3 — Task 3.
+ */
+function routeCabinet(scene, state, layout, mode) {
+  const execs = ((state.cabinet && state.cabinet.executives) || []).slice(0, 5);
+  const chairs = chairPositions(layout);
+  execs.forEach((execId, i) => {
+    const chair = chairs[i];
+    const an = scene.anims[execId];
+    if (!chair || !an) return;
+    if (mode === 'walk') {
+      // sendWalk(id, tx, ty, after, timer) — `after` is the state the sprite
+      // settles into once the final waypoint is reached. 40 frames ≈ matches
+      // the existing meeting-event tween cadence (which uses 30).
+      scene.sendWalk(execId, chair.x, chair.y, 'cabinet_seated', 40);
+    } else if (mode === 'seat') {
+      an.state = 'cabinet_seated';
+      an.sx = chair.x;
+      an.sy = chair.y;
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -460,9 +548,13 @@ class Scene {
     const room=this.L.rooms[roomId];if(!room)return null;
     const row=room.row;
     const doorX=room.x+room.w/2;
-    // Row 0 rooms: door is at bottom (into hallway)
-    // Row 1 rooms: door is at top (into hallway)
-    const doorY=row===0 ? HALL_Y+4 : HALL_Y+HALL_H-4;
+    // Row 0 rooms:  door at bottom → enters hallway 1
+    // Row 1 rooms:  door at top    → enters hallway 1 (we pick hall 1 as the canonical exit)
+    // Row 2 rooms:  door at top    → enters hallway 2
+    let doorY;
+    if(row===0) doorY = HALL_Y + 4;               // top hallway, near top edge
+    else if(row===1) doorY = HALL_Y + HALL_H - 4; // top hallway, near bottom edge
+    else doorY = HALL2_Y + HALL_H - 4;            // bottom hallway (row 2 exits here)
     return {x:doorX, y:doorY};
   }
 
@@ -561,6 +653,8 @@ class Scene {
     this.drawHallwayProps();
     // 6. Break room
     this.drawBreakRoom();
+    // 6b. Executive Suite boardroom (self-contained — floor, walls, table, chairs)
+    this.drawBoardroom();
     // 7. Room props (wall decorations, bookshelves, ceiling lights, dept props, floor plants — NOT desks/chairs)
     this.drawRoomDecor();
     // 8. Agents drawn ON TOP of furniture, clearly visible
@@ -608,12 +702,15 @@ class Scene {
       if (agent) activeDepts.add(agent.department_id);
     });
     const DEPT_GLOW = {
-      'dept-strt': 'rgba(231,76,60,0.06)',
-      'dept-rsch': 'rgba(155,89,182,0.06)',
-      'dept-dsgn': 'rgba(26,188,156,0.06)',
-      'dept-grwt': 'rgba(46,204,113,0.06)',
-      'dept-engr': 'rgba(52,152,219,0.06)',
-      'dept-cont': 'rgba(241,196,15,0.06)'
+      'dept-strt':    'rgba(231,76,60,0.06)',
+      'dept-rsch':    'rgba(155,89,182,0.06)',
+      'dept-dsgn':    'rgba(26,188,156,0.06)',
+      'dept-grwt':    'rgba(46,204,113,0.06)',
+      'dept-engr':    'rgba(52,152,219,0.06)',
+      'dept-cont':    'rgba(241,196,15,0.06)',
+      'dept-product': 'rgba(126,87,194,0.06)',
+      'dept-legal':   'rgba(84,110,122,0.06)',
+      'dept-finance': 'rgba(38,166,154,0.06)'
     };
     activeDepts.forEach(did => {
       const room = L.rooms[did];
@@ -631,7 +728,7 @@ class Scene {
       const ap = L.agentPos[t.agent];
       if (!an || !ap) return;
 
-      const seated = (an.state === 'sitting' || an.state === 'working');
+      const seated = (an.state === 'sitting' || an.state === 'working' || an.state === 'cabinet_seated');
       const bx = seated ? ap.x + 8 : an.sx;
       const by = seated ? ap.y - 38 : an.sy - 8;
 
@@ -672,7 +769,7 @@ class Scene {
       const ap = L.agentPos[a.id];
       if (!an || !ap || !an.evState) return;
 
-      const seated = (an.state === 'sitting' || an.state === 'working');
+      const seated = (an.state === 'sitting' || an.state === 'working' || an.state === 'cabinet_seated');
       // Agent head position (same logic as drawAgentsAtDesks)
       const ax = seated ? ap.x + 8 : an.sx;
       const ay = seated ? ap.y - 30 : an.sy;
@@ -721,8 +818,9 @@ class Scene {
       this.drawFloorPattern(room.x,room.y,room.w,room.h,fl);
     });
 
-    // Hallway floor
+    // Hallway floors (two — between row 0/1 and row 1/2)
     this.drawFloorPattern(L.hallX,L.hallY,L.hallW,L.hallH,FLOORS.tile);
+    this.drawFloorPattern(L.hall2X,L.hall2Y,L.hall2W,L.hall2H,FLOORS.tile);
 
     // Break room floor
     this.drawFloorPattern(L.breakX,L.breakY,L.breakW,L.breakH,FLOORS.kitchen);
@@ -794,9 +892,11 @@ class Scene {
       ctx.fillRect(r.x,r.y,r.w,6); // top wall shadow into room
       ctx.fillRect(r.x,r.y,6,r.h); // left wall shadow into room
     });
-    // Hallway shadows
+    // Hallway shadows (both hallways)
     ctx.fillRect(L.hallX,L.hallY,L.hallW,4);
     ctx.fillRect(L.hallX,L.hallY,4,L.hallH);
+    ctx.fillRect(L.hall2X,L.hall2Y,L.hall2W,4);
+    ctx.fillRect(L.hall2X,L.hall2Y,4,L.hall2H);
   }
 
   // ── WALLS ──
@@ -804,21 +904,25 @@ class Scene {
     const ctx=this.ctx,L=this.L;
     const s=WALL_S;
 
-    // Outer border
+    // Outer border — spans 3 rooms + 2 hallways
+    const outerH = ROOM_H*3 + HALL_H*2 + WALL*6;
     this.drawThickWallH(MARGIN,ROW0_Y-WALL,L.hallW,WALL,s);
-    this.drawThickWallH(MARGIN,ROW1_Y+ROOM_H,L.hallW,WALL,s);
-    this.drawThickWallV(MARGIN-WALL,ROW0_Y-WALL,WALL,ROOM_H*2+HALL_H+WALL*4,s);
-    this.drawThickWallV(MARGIN+L.hallW,ROW0_Y-WALL,WALL,ROOM_H*2+HALL_H+WALL*4,s);
+    this.drawThickWallH(MARGIN,ROW2_Y+ROOM_H,L.hallW,WALL,s);
+    this.drawThickWallV(MARGIN-WALL,ROW0_Y-WALL,WALL,outerH,s);
+    this.drawThickWallV(MARGIN+L.hallW,ROW0_Y-WALL,WALL,outerH,s);
 
-    // Horizontal dividers (between row0/hallway and hallway/row1)
-    this.drawThickWallH(MARGIN,HALL_Y-WALL,L.hallW,WALL,s);
-    this.drawThickWallH(MARGIN,ROW1_Y-WALL,L.hallW,WALL,s);
+    // Horizontal dividers (above/below each hallway)
+    this.drawThickWallH(MARGIN,HALL_Y-WALL,L.hallW,WALL,s);   // row0 ↔ hall1
+    this.drawThickWallH(MARGIN,ROW1_Y-WALL,L.hallW,WALL,s);   // hall1 ↔ row1
+    this.drawThickWallH(MARGIN,HALL2_Y-WALL,L.hallW,WALL,s);  // row1 ↔ hall2
+    this.drawThickWallH(MARGIN,ROW2_Y-WALL,L.hallW,WALL,s);   // hall2 ↔ row2
 
-    // Vertical dividers between rooms
+    // Vertical dividers between rooms (each row gets its own divider run)
     for(let c=1;c<COLS;c++){
       const x=MARGIN+c*(ROOM_W+WALL)-WALL;
       this.drawThickWallV(x,ROW0_Y-WALL,WALL,ROOM_H+WALL,s);
       this.drawThickWallV(x,ROW1_Y-WALL,WALL,ROOM_H+WALL,s);
+      this.drawThickWallV(x,ROW2_Y-WALL,WALL,ROOM_H+WALL,s);
     }
 
     // Break room walls
@@ -847,7 +951,7 @@ class Scene {
   // ── DOORS ──
   drawDoors(){
     const ctx=this.ctx,s=WALL_S;
-    // Doors from row0 rooms into hallway (south wall of row0)
+    // Doors from row0 rooms into hallway 1 (south wall of row0)
     DEPT_ORDER.slice(0,3).forEach((did,i)=>{
       const r=this.L.rooms[did];
       const dx=r.x+r.w/2-DOOR_W/2, dy=this.L.hallY-WALL;
@@ -860,7 +964,7 @@ class Scene {
       ctx.fillRect(dx+DOOR_W-1,dy,3,WALL+3);
       ctx.fillRect(dx-2,dy,DOOR_W+4,2);
     });
-    // Doors from row1 rooms into hallway (north wall of row1)
+    // Doors from row1 rooms into hallway 1 (north wall of row1)
     DEPT_ORDER.slice(3,6).forEach((did,i)=>{
       const r=this.L.rooms[did];
       const dx=r.x+r.w/2-DOOR_W/2, dy=this.L.hallY+this.L.hallH;
@@ -871,10 +975,21 @@ class Scene {
       ctx.fillRect(dx+DOOR_W-1,dy,3,WALL+3);
       ctx.fillRect(dx-2,dy+WALL+1,DOOR_W+4,2);
     });
-    // Break room door (from Content room's south wall)
-    const cr=this.L.rooms['dept-cont'];
-    if(cr){
-      const dx=cr.x+cr.w/2-DOOR_W/2, dy=cr.y+cr.h;
+    // Doors from row2 rooms into hallway 2 (north wall of row2)
+    DEPT_ORDER.slice(6,9).forEach((did,i)=>{
+      const r=this.L.rooms[did];if(!r)return;
+      const dx=r.x+r.w/2-DOOR_W/2, dy=this.L.hall2Y+this.L.hall2H;
+      ctx.fillStyle=FLOORS.tile.base;
+      ctx.fillRect(dx,dy,DOOR_W,WALL+3);
+      ctx.fillStyle='#6B5230';
+      ctx.fillRect(dx-2,dy,3,WALL+3);
+      ctx.fillRect(dx+DOOR_W-1,dy,3,WALL+3);
+      ctx.fillRect(dx-2,dy+WALL+1,DOOR_W+4,2);
+    });
+    // Break room door (from bottom-right row 2 room's south wall — Finance)
+    const br=this.L.rooms['dept-finance'] || this.L.rooms['dept-cont'];
+    if(br){
+      const dx=br.x+br.w/2-DOOR_W/2, dy=br.y+br.h;
       ctx.fillStyle=FLOORS.kitchen.base;
       ctx.fillRect(dx,dy,DOOR_W,WALL+3);
       ctx.fillStyle='#6B5230';
@@ -976,6 +1091,69 @@ class Scene {
 
     // Potted plant
     this.drawPlant(bx+L.breakW-20,by+L.breakH-25);
+  }
+
+  // ── EXECUTIVE SUITE BOARDROOM (self-contained: floor, walls, table, chairs) ──
+  drawBoardroom(){
+    const ctx=this.ctx,L=this.L;
+    const br=L.boardroom;if(!br)return;
+    const s=WALL_S;
+
+    // Floor — wood for executive feel
+    this.drawFloorPattern(br.x,br.y,br.w,br.h,FLOORS.wood);
+
+    // Wall shadow cast into boardroom (top + left edges)
+    ctx.fillStyle='rgba(0,0,0,0.12)';
+    ctx.fillRect(br.x,br.y,br.w,6);
+    ctx.fillRect(br.x,br.y,6,br.h);
+
+    // 3-sided wall frame — the boardroom shares the dept grid's outer-right
+    // wall as its west boundary (drawn by drawAllWalls), so we skip the left.
+    // Top/bottom walls start at br.x-WALL so they form clean corners with the
+    // shared wall (same pattern as inter-dept corners in drawAllWalls).
+    this.drawThickWallH(br.x-WALL,br.y-WALL,br.w+WALL,WALL,s);  // top
+    this.drawThickWallH(br.x-WALL,br.y+br.h,br.w+WALL,WALL,s);  // bottom
+    this.drawThickWallV(br.x+br.w,br.y-WALL,WALL,br.h+WALL*2,s); // right
+
+    // Nameplate banner — brand-colored band at top (matches dept style)
+    const npW=120, npH=14;
+    const npX=br.x+4, npY=br.y+4;
+    ctx.fillStyle=PC.brand;ctx.fillRect(npX,npY,npW,npH);
+    ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(npX,npY,npW,4);
+    ctx.fillStyle='rgba(0,0,0,0.2)';ctx.fillRect(npX,npY+npH-2,npW,2);
+    ctx.fillStyle='#FFF';ctx.font='7px "Press Start 2P"';ctx.textAlign='left';
+    ctx.fillText('EXEC SUITE',npX+6,npY+10);
+
+    // Conference table (centered, TABLE_W×TABLE_H, 2-tone wood)
+    const cx=br.x+br.w/2, cy=br.y+br.h/2;
+    const tx=cx-TABLE_W/2, ty=cy-TABLE_H/2;
+    // Cast shadow
+    PA.floorShadow(ctx,tx,ty,TABLE_W,TABLE_H,5);
+    // Main body
+    ctx.fillStyle='#8b5a2a';ctx.fillRect(tx,ty,TABLE_W,TABLE_H);
+    // Top-left highlight band
+    ctx.fillStyle='#a87c44';ctx.fillRect(tx,ty,TABLE_W,4);
+    ctx.fillStyle='#a87c44';ctx.fillRect(tx,ty,4,TABLE_H);
+    // Bottom-right shadow band
+    ctx.fillStyle='#1a1530';ctx.fillRect(tx,ty+TABLE_H-3,TABLE_W,3);
+    ctx.fillStyle='#1a1530';ctx.fillRect(tx+TABLE_W-3,ty,3,TABLE_H);
+    // Subtle grain lines
+    ctx.fillStyle='rgba(0,0,0,0.08)';
+    ctx.fillRect(tx+8,ty+18,TABLE_W-16,1);
+    ctx.fillRect(tx+8,ty+36,TABLE_W-16,1);
+
+    // 5 chair sprites — reuse drawChair helper for consistency with dept chairs.
+    // drawChair renders a 28×30 sprite anchored at its top-left, so offset by
+    // ~half-sprite to center each chair on its chairPositions coordinate.
+    const chairs=chairPositions(L);
+    chairs.forEach(ch=>{
+      this.drawChair(Math.round(ch.x-14), Math.round(ch.y-15));
+    });
+
+    // Ceiling light fixture (centered, brand-accented)
+    ctx.fillStyle='#888';ctx.fillRect(cx-10,br.y+2,20,4);
+    ctx.fillStyle='#FFE8A0';ctx.fillRect(cx-6,br.y+4,12,2);
+    PA.dither(ctx,cx-30,br.y+6,60,30,'rgba(255,240,200,0.05)','rgba(255,240,200,0.02)');
   }
 
   // ── ROOM DECOR (wall decorations only — no desks/chairs) ──
@@ -1232,10 +1410,14 @@ class Scene {
     L.agents.forEach(a=>{
       const an=this.anims[a.id];if(!an)return;
       const ap=L.agentPos[a.id];
-      const seated=(an.state==='sitting'||an.state==='working');
+      const seated=(an.state==='sitting'||an.state==='working'||an.state==='cabinet_seated');
       const animS=an.state==='working'?'working':'idle';
 
-      if(seated && ap){
+      if(an.state==='cabinet_seated'){
+        // Wave 3 T3 — cabinet execs render at their animated chair coords, not their desk.
+        this.sprite.drawAgent(an.sx, an.sy, a.avatar, this.frame, animS, true);
+        this.drawName(an.sx, an.sy + CH_H*CPX + 4, a.name);
+      } else if(seated && ap){
         const agentX = ap.x + 8;
         const agentY = ap.y - 30;
         this.sprite.drawAgent(agentX, agentY, a.avatar, this.frame, animS, true);
@@ -1304,6 +1486,11 @@ class Scene {
     if(ev.type==='dispatched')(ev.agents||[]).forEach(id=>{if(scene.anims[id])scene.anims[id].evState='dispatched'});
     // Evidence Pipes v1 — evidence_arrived: evidence returned and merged
     if(ev.type==='evidence_arrived')(ev.agents||[]).forEach(id=>{if(scene.anims[id])scene.anims[id].evState='evidence_arrived'});
+    // Wave 3 T3 — Cabinet Framing: C-Suite walks to / is seated in the boardroom.
+    // Executives come from state.cabinet.executives (not ev.agents) — dispatch is
+    // a cabinet-wide event, not a per-agent one.
+    if(ev.type==='cabinet_dispatched') routeCabinet(scene, state, layout, 'walk');
+    if(ev.type==='cabinet_arrived') routeCabinet(scene, state, layout, 'seat');
   }
 
   const ac=layout.agents.length,dc=layout.depts.length;

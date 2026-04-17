@@ -4,6 +4,75 @@ All notable changes to The Forge are documented here. Format follows [Keep a Cha
 
 ---
 
+## [3.2.0-wave3] — 2026-04-17 — Cabinet Visualization
+
+### Added — v3.2 Cabinet Wave 3 (Visualization)
+
+The visual surface of the v3.2 Cabinet. Pixel office grows to a 3×3 department grid with a new top-right Executive Suite boardroom; Mission Control gets a Cabinet block + Pre-Mortem heatmap widget; a new Decisions tab exposes the full Decision Log with filter / sort / export. Library Task 0 closes the three deferred Wave 2 Important items (upsert semantics, persistence wrappers, query helpers). Foundation Code Review Gate passed. First live end-to-end simulation run shipped (Saudi EdTech brief).
+
+**Library Task 0** (`tools/decisions_orchestrator.py`)
+- Pure `append_decision(doc, decision)` with **upsert semantics** — existing id updates in place; absent id appends. Previously, re-running the driver silently skipped duplicate ids, making replayable Cabinet Framing simulations surprising.
+- Persistence wrappers — `close_decision_persist(path, id, new_status)` and `reverse_decision_persist(path, id, successor_id)` — atomic write + assets mirror, so dashboard-side buttons can write decisions without reimplementing the persistence dance.
+- Query helpers — `query_by_project(doc, project_id)`, `query_by_status(doc, status)`, `query_due_soon(doc, now_iso, horizon_days)`, `query_sorted_by_review_at(doc)` — pure, composable, used by the Decisions tab rendering pipeline.
+- `heatmap_buckets(pre_mortem)` — 5×5 aggregation (likelihood 1..5 × impact 1..5), returns 2D array of counts. Used by the Pre-Mortem heatmap widget.
+
+**Pixel office layer** (`office-template.html`)
+- Dept grid expanded 3×2 → 3×3 to accommodate new Product / Legal / Finance rooms (Wave 1 departments now have visible real estate).
+- **Executive Suite boardroom** — new top-right room with conference table sprite + 5 chair sprites (one per C-Suite exec: Flint / Cade / Helix / Prism / Dune). Canvas grows 700×504 → 960×928 to fit.
+- Canvas height math now computes from `ROW2_Y + ROOM_H + WALL + BREAK_H + MARGIN` (previously hardcoded).
+- New animation events — `cabinet_dispatched` (exec walks from dept room to boardroom), `cabinet_arrived` (exec sprite arrives in boardroom), `routeCabinet(execId)` helper function, `cabinet_seated` sprite state when exec is at table.
+
+**Mission Control Cabinet block** (`dashboard.html` + `dashboard-cabinet.js`)
+- Verdict card — GO/NO-GO/NEEDS-WORK + confidence % + decider + Type 1/2 reversibility badge.
+- 5 lens cards — strategic_kernel / product_shape / build_class / economic_shape / market_bet, one per canonical Cabinet Framing lens.
+- Top 3 pre-mortem risks — sorted by likelihood × impact product, owner agent visible.
+- 5×5 heatmap widget — likelihood × impact grid with cell-count gradient; hover shows which pre-mortem items fall in each bucket.
+
+**Decisions tab (tab 6)** (`dashboard.html` + `dashboard-decisions.js`)
+- Filters — project (dropdown), reversibility (Type 1 / Type 2 / all), status (open / reviewed / committed / reversed), decider (agent), free-text search across title + rationale.
+- Sort — by review_at (toggleable ascending / descending), default descending so newest-due-first.
+- Exports — Markdown, CSV, JSON. MD export writes a Decision Log section formatted like the Phase 7 deliverable template.
+
+**Saudi EdTech live simulation run** — `docs/superpowers/runs/2026-04-17-saudi-edtech-brief/`
+- First live end-to-end v3.2 simulation: project brief → Cabinet Framing driver → 5 lens artifacts + 5 pre-mortem items → Decision Log entry → validator OK → dashboard renders populated blocks.
+- Documents run metrics, raw inputs, artifacts, honest post-run notes. Mirrors the Evidence Pipes v3.1 neobank-brief run structure.
+
+**Tests** — +121 new across 4 new test files
+- `test_decisions_orchestrator_wave3.py` — upsert, persistence wrappers, query helpers, heatmap_buckets
+- `test_office_template_layout.py` — 3×3 grid geometry, boardroom placement, chair positions, canvas height math
+- `test_dashboard_cabinet_block.py` — verdict/lens card data shaping, top-3 risk ordering, heatmap_buckets rendering
+- `test_dashboard_decisions_tab.py` — filter composition, sort toggle, export MD/CSV/JSON output shape
+- 356 tests total (235 Wave 2 baseline + 121 new)
+- Backward compat preserved — all Wave 1 + Wave 2 + v3.1 Evidence Pipes tests still green.
+
+### Changed
+
+- `append_decision` name now refers to the **pure function** (`(doc, decision)` signature). The previous I/O-wrapping callable moved to `append_decision_persist(project_id, decision, path)`. Breaking for out-of-tree callers; all in-tree callers updated in the same commit.
+- `SKILL.md` updated to reference `append_decision_persist` in 3 locations (Phase 3 code example, Phase 7 assembly pseudocode, Cabinet mechanics section).
+- Office canvas grows 700×504 → 960×928 (3×3 grid + boardroom).
+- Canvas height now derived from layout constants (`ROW2_Y + ROOM_H + WALL + BREAK_H + MARGIN`) instead of hardcoded.
+
+### Fixed
+
+**Deferred Wave 2 Important items (now closed in Wave 3 T0 library)**
+- Wave 2 review I2: `append_decision` upsert semantics — shipped in T0.1. Previously silently skipped duplicate ids.
+- Wave 2 review I1: Persistence wrappers (`close_decision_persist`, `reverse_decision_persist`) — shipped in T0.2. Dashboard-side writes no longer need to reimplement atomic write + mirror.
+- Wave 2 review I4: Query helpers (`query_by_project` / `query_by_status` / `query_due_soon` / `query_sorted_by_review_at`) — shipped in T0.3. Decisions tab filter/sort rendering now uses these directly.
+
+**Foundation Code Review Gate response**
+- Critical C1: `SKILL.md` referenced the old `append_decision(project_id, decision, path)` signature after T0's rename. Updated to `append_decision_persist(...)` in all 3 locations.
+- Critical C2: Mission Control verdict filter only included decisions with status `open`, silently hiding decisions in `committed` / `reviewed` states — so as soon as a Cabinet verdict was reviewed, the dashboard block showed "no verdict." Filter widened to `{open, reviewed, committed}`; `reversed` still excluded.
+- Important I2: First-paint flicker — when `decisionsDoc` was `null` during initial render, Cabinet block briefly showed a "No Cabinet framing yet" state before the fetch resolved. Render now defers until `decisionsDoc` is non-null, or shows a loading skeleton.
+- Important I4: Silent mirror-write failures — `close_decision_persist` / `reverse_decision_persist` would silently continue if the `assets/forge-decisions.json` mirror write failed (e.g. read-only assets dir), leading to dashboard showing stale state. Now logs a warning via stderr and the caller can see the mirror-write failed.
+
+### Known follow-ups for Wave 4
+
+See `PLAN.md` → "Known non-blocking follow-ups from v3.2 Wave 3 reviews" for the full list. Headline items:
+- I1: signature asymmetry between `append_decision_persist(project_id, decision, path)` and `close/reverse_decision_persist(path, ...)` — harmonize to `(path, ...)` shape.
+- M1-M7: module-level `timezone` import dedup, end-to-end integration test (pre_mortem → heatmap → Decision Log → dashboard), `exportDecisionsMd` markdown escape hardening, `getAgentName` / `agentName` duplication consolidation, `office-template.html` / `dashboard.html` file-split threshold watch.
+
+---
+
 ## [3.2.0-wave2] — 2026-04-17
 
 ### Added — v3.2 Cabinet Wave 2 (Mechanics)
@@ -77,7 +146,7 @@ Every Wave 2 addition is optional in the data model: absent `forge-decisions.jso
 - Chrome MCP pipes (separate roadmap item)
 
 **Wave 3 Task-0 items** (captured from Foundation review, deferred per reviewer guidance):
-- I1: Persistence wrappers (`close_decision_persistent`, `reverse_decision_persistent`) for dashboard buttons that write decisions
+- I1: Persistence wrappers (`close_decision_persist`, `reverse_decision_persist`) for dashboard buttons that write decisions
 - I2: Upsert semantics on `append_decision` (currently silently skips if id exists)
 - I4: Query helpers (`decisions_by_project`, `decisions_by_status`, `decisions_due_soon`, `decisions_sorted_by_review_at`) for dashboard tab rendering
 
