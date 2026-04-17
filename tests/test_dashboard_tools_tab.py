@@ -158,6 +158,67 @@ class TestToolsCSS(unittest.TestCase):
         self.assertRegex(self.src, r"\.tools-section\s*\{",
                          ".tools-section CSS missing")
 
+    def test_tool_card_css(self):
+        self.assertRegex(self.src, r"\.tool-card\s*\{",
+                         ".tool-card CSS missing")
+
+    def test_tool_chip_gap_css(self):
+        self.assertRegex(self.src, r"\.tool-chip\.gap",
+                         ".tool-chip.gap CSS missing")
+
+    def test_tool_badge_redundancy_css(self):
+        self.assertRegex(self.src, r"\.tool-badge\.redundancy",
+                         ".tool-badge.redundancy CSS missing")
+
+
+class TestToolsRenderLogic(unittest.TestCase):
+    """Task 3 — tool cards, gap chips, redundancy flags, recommendations."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(DASHBOARD) as f:
+            cls.src = f.read()
+
+    def test_render_has_gap_label(self):
+        self.assertRegex(self.src, r"['\"]Gap['\"]|['\"]gap['\"]",
+                         "Gap label missing from render logic")
+
+    def test_render_has_redundancy_label(self):
+        self.assertRegex(self.src, r"Redundancy|redundancy",
+                         "Redundancy label missing from render logic")
+
+    def test_render_has_dormant_label(self):
+        self.assertRegex(self.src, r"Dormant|dormant",
+                         "Dormant label missing")
+
+    def test_render_agent_card_function(self):
+        # Either a renderAgentToolCard helper or inline agent-tool-card emission
+        self.assertRegex(
+            self.src,
+            r"(renderAgentToolCard|agent-tool-card)",
+            "Agent card emission missing"
+        )
+
+    def test_render_tool_card_template(self):
+        self.assertRegex(self.src, r'class="tool-card',
+                         "tool-card template missing")
+
+    def test_render_category_group_template(self):
+        self.assertRegex(self.src, r'class="tools-cat-group',
+                         "tools-cat-group template missing")
+
+    def test_recommendation_item_template(self):
+        self.assertRegex(self.src, r'class="recommendation-item',
+                         "recommendation-item template missing")
+
+    def test_renderer_iterates_categories(self):
+        # Renderer should iterate over catalog.categories to group tools
+        self.assertRegex(
+            self.src,
+            r"(catalog\.categories|\(catalog\s*&&\s*catalog\.categories\))",
+            "renderer must iterate catalog.categories"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

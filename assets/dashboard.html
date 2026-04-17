@@ -1772,11 +1772,180 @@ function _fmtUsd(n) {
   return '$' + Math.round(n).toLocaleString('en-US');
 }
 
+// Build a map of tool-id -> redundancy flag (any redundancy entry mentions it)
+function _redundantToolIds(redundancies) {
+  const ids = new Set();
+  for (const r of redundancies) {
+    for (const tid of (r.tools || [])) ids.add(tid);
+  }
+  return ids;
+}
+
+// Render a single tool card — used in the By Category section.
+function renderToolCardHtml(tool, isRedundant) {
+  const status = tool.status || 'active';
+  const statusBadge =
+    `<span class="tool-badge status-${_toolsEsc(status)}">${_toolsEsc(status)}</span>`;
+  const redBadge = isRedundant
+    ? '<span class="tool-badge redundancy" title="Flagged as redundant">Redundancy</span>'
+    : '';
+  const cost = Number(tool.cost_per_month_usd || 0);
+  const costStr = cost > 0 ? _fmtUsd(cost) + '/mo' : '—';
+  const users = tool.used_by_agents || [];
+  const chips = users.length
+    ? users.map(u => `<span class="tool-chip assigned">${_toolsEsc(u.replace(/^agent-/, ''))}</span>`).join('')
+    : '<span class="tool-chip">No users</span>';
+  return `<div class="tool-card">
+    <div class="tool-name">${_toolsEsc(tool.name)}</div>
+    <div class="tool-purpose">${_toolsEsc(tool.purpose || '')}</div>
+    <div class="tool-cost">${_toolsEsc(costStr)}</div>
+    <div class="tool-badges">${statusBadge}${redBadge}</div>
+    <div class="tool-agents">${chips}</div>
+  </div>`;
+}
+
+// Render the By Category section — tools grouped and sorted by category.
+function renderToolsByCategory(catalog, redundantIds) {
+  const container = document.getElementById('tools-by-category');
+  if (!container) return;
+  const categories = (catalog && catalog.categories) || [];
+  const tools = (catalog && catalog.tools) || [];
+  if (!tools.length) {
+    container.innerHTML = '<div class="tools-empty">No tools in catalog.</div>';
+    return;
+  }
+  const byCat = {};
+  for (const t of tools) {
+    (byCat[t.category_id] = byCat[t.category_id] || []).push(t);
+  }
+  let html = '';
+  for (const cat of categories) {
+    const list = byCat[cat.id] || [];
+    if (!list.length) continue;
+    const swatch = `<span class="tools-cat-swatch" style="background:${_toolsEsc(cat.color || '#888')}"></span>`;
+    html += `<div class="tools-cat-group">
+      <div class="tools-cat-header">${swatch}${_toolsEsc(cat.name)} <span style="color:var(--muted);font-weight:400">(${list.length})</span></div>
+      ${list.map(t => renderToolCardHtml(t, redundantIds.has(t.id))).join('')}
+    </div>`;
+  }
+  container.innerHTML = html || '<div class="tools-empty">No tools in catalog.</div>';
+}
+
+// Render one agent-tool card — agent head + assigned chips + gap chips + cost.
+function renderAgentToolCard(agent, catalog, costByAgent, deptColor) {
+  const aid = agent.id;
+  const tools = getToolsByAgent(catalog, aid);
+  const assigned = tools.filter(t => t.assignment === 'assigned');
+  const gaps = getGapAnalysis(catalog, aid);
+  const cost = costByAgent[aid] || 0;
+  const color = deptColor(agent.department_id);
+
+  const assignedChips = assigned.length
+    ? assigned.map(t =>
+        `<span class="tool-chip assigned" title="${_toolsEsc(t.name)}">${_toolsEsc(t.name)}</span>`
+      ).join('')
+    : '<span class="tool-chip">None assigned</span>';
+  const gapChips = gaps.length
+    ? gaps.map(t =>
+        `<span class="tool-chip gap" title="Recommended but not assigned: ${_toolsEsc(t.name)}">Gap: ${_toolsEsc(t.name)}</span>`
+      ).join('')
+    : '';
+
+  return `<div class="agent-tool-card" style="border-left-color:${_toolsEsc(color)}">
+    <div class="agent-head">
+      <span class="agent-name">${_toolsEsc(agent.name || aid)}</span>
+      <span class="agent-title">${_toolsEsc(agent.title || '')}</span>
+      <span class="agent-cost">${_toolsEsc(_fmtUsd(cost))}/mo allocated</span>
+    </div>
+    <div class="tool-agents">${assignedChips}${gapChips}</div>
+  </div>`;
+}
+
+// Render the By Agent section — one card per agent in state.
+function renderToolsByAgent(catalog, state, costByAgent) {
+  const container = document.getElementById('tools-by-agent');
+  if (!container) return;
+  const agents = (state && state.agents) || [];
+  const depts = (state && state.departments) || [];
+  const deptColor = (id) => {
+    const d = depts.find(d => d.id === id);
+    return (d && d.color) || '#8A8070';
+  };
+  if (!agents.length) {
+    container.innerHTML = '<div class="tools-empty">No agents loaded.</div>';
+    return;
+  }
+  container.innerHTML = agents
+    .map(a => renderAgentToolCard(a, catalog, costByAgent, deptColor))
+    .join('');
+}
+
+// Render the Recommendations section — auto-generated from gaps, dormant,
+// and redundancy signals.
+function renderToolsRecommendations(catalog, state, redundancies) {
+  const container = document.getElementById('tools-recommendations');
+  if (!container) return;
+  const items = [];
+  const toolById = {};
+  for (const t of (catalog.tools || [])) toolById[t.id] = t;
+
+  // Redundancy recommendations
+  for (const r of redundancies) {
+    if (r.kind === 'listed_alternative') {
+      const [a, b] = r.tools;
+      const ta = toolById[a], tb = toolById[b];
+      const ca = Number((ta && ta.cost_per_month_usd) || 0);
+      const cb = Number((tb && tb.cost_per_month_usd) || 0);
+      items.push({
+        kind: 'redundancy',
+        text: `Consolidate: ${(ta && ta.name) || a} (${_fmtUsd(ca)}/mo) and ${(tb && tb.name) || b} (${_fmtUsd(cb)}/mo) — listed as alternatives, both active. Pick one.`,
+      });
+    } else if (r.kind === 'category_overlap') {
+      const names = r.tools.map(tid => (toolById[tid] && toolById[tid].name) || tid);
+      items.push({
+        kind: 'redundancy',
+        text: `Review overlap: ${names.join(', ')} all active in category ${r.category_id}. Audit for consolidation.`,
+      });
+    }
+  }
+
+  // Dormant spend
+  for (const t of (catalog.tools || [])) {
+    if (t.status === 'dormant' && Number(t.cost_per_month_usd || 0) > 0) {
+      items.push({
+        kind: 'dormant',
+        text: `Dormant spend: ${t.name} (${_fmtUsd(t.cost_per_month_usd)}/mo) marked dormant — cancel or revive.`,
+      });
+    }
+  }
+
+  // Gaps (per agent)
+  const agents = (state && state.agents) || [];
+  for (const a of agents) {
+    const gaps = getGapAnalysis(catalog, a.id);
+    for (const g of gaps) {
+      items.push({
+        kind: 'gap',
+        text: `Gap: ${a.name || a.id} is recommended for ${g.name} but not assigned.`,
+      });
+    }
+  }
+
+  if (!items.length) {
+    container.innerHTML = '<div class="tools-empty">No recommendations — stack looks clean.</div>';
+    return;
+  }
+  container.innerHTML = items
+    .map(i => `<div class="recommendation-item ${_toolsEsc(i.kind)}">${_toolsEsc(i.text)}</div>`)
+    .join('');
+}
+
 function renderToolsTab(catalog, state) {
   catalog = catalog || { tools: [], categories: [] };
   const tools = catalog.tools || [];
   const br = getCostBreakdown(catalog);
   const reds = getRedundancies(catalog);
+  const redundantIds = _redundantToolIds(reds);
 
   const activeEl = document.getElementById('tools-active-count');
   const totalEl = document.getElementById('tools-total-cost');
@@ -1787,14 +1956,9 @@ function renderToolsTab(catalog, state) {
   if (dormEl) dormEl.textContent = _fmtUsd(br.total_dormant_monthly_usd) + '/mo';
   if (redEl) redEl.textContent = String(reds.length);
 
-  // Section bodies are rendered by Task 3. For now, show empty-state
-  // placeholders — the renderer is already wired in so the data is live.
-  const recEl = document.getElementById('tools-recommendations');
-  const catEl = document.getElementById('tools-by-category');
-  const agEl = document.getElementById('tools-by-agent');
-  if (recEl && !recEl.innerHTML) recEl.innerHTML = '<div class="tools-empty">Loading…</div>';
-  if (catEl && !catEl.innerHTML) catEl.innerHTML = '<div class="tools-empty">Loading…</div>';
-  if (agEl && !agEl.innerHTML) agEl.innerHTML = '<div class="tools-empty">Loading…</div>';
+  renderToolsRecommendations(catalog, state, reds);
+  renderToolsByCategory(catalog, redundantIds);
+  renderToolsByAgent(catalog, state, br.by_agent);
 }
 
 // ═══════════════════════════════════════
