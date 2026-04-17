@@ -1,4 +1,603 @@
 {
-  "evidence": [],
-  "project_evidence_index": {}
+  "evidence": [
+    {
+      "id": "ev-a1b2c3d4",
+      "claim": "Saudi Arabia expat outbound remittances totalled SAR 144.2 billion ($38.45 billion) in 2024, a 14% year-on-year increase and the highest in three years.",
+      "source_url": "https://www.saudigazette.com.sa/article/649194/SAUDI-ARABIA/Expat-remittances-jump-14-in-2024-the-highest-in-2-years",
+      "source_title": "Saudi Gazette \u2014 Expat remittances jump 14% in 2024",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T10:00:00Z",
+      "retrieved_by": [
+        "agent-vexx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Expatriate remittances from Saudi Arabia surged to SR144.2 billion ($38.45 billion) in 2024, a 14 percent increase over the preceding year. This figure is the highest in three years.",
+      "confidence": 0.92,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-f7e6d5c4",
+      "claim": "Saudi Arabia's total outward remittances (expat + citizens) reached approximately $38.2 billion in 2024, and annual expat flows hit a record SAR 165.5 billion in 2025.",
+      "source_url": "https://www.arabnews.com/node/2590360/business-economy",
+      "source_title": "Arab News \u2014 Saudi expat remittances surge to three-year high $38.5bn, SAMA reveals",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T10:02:00Z",
+      "retrieved_by": [
+        "agent-vexx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Expatriate remittances from Saudi Arabia reached SAR165.5 billion in 2025, the highest annual level on record, highlighting the scale of cross-border payment activity tied to the Kingdom's labour market.",
+      "confidence": 0.9,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-3a9b1c7e",
+      "claim": "Saudi Arabia is Pakistan's single largest remittance source, contributing USD 7.4 billion (25% of total inflows), and Pakistan's remittances hit a record $31.2 billion in the first ten months of FY25.",
+      "source_url": "https://www.arabnews.com/node/2600122/pakistan",
+      "source_title": "Arab News \u2014 Pakistan's remittances hit record $31.2 billion in current fiscal year, led by Saudi inflows",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T10:03:00Z",
+      "retrieved_by": [
+        "agent-vexx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Saudi Arabia was the largest source of remittance inflow to Pakistan, contributing USD 7.4 billion, or 25 percent of the total remittance volume.",
+      "confidence": 0.91,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-2d4f8a1b",
+      "claim": "South Asian nationals (Bangladeshi 2.12M, Indian 1.88M, Pakistani top-5) together constitute the majority of Saudi Arabia's 41.6% expatriate share of total population, forming the core remittance-sending demographic.",
+      "source_url": "https://www.saudimoments.com/saudi-arabias-expat-groups-2024-nationality-statistics-709741.html",
+      "source_title": "Saudi Moments \u2014 Saudi Arabia's Expat Groups: 2024 Nationality Statistics",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T10:05:00Z",
+      "retrieved_by": [
+        "agent-vexx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Out of Saudi Arabia's total population, 41.6% are expatriates, and the largest expat group is Bangladeshi nationals, followed by Indians and Pakistanis.",
+      "confidence": 0.85,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-5e0c9f2a",
+      "claim": "STC Pay (now STC Bank) charges zero transfer fees to Pakistan on transactions of SAR 750 and above, with exchange-rate margins of 0.8-1.5% and flat fees of SAR 5-25 on smaller amounts.",
+      "source_url": "https://giraffy.com/ksa/en/learn/banking-money/money-transfers/stc-vs-bank-vs-wu",
+      "source_title": "Giraffy \u2014 STC Pay vs Bank Transfer vs Western Union: Complete Comparison",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T10:07:00Z",
+      "retrieved_by": [
+        "agent-vexx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "STC Pay currently offers zero fees for transfers to Pakistan on transactions of 750 SAR and above. Exchange rate margins of 0.8-1.5% and transfer fees SAR 5-25 depending on destination and amount.",
+      "confidence": 0.82,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-8b3a7d6c",
+      "claim": "Barq, a Saudi-licensed digital wallet launched in 2024, hit 1 million users in three weeks and transferred over USD 133 million (SAR 500 million) in its first weeks, serving 85 nationalities.",
+      "source_url": "https://www.menabytes.com/barq-1-million-users/",
+      "source_title": "MENAbytes \u2014 Barq hits 1 million users in just three weeks",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T10:09:00Z",
+      "retrieved_by": [
+        "agent-vexx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "By August 2024, Barq had served 1 million users from 85 nationalities and issued 600,000 cards. The company also said that it transferred over US$133 million (SAR 500 million) within just three weeks of its debut.",
+      "confidence": 0.88,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-c1d2e3f4",
+      "claim": "In Q1 2025, sending remittances from Saudi Arabia cost an average of 3.14% (on $500), the second-lowest among G20 senders, while the South Asia corridor average was 5.8%.",
+      "source_url": "https://remittanceprices.worldbank.org/sites/default/files/rpw_main_report_and_annex_q125_1_0.pdf",
+      "source_title": "World Bank \u2014 Remittance Prices Worldwide Issue 49, Q1 2025",
+      "source_type": "primary_government",
+      "quality_score": 5,
+      "retrieved_at": "2026-04-17T10:11:00Z",
+      "retrieved_by": [
+        "agent-vexx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "In Q1 2025, Saudi Arabia has the second-lowest average cost among G20 countries for sending remittances, at 3.14 percent (for sending $500). Among developing-country regions, the average cost to South Asia is 5.8 percent.",
+      "confidence": 0.9,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-9f8e7d6c",
+      "claim": "Saudi Arabia led MENA startup funding in H1 2025 with a record $1.34 billion raised; fintech captured 74% of all Saudi tech financing in 2025, totalling $3.7 billion.",
+      "source_url": "https://gccbusinesswatch.com/news/saudi-arabia-leads-mena-startup-boom-with-record-1-34-billion-in-funding-in-h1-2025/",
+      "source_title": "GCC Business Watch \u2014 Saudi Arabia Leads MENA Startup Boom with Record $1.34 Billion in H1 2025",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T10:13:00Z",
+      "retrieved_by": [
+        "agent-vexx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Fintech startups secured a total of $3.7 billion, capturing 74% of all startup financing in 2025. Saudi Arabia's fintech industry accounted for nearly 50% of all tech investments in 2025 across the broader MENA startup financing landscape.",
+      "confidence": 0.85,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-4a5b6c7d",
+      "claim": "Lean Technologies (Saudi open-banking infrastructure) raised $67.5M Series B in November 2024, demonstrating investor appetite for Saudi fintech infrastructure underpinning payments and remittances.",
+      "source_url": "https://fintechmagazine.com/articles/saudi-fintech-lean-raises-us-67-5m-in-series-b-funding-round",
+      "source_title": "FinTech Magazine \u2014 Saudi Fintech Lean Raises US$67.5m in Series B Funding Round",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T10:14:00Z",
+      "retrieved_by": [
+        "agent-vexx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Lean Technologies has processed over US$2 billion in payment volumes through its A2A payment solutions, serving major clients including insurance provider Tawuniya and e-commerce platform Salla.",
+      "confidence": 0.87,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-0e1f2a3b",
+      "claim": "Careem Pay has received initial SAMA approval for a Saudi mobile wallet and as of April 2026 expanded remittances into Saudi Arabia covering 35+ countries, with transfers completing in 5-10 minutes.",
+      "source_url": "https://www.zawya.com/en/business/fintech/careem-pay-expands-remittances-to-saudi-arabia-turkiye-pozto0ma",
+      "source_title": "Zawya \u2014 Careem Pay expands remittances to Saudi Arabia, T\u00fcrkiye",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T10:16:00Z",
+      "retrieved_by": [
+        "agent-vexx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Careem Pay has expanded its remittance service to Saudi Arabia and T\u00fcrkiye, with transfers to bank accounts in both markets completed within five to 10 minutes. The service now covers more than 35 countries.",
+      "confidence": 0.83,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-a3f1c2d7",
+      "claim": "Saudi Arabia operates a tiered Payment Institution licensing regime under SAMA \u2014 entities may obtain a Micro PI, Major PI, Micro EMI, or Major EMI license rather than a full banking license to offer remittance services.",
+      "source_url": "https://rulebook.sama.gov.sa/en/implementing-regulations-payments-and-payment-services-law",
+      "source_title": "Implementing Regulations of Payments and Payment Services Law | SAMA Rulebook",
+      "source_type": "primary_government",
+      "quality_score": 5,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-nyxx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Payment Institution or 'PI' is a Payment Service Provider licensed to provide one or more Relevant Payment Services, except for the issuing of Electronic Money. Micro PI and Major PI categories exist within this framework.",
+      "confidence": 0.92,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-b7e90014",
+      "claim": "International money transfers from Saudi Arabia require a SAMA Category A money exchange center license, with individual remittance capped at SAR 50,000/month and SAR 500,000/year with income proof \u2014 no full banking license is required.",
+      "source_url": "https://rulebook.sama.gov.sa/en/3-2-domestic-and-international-money-transfers",
+      "source_title": "3-2) Domestic and International Money Transfers | SAMA Rulebook",
+      "source_type": "primary_government",
+      "quality_score": 5,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-nyxx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Money transfers within and outside the Kingdom are permitted for those holding a valid license from SAMA (Category A money exchange centers). Individual members: Maximum 50,000 riyals monthly (500,000 annually) with income proof.",
+      "confidence": 0.94,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-c1d4887a",
+      "claim": "SAMA's Regulatory Sandbox is open to non-licensed startups including remittance-focused fintechs, with 42 firms permitted and 15 graduated to full SAMA licenses as of the latest available data.",
+      "source_url": "https://www.sama.gov.sa/en-US/Regulatory%20Sandbox/Pages/Regulatory-Sandbox-Framework.aspx",
+      "source_title": "Regulatory Sandbox Framework | Saudi Central Bank (SAMA)",
+      "source_type": "primary_government",
+      "quality_score": 5,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-nyxx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Being a licensed entity is not a mandatory requirement to use the Sandbox. SAMA has permitted 42 firms operating under its Regulatory Sandbox, of which 15 have graduated by obtaining full authorizations and were licensed by SAMA.",
+      "confidence": 0.9,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-d2a59f31",
+      "claim": "SAMA's Payment Services Provider license application requires submission of AML/CTF compliance policies, cybersecurity frameworks, fit-and-proper documentation, and business plans; Major PI applicants must incorporate as joint-stock companies.",
+      "source_url": "https://rulebook.sama.gov.sa/en/guidelines-apply-payment-services-providers-license",
+      "source_title": "Guidelines to Apply for Payment Services Providers License | SAMA Rulebook",
+      "source_type": "primary_government",
+      "quality_score": 5,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-nyxx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Compliance policies covering AML/CTF, cybersecurity, data protection, and consumer protection [required]. SAMA will notify the company in writing of its decision within 90 days.",
+      "confidence": 0.91,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-e5f6b203",
+      "claim": "SAMA has approved NIC-linked electronic services for remote KYC identity verification, enabling banks and payment institutions to verify customer identities without branch visits \u2014 these are permitted rather than mandatorily prescribed as 'Nafath' specifically.",
+      "source_url": "https://rulebook.sama.gov.sa/en/approved-electronic-services-identity-verification-kyc",
+      "source_title": "Approved Electronic Services for Identity Verification (KYC) | SAMA Rulebook",
+      "source_type": "primary_government",
+      "quality_score": 5,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-nyxx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Utilizing the electronic service approved by the National Information Center enhances the support and effectiveness of the supervisory process; there is no need for the customer to visit the bank to verify their identification when renewing or updating their account.",
+      "confidence": 0.85,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-07b3d4c1",
+      "claim": "Saudi Arabia's Vision 2030 Financial Sector Development Program set a target of 70% cashless retail payments by 2025; by 2024 the share had reached 79%, with 12.6 billion non-cash transactions processed that year.",
+      "source_url": "https://www.sama.gov.sa/en-US/News/Pages/news-1083.aspx",
+      "source_title": "SAMA: E-Payments Account for 79% of Total Retail Payments in 2024",
+      "source_type": "primary_government",
+      "quality_score": 5,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-nyxx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Electronic payments accounted for 79% of total retail payments in 2024, representing 12.6 billion transactions, up from 10.8 billion transactions in 2023, aligned with Saudi Vision 2030 objectives to reduce reliance on cash.",
+      "confidence": 0.95,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-19c4e77b",
+      "claim": "Vision 2030's FSDP targets an 80% cashless transactions share by 2030 (up from 36% in 2019) and mandates expansion of innovative fintech payment solutions to support financial inclusion across the Kingdom.",
+      "source_url": "https://www.vision2030.gov.sa/media/wpsn44ab/fsdp_annual-report-2024_-en.pdf",
+      "source_title": "2024 Annual Report for the Financial Sector Development Program | Vision 2030",
+      "source_type": "primary_government",
+      "quality_score": 5,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-nyxx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "The Program envisions a digital infrastructure that leads to a cashless society, with the share of cashless operations increasing to 80% in 2030 from the 36% recorded in 2019.",
+      "confidence": 0.94,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-2a5fd88e",
+      "claim": "Saudi Arabia ranked 3rd globally in remittance outflows in 2023 at approximately $38.4 billion, trailing only the US and UAE, with GCC outward remittances collectively declining 13% versus 2022.",
+      "source_url": "https://www.argaam.com/en/article/articledetail/id/1737452",
+      "source_title": "Saudi Arabia ranks 3rd by remittance outflows in 2023: WB | Argaam",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-nyxx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Saudi Arabia sent approximately $38.4 billion in remittances during 2023, ranking third globally and second among Arab nations. GCC countries collectively decreased by 13% in 2023 compared to 2022.",
+      "confidence": 0.88,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-a1f3c290",
+      "claim": "STC Pay users report transfer fees as high as 25 SAR per transaction plus exchange rate margins of 0.8-1.5%, and users cite the fees as higher than VISA/Mastercard alternatives in Saudi Arabia.",
+      "source_url": "https://giraffy.com/ksa/en/learn/banking-money/money-transfers/stc-pay-guide",
+      "source_title": "How to Use STC Pay for International Transfers: Complete Expert Guide (2025) | Giraffy",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-echo"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Costs include exchange rate margins of 0.8-1.5% and transfer fees of SAR 5-25 depending on destination and amount. One user complained that STC Pay charges higher fees than VISA and MasterCard.",
+      "confidence": 0.75,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-b2e4d107",
+      "claim": "STC Pay users report funds deducted from their wallet but not received by the recipient for 3+ days, with customer service unresponsive and demanding unnecessary documentation via WhatsApp.",
+      "source_url": "https://apps.apple.com/sa/app/stc-pay/id1364197140",
+      "source_title": "stc pay \u2014 App Store (Saudi Arabia)",
+      "source_type": "user_reviews",
+      "quality_score": 2,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-echo"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Users reported transactions being deducted from their STC Pay account but not appearing in the recipient's bank account within 3+ days, with unresponsive customer service asking for unnecessary documentation via WhatsApp.",
+      "confidence": 0.7,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-c3f5e218",
+      "claim": "Barq users experience international transfers stuck at 'in progress' for up to 19 days with no resolution, and accounts are blocked without explanation for weeks, trapping user funds.",
+      "source_url": "https://barq-finance.pissedconsumer.com/review.html",
+      "source_title": "156 Barq Finance Reviews | barq.com @ PissedConsumer",
+      "source_type": "user_reviews",
+      "quality_score": 2,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-echo"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "My international transaction is paid dated 07-04-2026 time: 20 AM but still not received. / My Barq wallet account, which has been blocked for almost one month without any resolution.",
+      "confidence": 0.88,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-e5b7003a",
+      "claim": "Bangladeshi workers remitting from Saudi Arabia lost $1.3 billion in 2024 to fees and exchange rate volatility, with Saudi Arabia becoming the most expensive remittance source country at approximately 11.9% total cost.",
+      "source_url": "https://www.tbsnews.net/economy/how-bangladeshi-workers-lost-13b-remittance-fees-exchange-rate-volatility-2024-1144101",
+      "source_title": "How Bangladeshi workers lost $1.3b in remittance fees, exchange rate volatility in 2024 | The Business Standard",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-echo"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Transaction fees averaged $3 per $100 sent, with $6.30 lost due to unfavorable exchange rate margins. Saudi Arabia transaction fees rose from 2.4% in 2021 to over 4.2% by 2024.",
+      "confidence": 0.9,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-f6c8114b",
+      "claim": "Nafath-linked account freezing is a systemic pain point: when an Iqama expires, bank accounts freeze immediately \u2014 cards decline, standing orders fail, and remittance capability is cut off until Nafath re-verification is completed.",
+      "source_url": "https://saudihelplinegroup.com/open-bank-account-saudi-expats/",
+      "source_title": "Banking, Money Transfers & Financial Tips for Expats in Saudi Arabia (2026)",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-echo"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "When an Iqama expires, the account freezes \u2014 cards decline at stores, cash withdrawals fail, and standing orders like rent payments fail. Renewal requires opening the bank app and verifying via Nafath to unfreeze the account instantly.",
+      "confidence": 0.82,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-07d92250",
+      "claim": "Alinma Pay users rate the service as 'the worst e-wallet to send money outside Saudi Arabia,' citing deductions for unrendered services, account blocking without explanation, and no response from the helpline.",
+      "source_url": "https://play.google.com/store/apps/details?id=com.alinma.pay.consumer&hl=en_US",
+      "source_title": "alinma pay \u2014 Apps on Google Play",
+      "source_type": "user_reviews",
+      "quality_score": 2,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-echo"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Instead of giving customers rewards for inconvenience, money is deducted for services not provided, calling it the worst e-wallet to send money outside of Saudi Arabia. Users reported blocked accounts without explanation and no response from the helpline.",
+      "confidence": 0.72,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-18ea3361",
+      "claim": "Lack of cost transparency is the primary systemic trust barrier in remittances from Saudi Arabia: 47% of users globally demand better visibility into costs and deductions, and the involvement of correspondent banks adds USD 15-50 in opaque charges per transaction.",
+      "source_url": "https://acemoneytransfer.com/blog/the-biggest-problems-with-international-money-transfer-and-how-you-can-fix-them",
+      "source_title": "The Biggest Problems with International Money Transfer and How You Can Fix Them | ACE Money Transfer",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-echo"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Lack of transparency is a common issue that consumers have when sending money abroad. A SWIFT survey found that 47% of people wanted better visibility into the costs and deductions involved. Correspondent banks typically charge USD 15-50 hidden fees.",
+      "confidence": 0.78,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-a1b2c3d5",
+      "claim": "Saudi Arabia's digital remittance market is valued at USD 655 million and is growing, driven by approximately 10 million expatriates who account for 30% of the population.",
+      "source_url": "https://www.kenresearch.com/saudi-arabia-digital-remittance-market",
+      "source_title": "Saudi Arabia Digital Remittance Market \u2014 Ken Research",
+      "source_type": "analyst",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-taln"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Saudi Arabia hosts approximately 10 million expatriates, accounting for about 30% of its total population, with expatriates sending home around $40 billion.",
+      "confidence": 0.72,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-e5f6a7b8",
+      "claim": "Saudi Arabia remitted USD 38 billion in 2023, making it the second-largest source of remittances in the world after the United States, with India, Pakistan, Bangladesh, and Philippines as primary destination corridors.",
+      "source_url": "https://www.kenresearch.com/industry-reports/saudi-arabia-international-remittance-industry",
+      "source_title": "KSA Remittance Market \u2014 Ken Research",
+      "source_type": "analyst",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-taln"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Saudi Arabia remitted USD 38 billion in 2023. Saudi Arabia has continued to be the second largest source of remittances in the world, after the United States.",
+      "confidence": 0.78,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-c9d0e1f2",
+      "claim": "Consumer fintech customer acquisition cost benchmarks average $202 overall in the US, with banking at $258 and lending at $175; paid social (B2C) runs $212 CAC versus PPC/SEM at $290.",
+      "source_url": "https://firstpagesage.com/seo-blog/fintech-cac-benchmarks-report/",
+      "source_title": "Fintech CAC Benchmarks: 2026 Report \u2014 First Page Sage",
+      "source_type": "analyst",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-taln"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Consumer fintech CAC of $202, with Banking at $258. B2C Social Media CAC: $212. B2C PPC/SEM: $290. Data sourced from clients over the past 8 years.",
+      "confidence": 0.71,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-33ab4cde",
+      "claim": "CAC jumped 40-60% between 2023 and 2025 across financial services, with digital ad costs climbing an additional 5.13% in 2025, making paid acquisition more expensive for all fintech entrants.",
+      "source_url": "https://www.z2adigital.com/blog-content/fintech-app-growth-strategies",
+      "source_title": "Key Ingredients for a Successful Fintech App Growth Strategy \u2014 Z2A Digital",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-taln"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "CAC jumped 40-60% between 2023 and 2025 across financial services, and across digital businesses broadly, acquisition costs have surged 222% over the past decade.",
+      "confidence": 0.65,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-55cd6ef0",
+      "claim": "Barq, the Saudi fintech led by former STC Pay CEO, onboarded over 1 million users within three weeks of launch and processed SAR 73 billion (USD 19.4 billion) in transactions since July 2024.",
+      "source_url": "https://www.fintechfutures.com/paytech/new-fintech-barq-led-by-former-stc-pay-ceo-launches-in-saudi-arabia",
+      "source_title": "New fintech Barq led by former STC Pay CEO launches in Saudi Arabia \u2014 Fintech Futures",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-taln"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Barq has already transferred $133 million in just three weeks and gained over 1 million users since securing an e-wallet license from the Saudi Central Bank in January 2024.",
+      "confidence": 0.82,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-77ef8012",
+      "claim": "Barq and STC Pay operate active TikTok and Instagram presences in Saudi Arabia, with viral UGC content about account registration and money transfer features driving organic discovery among expats.",
+      "source_url": "https://www.tiktok.com/@thesaudiboom/video/7408950616497655041",
+      "source_title": "Barq TikTok \u2014 @thesaudiboom",
+      "source_type": "reputable_media",
+      "quality_score": 3,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-taln"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Barq provides a financial app that allows global money transfers to over 200 countries and offers virtual and physical Visa cards with zero annual or international fees.",
+      "confidence": 0.7,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-99013456",
+      "claim": "Wise and Remitly scale through transparent fee communication and viral referral loops, compressing industry margins and making referral-driven acquisition a core growth lever for challenger remittance fintechs.",
+      "source_url": "https://corporate.visa.com/en/products/visa-direct/resources/money-travels-report.html",
+      "source_title": "Money Travels: 2025 Digital Remittances Adoption Report \u2014 Visa Direct",
+      "source_type": "analyst",
+      "quality_score": 4,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-taln"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Fintech specialists such as Wise and Remitly scale through transparent fees and viral referral loops, compressing margins industry-wide. Online challengers are positioned to capture incremental market share more rapidly than legacy peers.",
+      "confidence": 0.76,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-bb234567",
+      "claim": "WorldRemit and Remit Choice operate double-sided referral programs where both referrer and referee receive reward vouchers after the first qualifying paid transaction, confirming that incentivized referral is the dominant viral mechanic in remittance fintech.",
+      "source_url": "https://www.worldremit.com/en-us/faq/refer-a-friend",
+      "source_title": "Refer a Friend FAQ \u2014 WorldRemit",
+      "source_type": "primary_company",
+      "quality_score": 4,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-taln"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "For every friend that signs up with your unique referral link and sends the specified minimum amount, we'll send you both a reward voucher.",
+      "confidence": 0.85,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-dd456789",
+      "claim": "Remittance flows to South Asia are expected to register the highest regional increase in 2024 at 11.8%, driven by strong flows to India ($129B), Pakistan ($33B), and Bangladesh ($30B), confirming the corridor's structural growth.",
+      "source_url": "https://blogs.worldbank.org/en/peoplemove/in-2024--remittance-flows-to-low--and-middle-income-countries-ar",
+      "source_title": "World Bank \u2014 Remittance Flows 2024 Blog",
+      "source_type": "analyst",
+      "quality_score": 4,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-taln"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Remittance flows to South Asia is expected to register the highest increase in 2024, at 11.8 percent, driven mainly by continued strong flows to India, Pakistan, and Bangladesh.",
+      "confidence": 0.88,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-ff678901",
+      "claim": "Digital apps are the most preferred remittance channel across Asia Pacific, with over 70% of consumers choosing them; ease of use, safety, and privacy are the top four stated benefits over agents or bank transfers.",
+      "source_url": "https://www.visa.com.sg/about-visa/stories/2025/not-just-digital-but-digital-first-the-future-of-remittances-in-asia-pacific.html",
+      "source_title": "Not just digital, but digital-first: The future of remittances in Asia Pacific \u2014 Visa",
+      "source_type": "analyst",
+      "quality_score": 4,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-taln"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Digital apps are now the most widely used way to send and receive money among over 25,000 respondents across six Asia Pacific markets. Ease of use, safety, privacy, and security are the top four user experience benefits.",
+      "confidence": 0.84,
+      "signal_tag": "FACT"
+    }
+  ],
+  "project_evidence_index": {
+    "proj-003": [
+      "ev-07b3d4c1",
+      "ev-07d92250",
+      "ev-0e1f2a3b",
+      "ev-18ea3361",
+      "ev-19c4e77b",
+      "ev-2a5fd88e",
+      "ev-2d4f8a1b",
+      "ev-33ab4cde",
+      "ev-3a9b1c7e",
+      "ev-4a5b6c7d",
+      "ev-55cd6ef0",
+      "ev-5e0c9f2a",
+      "ev-77ef8012",
+      "ev-8b3a7d6c",
+      "ev-99013456",
+      "ev-9f8e7d6c",
+      "ev-a1b2c3d4",
+      "ev-a1b2c3d5",
+      "ev-a1f3c290",
+      "ev-a3f1c2d7",
+      "ev-b2e4d107",
+      "ev-b7e90014",
+      "ev-bb234567",
+      "ev-c1d2e3f4",
+      "ev-c1d4887a",
+      "ev-c3f5e218",
+      "ev-c9d0e1f2",
+      "ev-d2a59f31",
+      "ev-dd456789",
+      "ev-e5b7003a",
+      "ev-e5f6a7b8",
+      "ev-e5f6b203",
+      "ev-f6c8114b",
+      "ev-f7e6d5c4",
+      "ev-ff678901"
+    ]
+  }
 }
