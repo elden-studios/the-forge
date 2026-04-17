@@ -284,7 +284,7 @@ def reverse_decision(doc, decision_id, successor_id):
     original["reversed_by"] = successor_id
 
 
-def close_decision_persist(path, decision_id, new_status="committed"):
+def close_decision_persist(path, decision_id, *, new_status="committed"):
     """Load-mutate-atomic-write-mirror wrapper around close_decision.
 
     Opens `path`, parses as JSON, calls the pure close_decision, atomic-writes
@@ -298,6 +298,8 @@ def close_decision_persist(path, decision_id, new_status="committed"):
 
     Atomicity: if the pure function raises, the primary file is untouched
     (no disk write attempted until after the mutation succeeds in memory).
+
+    See also: append_decision_persist (creation), reverse_decision_persist (type-2 override).
 
     Wave 3 — Task 0.2.
     """
@@ -327,6 +329,8 @@ def reverse_decision_persist(path, decision_id, successor_id):
 
     The reversal reason is carried in the successor decision's `context` field,
     not here — keep this wrapper's signature minimal.
+
+    See also: append_decision_persist (creation), close_decision_persist (lifecycle close).
 
     Wave 3 — Task 0.2.
     """

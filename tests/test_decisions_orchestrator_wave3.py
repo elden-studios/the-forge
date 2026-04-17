@@ -225,6 +225,14 @@ class TestCloseDecisionPersist(unittest.TestCase):
             primary = json.load(f)
         self.assertEqual(primary["decisions"][0]["status"], "committed")
 
+    def test_close_new_status_is_keyword_only(self):
+        """Regression: new_status must be keyword-only to prevent footgun where
+        a third positional arg gets silently interpreted as a status string."""
+        with self.assertRaises(TypeError):
+            # Positional third arg should fail at function-call layer, before
+            # reaching the pure close_decision (which would raise ValueError).
+            close_decision_persist(self.path, "dec-aaaaaaaa", "committed")
+
 
 class TestReverseDecisionPersist(unittest.TestCase):
     def setUp(self):

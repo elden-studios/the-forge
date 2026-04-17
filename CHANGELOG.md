@@ -77,7 +77,7 @@ Every Wave 2 addition is optional in the data model: absent `forge-decisions.jso
 - Chrome MCP pipes (separate roadmap item)
 
 **Wave 3 Task-0 items** (captured from Foundation review, deferred per reviewer guidance):
-- I1: Persistence wrappers (`close_decision_persistent`, `reverse_decision_persistent`) for dashboard buttons that write decisions
+- I1: Persistence wrappers (`close_decision_persist`, `reverse_decision_persist`) for dashboard buttons that write decisions
 - I2: Upsert semantics on `append_decision` (currently silently skips if id exists)
 - I4: Query helpers (`decisions_by_project`, `decisions_by_status`, `decisions_due_soon`, `decisions_sorted_by_review_at`) for dashboard tab rendering
 
