@@ -440,3 +440,37 @@ def query_sorted_by_review_at(doc, reverse=False):
 
     valid.sort(key=lambda pair: pair[0], reverse=reverse)
     return [d for _, d in valid] + invalid
+
+
+def heatmap_buckets(pre_mortem_items):
+    """Aggregate pre-mortem items into a 25-cell 5x5 grid (likelihood x impact).
+
+    Returns a dict keyed by (likelihood, impact) tuples in the range 1..5.
+    Each value is the count of items at that cell. All 25 keys are always
+    present (value 0 if no items there) — simplifies the downstream rendering
+    code (JS heatmap widget in Wave 3 Task 5) because it can iterate the full
+    grid without missing-key handling.
+
+    Items with likelihood or impact outside [1, 5], with non-integer values,
+    with boolean values, or with missing keys are silently dropped.
+
+    This helper lives here alongside Wave 3 query helpers for bundling
+    convenience. A future refactor could move it to tools/validator.py (which
+    owns pre_mortem schema validation) or a dedicated tools/pre_mortem_analysis.py.
+
+    The JS dashboard widget mirrors this logic — if they diverge, it's a bug.
+
+    Wave 3 — Task 0.4.
+    """
+    buckets = {(l, i): 0 for l in range(1, 6) for i in range(1, 6)}
+    for item in pre_mortem_items:
+        l = item.get("likelihood")
+        i = item.get("impact")
+        # Reject booleans explicitly — isinstance(True, int) is True in Python.
+        if isinstance(l, bool) or isinstance(i, bool):
+            continue
+        if not isinstance(l, int) or not isinstance(i, int):
+            continue
+        if 1 <= l <= 5 and 1 <= i <= 5:
+            buckets[(l, i)] += 1
+    return buckets

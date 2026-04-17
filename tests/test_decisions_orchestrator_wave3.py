@@ -423,5 +423,103 @@ class TestQueryHelpers(unittest.TestCase):
         self.assertEqual(sorted([asc[1]["id"], asc[2]["id"]]), ["dec-b", "dec-none"])
 
 
+from tools.decisions_orchestrator import heatmap_buckets
+
+
+class TestHeatmapBuckets(unittest.TestCase):
+    def test_empty_items_returns_25_zeros(self):
+        result = heatmap_buckets([])
+        self.assertEqual(len(result), 25)
+        self.assertTrue(all(v == 0 for v in result.values()))
+
+    def test_all_25_keys_present_for_empty_input(self):
+        result = heatmap_buckets([])
+        for l in range(1, 6):
+            for i in range(1, 6):
+                self.assertIn((l, i), result, f"missing key ({l}, {i})")
+
+    def test_single_item_populates_single_cell(self):
+        item = {"likelihood": 4, "impact": 5, "failure_mode": "x", "owner_agent": "a", "mitigation_phase": "phase_4_arch"}
+        result = heatmap_buckets([item])
+        self.assertEqual(result[(4, 5)], 1)
+        self.assertEqual(result[(1, 1)], 0)
+        self.assertEqual(sum(result.values()), 1)
+
+    def test_multiple_items_at_same_cell_accumulate(self):
+        items = [
+            {"likelihood": 3, "impact": 3, "failure_mode": "a", "owner_agent": "x", "mitigation_phase": "phase_4_arch"},
+            {"likelihood": 3, "impact": 3, "failure_mode": "b", "owner_agent": "y", "mitigation_phase": "phase_5_gtm"},
+            {"likelihood": 3, "impact": 3, "failure_mode": "c", "owner_agent": "z", "mitigation_phase": "phase_6_challenge"},
+        ]
+        result = heatmap_buckets(items)
+        self.assertEqual(result[(3, 3)], 3)
+        self.assertEqual(sum(result.values()), 3)
+
+    def test_items_outside_1_5_are_dropped(self):
+        items = [
+            {"likelihood": 0, "impact": 3, "failure_mode": "oob", "owner_agent": "x", "mitigation_phase": "phase_4_arch"},
+            {"likelihood": 3, "impact": 6, "failure_mode": "oob", "owner_agent": "y", "mitigation_phase": "phase_5_gtm"},
+            {"likelihood": 4, "impact": 4, "failure_mode": "ok", "owner_agent": "z", "mitigation_phase": "phase_6_challenge"},
+            {"likelihood": -1, "impact": 3, "failure_mode": "oob", "owner_agent": "x", "mitigation_phase": "phase_4_arch"},
+            {"likelihood": 3, "impact": 100, "failure_mode": "oob", "owner_agent": "y", "mitigation_phase": "phase_5_gtm"},
+        ]
+        result = heatmap_buckets(items)
+        self.assertEqual(sum(result.values()), 1)
+        self.assertEqual(result[(4, 4)], 1)
+
+    def test_non_integer_values_are_dropped(self):
+        items = [
+            {"likelihood": "3", "impact": 3},  # string likelihood
+            {"likelihood": 3, "impact": 3.5},  # float impact
+            {"likelihood": None, "impact": 3},  # None likelihood
+            {"likelihood": 3, "impact": 3},  # valid control
+        ]
+        result = heatmap_buckets(items)
+        self.assertEqual(result[(3, 3)], 1, "only the int-int item should count")
+
+    def test_missing_keys_are_dropped(self):
+        items = [
+            {"likelihood": 3},  # no impact
+            {"impact": 3},  # no likelihood
+            {},  # neither
+            {"likelihood": 3, "impact": 3},  # valid
+        ]
+        result = heatmap_buckets(items)
+        self.assertEqual(result[(3, 3)], 1)
+
+    def test_distribution_across_grid(self):
+        """Realistic shape — 5 items spread across the grid."""
+        items = [
+            {"likelihood": 1, "impact": 1, "failure_mode": "low-low"},
+            {"likelihood": 5, "impact": 5, "failure_mode": "hi-hi"},
+            {"likelihood": 3, "impact": 4, "failure_mode": "mid-high"},
+            {"likelihood": 3, "impact": 4, "failure_mode": "mid-high-2"},
+            {"likelihood": 4, "impact": 3, "failure_mode": "high-mid"},
+        ]
+        result = heatmap_buckets(items)
+        self.assertEqual(result[(1, 1)], 1)
+        self.assertEqual(result[(5, 5)], 1)
+        self.assertEqual(result[(3, 4)], 2)
+        self.assertEqual(result[(4, 3)], 1)
+        self.assertEqual(sum(result.values()), 5)
+
+    def test_returns_fresh_dict_not_shared(self):
+        """Each call returns a fresh dict — no shared state across calls."""
+        r1 = heatmap_buckets([{"likelihood": 1, "impact": 1}])
+        r2 = heatmap_buckets([])
+        self.assertEqual(r1[(1, 1)], 1)
+        self.assertEqual(r2[(1, 1)], 0, "second call should not see first call's state")
+
+    def test_boolean_values_not_treated_as_int(self):
+        """Python gotcha: `isinstance(True, int)` is True. Explicitly reject booleans."""
+        items = [
+            {"likelihood": True, "impact": 3},  # True coerces to 1 but shouldn't count
+            {"likelihood": 3, "impact": False},  # False coerces to 0 but shouldn't count
+            {"likelihood": 3, "impact": 3},  # valid
+        ]
+        result = heatmap_buckets(items)
+        self.assertEqual(result[(3, 3)], 1, "booleans must not be treated as valid integers")
+
+
 if __name__ == "__main__":
     unittest.main()
