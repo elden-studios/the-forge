@@ -419,6 +419,97 @@ class TestValidateState(unittest.TestCase):
         ok, errors = validate_state(state)
         self.assertTrue(ok, f"No cabinet block should pass, got: {errors}")
 
+    def test_cabinet_block_non_dict_fails_cleanly(self):
+        """cabinet must be a dict, not a string or list."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [],
+            "agents": [],
+            "cabinet": "agent-flnt",
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("cabinet" in e.lower() and "dict" in e.lower() for e in errors),
+            f"Expected 'cabinet must be a dict' error, got: {errors}",
+        )
+
+    def test_cabinet_executives_null_fails_cleanly(self):
+        """cabinet.executives: null must not crash — readable error."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [],
+            "agents": [],
+            "cabinet": {"executives": None},
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("executives" in e.lower() and "list" in e.lower() for e in errors),
+            f"Expected 'executives must be a list' error, got: {errors}",
+        )
+
+    def test_cabinet_executives_non_list_fails_cleanly(self):
+        """cabinet.executives as a string must not crash."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [],
+            "agents": [],
+            "cabinet": {"executives": "agent-flnt"},
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("executives" in e.lower() and "list" in e.lower() for e in errors),
+            f"Expected 'executives must be a list' error, got: {errors}",
+        )
+
+    def test_reports_to_non_scalar_fails_cleanly(self):
+        """reports_to must be a string (agent id) or null, not a list or dict."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-a",
+                    "name": "A",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "ic",
+                    "reports_to": ["agent-b"],  # Bad: list instead of string
+                }
+            ],
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("reports_to" in e and "string" in e.lower() for e in errors),
+            f"Expected 'reports_to must be a string' error, got: {errors}",
+        )
+
+    def test_agent_reports_to_self_fails(self):
+        """An agent cannot report to themselves."""
+        state = {
+            "company": {"name": "T", "founded": "2026-01-01"},
+            "departments": [{"id": "dept-a", "name": "A", "color": "#000"}],
+            "agents": [
+                {
+                    "id": "agent-narcissus",
+                    "name": "Narcissus",
+                    "department_id": "dept-a",
+                    "status": "active",
+                    "role": "executive",
+                    "reports_to": "agent-narcissus",
+                }
+            ],
+        }
+        ok, errors = validate_state(state)
+        self.assertFalse(ok)
+        self.assertTrue(
+            any("reports_to" in e and ("itself" in e.lower() or "self" in e.lower()) for e in errors),
+            f"Expected 'cannot report to self' error, got: {errors}",
+        )
+
 
 class TestValidateBrainFiles(unittest.TestCase):
     """validate_brain_files(state, brains_dir) -> (ok, errors)"""

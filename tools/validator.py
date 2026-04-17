@@ -264,7 +264,16 @@ def validate_state(state):
         # v3.2: reports_to referential integrity
         reports_to = agent.get("reports_to")
         if reports_to is not None:
-            if reports_to not in agent_ids:
+            if not isinstance(reports_to, str):
+                errors.append(
+                    f"Agent {name} reports_to must be a string (agent id), "
+                    f"got {type(reports_to).__name__}"
+                )
+            elif reports_to == agent_id:
+                errors.append(
+                    f"Agent {name} reports_to cannot reference itself: {reports_to}"
+                )
+            elif reports_to not in agent_ids:
                 errors.append(
                     f"Agent {name} reports_to references non-existent agent: {reports_to}"
                 )
@@ -305,17 +314,30 @@ def validate_state(state):
                 )
 
     # v3.2: cabinet.executives block
-    cabinet = state.get("cabinet") or {}
-    for exec_id in cabinet.get("executives", []):
-        if exec_id not in agent_ids:
+    cabinet = state.get("cabinet")
+    if cabinet is not None:
+        if not isinstance(cabinet, dict):
             errors.append(
-                f"cabinet.executives references non-existent agent: {exec_id}"
+                f"cabinet must be a dict, got {type(cabinet).__name__}"
             )
-        elif agent_roles.get(exec_id) != "executive":
-            errors.append(
-                f"cabinet.executives member {exec_id} must have role='executive', "
-                f"got {agent_roles.get(exec_id)!r}"
-            )
+        else:
+            if "executives" in cabinet:
+                execs = cabinet.get("executives")
+                if not isinstance(execs, list):
+                    errors.append(
+                        f"cabinet.executives must be a list, got {type(execs).__name__}"
+                    )
+                else:
+                    for exec_id in execs:
+                        if exec_id not in agent_ids:
+                            errors.append(
+                                f"cabinet.executives references non-existent agent: {exec_id}"
+                            )
+                        elif agent_roles.get(exec_id) != "executive":
+                            errors.append(
+                                f"cabinet.executives member {exec_id} must have role='executive', "
+                                f"got {agent_roles.get(exec_id)!r}"
+                            )
 
     return (len(errors) == 0, errors)
 
