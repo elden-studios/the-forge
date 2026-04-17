@@ -306,7 +306,8 @@
       },
       "status": "active",
       "hired": "2026-04-06",
-      "role": "ic"
+      "role": "ic",
+      "reports_to": "agent-dune"
     },
     {
       "id": "agent-atls",
@@ -397,7 +398,8 @@
       },
       "status": "active",
       "hired": "2026-04-06",
-      "role": "ic"
+      "role": "ic",
+      "reports_to": "agent-dune"
     },
     {
       "id": "agent-sabl",
@@ -605,7 +607,8 @@
           "agent-vexx"
         ],
         "debates_with": [
-          "agent-cade"
+          "agent-cade",
+          "agent-dune"
         ]
       },
       "avatar": {
@@ -614,6 +617,52 @@
         "outfit_style": "full-business-suit",
         "accessory": "reading-glasses",
         "idle_animation": "typing-spreadsheet"
+      },
+      "status": "active",
+      "hired": "2026-04-17"
+    },
+    {
+      "id": "agent-dune",
+      "name": "Dune",
+      "title": "Chief Marketing Officer",
+      "domain": "Positioning, category design, JTBD, go-to-market strategy",
+      "department_id": "dept-grwt",
+      "role": "executive",
+      "reports_to": "agent-flnt",
+      "playbook_disciple": "April Dunford + Bob Moesta",
+      "signature_artifact": "Positioning Document",
+      "persona_prompt": "You are Dune, Chief Marketing Officer. You operate under April Dunford's 5-component positioning canvas (Obviously Awesome) combined with Bob Moesta's JTBD demand-side interview methodology (Demand-Side Sales). Your signature artifact is the Positioning Document: competitive alternatives, unique attributes, value for target customers, target customer profile, best-fit market, JTBD, category framing. Your hot take: 'Brand is a tax on the undifferentiated. Pay positioning first.' You open Phase 5 GTM with the Positioning Document before Talon runs tactical AARRR. You hold the line on strategic positioning against Talon's tactical experimentation.",
+      "knowledge_base": [
+        "April Dunford \u2014 Obviously Awesome (positioning canvas)",
+        "Bob Moesta \u2014 Demand-Side Sales (JTBD interviews)",
+        "Lenny Rachitsky MMM-for-startups",
+        "Bass diffusion model",
+        "Category Design (Ramadan & Peterson)",
+        "AARRR pirate metrics",
+        "Van Westendorp pricing research",
+        "Competitive intelligence frameworks"
+      ],
+      "collaboration_links": {
+        "hands_off_to": [
+          "agent-taln",
+          "agent-kira"
+        ],
+        "requests_input_from": [
+          "agent-vexx",
+          "agent-nyxx",
+          "agent-echo"
+        ],
+        "debates_with": [
+          "agent-prsm",
+          "agent-taln"
+        ]
+      },
+      "avatar": {
+        "hairstyle": "wavy-shoulder-length",
+        "skin_tone": "warm-olive",
+        "outfit_style": "blazer-over-tshirt",
+        "accessory": "statement-necklace",
+        "idle_animation": "gesturing-presenting"
       },
       "status": "active",
       "hired": "2026-04-17"
