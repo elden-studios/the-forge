@@ -1,14 +1,14 @@
 # The Forge — Progress & Roadmap
 
-## Current Status: v3.2 Wave 4 SHIPPED — Foundation cleanup consolidated
+## Current Status: Sub-project A (Org Tree) SHIPPED — dashboard 7th tab live
 
 **GitHub:** https://github.com/elden-studios/the-forge
-**Last release:** 2026-04-17 (v3.2 Cabinet Wave 4 — Cleanup)
-**Previous releases:** Wave 3 (2026-04-17), Wave 2 (2026-04-17), Wave 1 (2026-04-17), v3.1 Evidence Pipes (2026-04-17 `7c02d85`)
-**Tests:** 363/363 green
+**Last release:** 2026-04-17 (Sub-project A — Hierarchy tree visualization)
+**Previous releases:** v3.2 Wave 4 (2026-04-17), Wave 3 (2026-04-17), Wave 2 (2026-04-17), Wave 1 (2026-04-17), v3.1 Evidence Pipes (2026-04-17 `7c02d85`)
+**Tests:** 406/406 green
 **Changelog:** see [`CHANGELOG.md`](CHANGELOG.md)
 
-**What's next:** Sub-projects A (hierarchy tree visualization), C (subagent delegation), D (context system / project-level memory), E (tools & platforms catalog). Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`. See "After v3.2" section below.
+**What's next:** Sub-project E (tools & platforms catalog — can ship parallel to anything), then C (subagent delegation) and D (context system / project-level memory). Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`. See "After v3.2" section below.
 
 ---
 
@@ -82,6 +82,18 @@ Decision Log lifecycle + Pre-Mortem + Cabinet Framing schema validation + operat
 
 See `docs/superpowers/plans/2026-04-17-v3.2-cabinet-wave2-mechanics.md`.
 
+### Sub-project A — Hierarchy Tree Visualization (SHIPPED 2026-04-17) ✅
+
+Dashboard gets a 7th tab that renders the v3.2 two-tier org from `reports_to` + `role` + `cabinet.executives`. SVG-based — DOM-queryable, scalable, cleanly separated from the pixel office's Canvas.
+
+- `tools/org_tree.py` — pure `get_org_tree(state)` helper returning `{root, orphans, rivalry_edges}` with tier 0/1/2 semantics. Root picked from `reports_to=None` agents, tiebreak via `cabinet.executives[0]`. Rivalry edges are mutual-only and deduped, scale-tagged (cabinet vs ic).
+- Dashboard Org Tree tab (tab 7) — SVG with parent-centered layered layout, rounded node cards, department color strips (top 4px), cubic-Bezier connectors, dashed-red rivalry peer lines, legend row. `getOrgTree(state)` JS mirror of the Python helper.
+- Live-state validation: root is `agent-flnt`, tier-1 = 4 execs + Lexx (Legal IC reporting directly to CSO), 15 total agents, 0 orphans.
+
+**406 tests green** (+43 new: 17 org_tree, 22 dashboard_org_tree, 4 integration).
+
+See `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md` (Sub-project A).
+
 ### Wave 4 — Cleanup (SHIPPED 2026-04-17) ✅
 
 Consolidation commit addressing deferred Foundation review items from Wave 3. No new features — purely signature harmonization, helper consolidation, import hygiene, and a missing integration test.
@@ -112,7 +124,7 @@ See `docs/superpowers/plans/2026-04-17-v3.2-cabinet-wave3-visual.md`.
 
 Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`.
 
-- **Sub-project A** — Hierarchy tree visualization (unblocked after W3 — data model is ready)
+- **Sub-project A** — Hierarchy tree visualization ✅ SHIPPED 2026-04-17
 - **Sub-project C** — Subagent delegation (biggest architectural change; two-tier structure from W1-W3 is prerequisite)
 - **Sub-project D** — Context system / project-level memory (Decision Log from W2 seeds this)
 - **Sub-project E** — Tools & platforms catalog (independent, can ship parallel to any wave)
@@ -157,7 +169,7 @@ Remaining:
 ## Key commands
 
 ```bash
-# Run full Python test suite (363 tests — 151 Evidence Pipes + 14 v3.2 W1 + 70 v3.2 W2 + 121 v3.2 W3 + 7 v3.2 W4)
+# Run full Python test suite (406 tests — 151 Evidence Pipes + 14 v3.2 W1 + 70 v3.2 W2 + 121 v3.2 W3 + 7 v3.2 W4 + 43 Sub-project A)
 python3 -m unittest discover tests -v
 
 # Validate all state/tasks/evidence files
