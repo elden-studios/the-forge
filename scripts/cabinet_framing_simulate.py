@@ -54,6 +54,7 @@ def write_forge_tasks(lenses_input, pre_mortem_input, forge_tasks_path):
     else:
         tasks = {"tasks": [], "handoffs": [], "current_phase": 0}
 
+    tasks["current_project"] = lenses_input["project_id"]
     tasks["cabinet_framing"] = {
         "framing_brief": lenses_input["framing_brief"],
         "lenses": lenses_input["lenses"],

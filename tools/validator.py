@@ -92,6 +92,30 @@ def validate_project(project_dir):
                 ev_for_decisions = None
         errors.extend(validate_decisions(decisions_doc, state, ev_for_decisions)[1])
 
+        # Standing Rule 11 (v3.2): every Cabinet Verdict must log ≥1 decision.
+        # Cross-file check: if forge-tasks has cabinet_framing AND current_project,
+        # project_decision_index[current_project] must be non-empty.
+        if os.path.isfile(tasks_path):
+            try:
+                # tasks may have been loaded earlier; re-load here for clean scoping
+                with open(tasks_path) as f:
+                    tasks_doc = json.load(f)
+                if tasks_doc.get("cabinet_framing") is not None:
+                    current_project = tasks_doc.get("current_project")
+                    if current_project:
+                        proj_decisions = (
+                            decisions_doc.get("project_decision_index", {}).get(current_project, [])
+                        )
+                        if not proj_decisions:
+                            errors.append(
+                                f"Standing Rule 11 violated: project {current_project!r} has "
+                                f"cabinet_framing set but no decision in project_decision_index. "
+                                f"Every Cabinet Verdict must log ≥1 Decision Log entry."
+                            )
+            except (json.JSONDecodeError, OSError):
+                # tasks file issues were already reported earlier; don't duplicate
+                pass
+
     return (len(errors) == 0, errors)
 
 
