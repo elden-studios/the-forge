@@ -1,0 +1,42 @@
+[
+  {
+    "failure_mode": "MOE policy shift mandates that all K-12 test prep flow through Madrasati, invalidating standalone-app distribution",
+    "likelihood": 2,
+    "impact": 5,
+    "score": 10,
+    "owner_agent": "agent-nyxx",
+    "mitigation_phase": "phase_5_gtm"
+  },
+  {
+    "failure_mode": "Nafath API rate limits + Madrasati SSO denial at scale block parent-dashboard onboarding in peak Sept/Jan enrollment windows",
+    "likelihood": 4,
+    "impact": 4,
+    "score": 16,
+    "owner_agent": "agent-helx",
+    "mitigation_phase": "phase_4_arch"
+  },
+  {
+    "failure_mode": "Abwaab launches a Saudi-specific Qudurat vertical with $10M+ war chest and undercuts ARPU to SAR 900",
+    "likelihood": 4,
+    "impact": 5,
+    "score": 20,
+    "owner_agent": "agent-dune",
+    "mitigation_phase": "phase_5_gtm"
+  },
+  {
+    "failure_mode": "Blended CAC climbs above SAR 500 due to TikTok/Snap CPM inflation in Ramadan and parent-referral loop underperforming — LTV/CAC drops below 6",
+    "likelihood": 3,
+    "impact": 4,
+    "score": 12,
+    "owner_agent": "agent-prsm",
+    "mitigation_phase": "phase_6_challenge"
+  },
+  {
+    "failure_mode": "Saudi parents continue to prefer human private tutoring for the perceived 'wasta' and accountability — digital percentile lift data fails to overcome cultural preference",
+    "likelihood": 3,
+    "impact": 5,
+    "score": 15,
+    "owner_agent": "agent-cade",
+    "mitigation_phase": "phase_7_delivery"
+  }
+]

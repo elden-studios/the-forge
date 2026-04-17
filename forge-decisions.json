@@ -62,6 +62,28 @@
       "project_id": "proj-simulation",
       "related_evidence": [],
       "status": "open"
+    },
+    {
+      "id": "dec-736a45fc",
+      "title": "GO at 75% confidence \u2014 Saudi K-12 Exam-Prep EdTech (simulation)",
+      "context": "Phase 1.5 Cabinet Framing produced a 5-lens diagnosis for a Saudi Qudurat/Tahsili percentile-prep platform. 5 pre-mortem risks distributed across the 5x5 heatmap (top: Abwaab Saudi-vertical counter-launch F=20, Nafath+Madrasati SSO rate limits F=16, Cultural preference for human tutoring F=15). Cabinet reached majority GO with Riyadh-first pilot; Prism dissented on CAC sensitivity, Dune flagged category-defining window is 18-24 months.",
+      "alternatives_considered": [
+        "NO-GO (reject: Vision 2030 window is open now, incumbents are not Saudi-exam-first)",
+        "ITERATE with Qudurat-only before Tahsili (reject: parents buy the full-semester package, not the half)",
+        "GO with Riyadh-first pilot + Mada/STC Pay/Tamara checkout + 6-teacher content team (selected \u2014 this decision)"
+      ],
+      "decided_by": "agent-cade",
+      "dissenting": [
+        "agent-prsm",
+        "agent-dune"
+      ],
+      "dissent_reason": "CAC at SAR 350 target is aggressive; Abwaab's well-funded response could compress LTV/CAC below 6 before break-even. Dune concurs the 18-24 month category-defining window is tight.",
+      "decided_at": "2026-04-17T15:41:26Z",
+      "reversibility": "type_1",
+      "review_at": "2026-07-16T15:41:26Z",
+      "project_id": "proj-edtech-ksa",
+      "related_evidence": [],
+      "status": "open"
     }
   ],
   "project_decision_index": {
@@ -69,6 +91,9 @@
       "dec-1d7bd38b",
       "dec-5b30ea9a",
       "dec-f9d41f2a"
+    ],
+    "proj-edtech-ksa": [
+      "dec-736a45fc"
     ]
   }
 }
