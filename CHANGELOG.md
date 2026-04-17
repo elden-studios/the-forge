@@ -4,6 +4,31 @@ All notable changes to The Forge are documented here. Format follows [Keep a Cha
 
 ---
 
+## [3.4.0] — 2026-04-17 — Sub-project E: Tools & Platforms Catalog
+
+Second of the five v3.2 expansion sub-projects (shipping parallel to the others per the roadmap). Turns "list of SaaS we pay for" into a living inventory with teeth: per-agent assignments, usage status, shared-cost allocation, gap analysis, redundancy detection. New 8th dashboard tab. Independent of Sub-projects C / D — can ship in any order.
+
+### Added
+- `tools/platforms_catalog.py` — pure-function library: `load_catalog`, `validate_catalog` (enforces status enum, category_id integrity, non-negative numeric cost, list-typed agent fields), `gap_analysis(agent_id)`, `cost_breakdown` (total active / total dormant / by-category / by-agent with shared-cost split — tool cost ÷ num users allocated to each), `find_redundancies` (category_overlap for 2+ active tools in same category, confirmed listed_alternative when mutual alternatives are both active), `tools_by_agent(agent_id)` with `assigned` vs `recommended` tagging. `STATUSES = {active, dormant, unused}` frozen.
+- `forge-platforms.json` + `assets/forge-platforms.json` mirror — 22 seed tools across 9 categories (Design, Research, Engineering, Growth, Content, Legal, Finance, Analytics, Saudi-specific). Realistic market prices (Figma $15, Notion $80, Ahrefs $99, SensorTower $349, HubSpot $20, Ironclad aspirational $500, etc.). Saudi-specific row includes Nafath / SAMA Sandbox / HyperPay-Mada. Seeded with intentional gaps (Echo recommended for Figma/Similarweb/Mixpanel; Lexx for Nafath/SAMA/Ironclad; Helix for Linear) and intentional redundancies (Similarweb↔Ahrefs, Mixpanel↔PostHog both listed alternatives).
+- Dashboard "Tools" tab (tab 8) — 4-card summary row (Active Tools count, Monthly Spend, Dormant Waste warning-styled, Redundancies count) + three sections. Recommendations auto-generate kind-tagged entries (consolidate / dormant / gap) with red / yellow / purple left borders. By Category groups tools under colored category headers, each card showing status + redundancy badge + agent chips. By Agent renders one card per agent with department color strip, green assigned chips, red gap chips, allocated monthly spend.
+- JS mirrors of all Python helpers — `getCostBreakdown`, `getGapAnalysis`, `getRedundancies`, `getToolsByAgent` — same Wave 3 mirror-discipline convention (divergence is a bug). Plus `fetchPlatforms()` that refreshes `forge-platforms.json` on the 3s tick.
+- `docs/tools-catalog-audit-guide.md` — operator walkthrough: review the seed, edit to match real stack, mark dormant tools, run the dashboard, monthly / quarterly maintenance cadence, schema reference.
+- `tests/test_subproject_e_integration.py` — validates the committed `forge-platforms.json` against the live `forge-state.json`: schema passes, ≥10 tools across ≥5 categories, ≥1 gap and ≥1 redundancy present, total active cost in [100, 10000]/mo, every agent id in `used_by_agents` / `recommended_for_agents` exists in state, assets mirror matches root.
+
+### Changed
+- `assets/dashboard.html` — tab button + panel + ~40 lines of new CSS for tools-summary-row / summary-card / tools-section / tool-card / tool-chip / recommendation-item; `switchTab` array extended to include `'tools'`; `render()` pipeline calls `renderToolsTab(_platformsDoc, STATE)` so the tab stays live. No touch to Wave 3 Cabinet, Decisions, Evidence, or Sub-project A Org Tree code paths.
+- `tests/test_dashboard_org_tree.py::test_switchtab_array_includes_org_tree` — regex loosened from `…'org-tree'\]` to `…'org-tree'` (trailing entries accepted), same loosening the decisions test got in Sub-project A.
+
+### Tests
+- 406 → 470 (+64). Breakdown: 21 `test_platforms_catalog.py` (pure-helper unit tests — load, status enum, schema validation, gap semantics, cost breakdown active/dormant/by-category/shared-split, redundancy detection, agent tagging) + 34 `test_dashboard_tools_tab.py` (smoke: tab shell, CSS, summary row, section containers, JS mirrors defined, render templates) + 9 `test_subproject_e_integration.py` (integration against live state).
+
+### Notes
+- **No tool API integration in v1.** `status` is manually curated (`active` | `dormant` | `unused`). Automating "is this tool actually being used?" was explicitly out of scope — it rotted the v1 ship plan. The audit guide walks the operator through the monthly / quarterly cadence for keeping status honest.
+- **Dashboard size.** After Sub-project E, `assets/dashboard.html` is ~1800 lines. A file split is queued for Wave 5 cleanup; not doing it inline here because Sub-projects C / D will reshape the dashboard further.
+
+---
+
 ## [3.3.0] — 2026-04-17 — Sub-project A: Org Tree
 
 First of the five v3.2 expansion sub-projects. Visualizes the two-tier v3.2 Cabinet hierarchy — built from the `reports_to` / `role` / `cabinet.executives` fields already on every agent — as a 7th dashboard tab. SVG-based (not Canvas), cleanly separated from the pixel office, DOM-queryable, scalable.

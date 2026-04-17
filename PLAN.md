@@ -1,14 +1,14 @@
 # The Forge — Progress & Roadmap
 
-## Current Status: Sub-project A (Org Tree) SHIPPED — dashboard 7th tab live
+## Current Status: Sub-project E (Tools Catalog) SHIPPED — dashboard 8th tab live
 
 **GitHub:** https://github.com/elden-studios/the-forge
-**Last release:** 2026-04-17 (Sub-project A — Hierarchy tree visualization)
-**Previous releases:** v3.2 Wave 4 (2026-04-17), Wave 3 (2026-04-17), Wave 2 (2026-04-17), Wave 1 (2026-04-17), v3.1 Evidence Pipes (2026-04-17 `7c02d85`)
-**Tests:** 406/406 green
+**Last release:** 2026-04-17 (Sub-project E — Tools & Platforms Catalog)
+**Previous releases:** Sub-project A (2026-04-17), v3.2 Wave 4 (2026-04-17), Wave 3 (2026-04-17), Wave 2 (2026-04-17), Wave 1 (2026-04-17), v3.1 Evidence Pipes (2026-04-17 `7c02d85`)
+**Tests:** 470/470 green
 **Changelog:** see [`CHANGELOG.md`](CHANGELOG.md)
 
-**What's next:** Sub-project E (tools & platforms catalog — can ship parallel to anything), then C (subagent delegation) and D (context system / project-level memory). Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`. See "After v3.2" section below.
+**What's next:** Sub-project C (subagent delegation — the biggest architectural change; two-tier structure from Wave 1-3 is prerequisite) or D (context system / project-level memory — Decision Log from Wave 2 seeds this). Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`. See "After v3.2" section below.
 
 ---
 
@@ -94,6 +94,20 @@ Dashboard gets a 7th tab that renders the v3.2 two-tier org from `reports_to` + 
 
 See `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md` (Sub-project A).
 
+### Sub-project E — Tools & Platforms Catalog (SHIPPED 2026-04-17) ✅
+
+Dashboard gets an 8th tab that turns a static "list of tools we pay for" into a living inventory with teeth. `forge-platforms.json` maintains tools, categories, per-agent assignments, costs, and status (`active` | `dormant` | `unused`). The Tools tab surfaces the four numbers that actually matter: active tool count, monthly spend, dormant waste (what you're paying for but not using), and redundancy count. Auto-generated recommendations flag consolidations, dormant spend, and per-agent gaps.
+
+- `tools/platforms_catalog.py` — pure helpers: `load_catalog`, `validate_catalog`, `gap_analysis(agent_id)`, `cost_breakdown` (total active / total dormant / by-category / by-agent shared-cost split), `find_redundancies` (category overlap + confirmed listed-alternative), `tools_by_agent(agent_id)` with `assigned` vs `recommended` tagging.
+- `forge-platforms.json` + `assets/forge-platforms.json` mirror — 22 seed tools across 9 categories (Design, Research, Engineering, Growth, Content, Legal, Finance, Analytics, Saudi-specific). Realistic costs (Figma $15, Notion $80, Ahrefs $99, SensorTower $349, etc.). Intentional gaps (Echo recommended-for Figma/Similarweb/Mixpanel; Lexx for Nafath/SAMA/Ironclad) and confirmed redundancies (Similarweb↔Ahrefs, Mixpanel↔PostHog) for first-load demo signal.
+- Dashboard Tools tab (tab 8) — 4-card summary row + three sections. Recommendations auto-generate from redundancy / dormant-spend / gap signals with kind-specific left borders. By Category groups tools under colored category headers with status + redundancy badges. By Agent renders one card per agent with green assigned chips, red gap chips, allocated monthly spend (shared-cost allocation).
+- JS mirrors of all four Python helpers (`getCostBreakdown`, `getGapAnalysis`, `getRedundancies`, `getToolsByAgent`) — same mirror discipline as Wave 3.
+- `docs/tools-catalog-audit-guide.md` — operator walkthrough for populating their own stack.
+
+**470 tests green** (+64 new: 21 platforms_catalog unit, 34 dashboard_tools_tab smoke, 9 integration).
+
+See `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md` (Sub-project E).
+
 ### Wave 4 — Cleanup (SHIPPED 2026-04-17) ✅
 
 Consolidation commit addressing deferred Foundation review items from Wave 3. No new features — purely signature harmonization, helper consolidation, import hygiene, and a missing integration test.
@@ -125,9 +139,9 @@ See `docs/superpowers/plans/2026-04-17-v3.2-cabinet-wave3-visual.md`.
 Full roadmap at `docs/superpowers/specs/2026-04-17-v3.2-expansion-roadmap.md`.
 
 - **Sub-project A** — Hierarchy tree visualization ✅ SHIPPED 2026-04-17
+- **Sub-project E** — Tools & platforms catalog ✅ SHIPPED 2026-04-17
 - **Sub-project C** — Subagent delegation (biggest architectural change; two-tier structure from W1-W3 is prerequisite)
 - **Sub-project D** — Context system / project-level memory (Decision Log from W2 seeds this)
-- **Sub-project E** — Tools & platforms catalog (independent, can ship parallel to any wave)
 
 ### Post-v3.2 — deferred from earlier roadmap
 
@@ -169,7 +183,7 @@ Remaining:
 ## Key commands
 
 ```bash
-# Run full Python test suite (406 tests — 151 Evidence Pipes + 14 v3.2 W1 + 70 v3.2 W2 + 121 v3.2 W3 + 7 v3.2 W4 + 43 Sub-project A)
+# Run full Python test suite (470 tests — 151 Evidence Pipes + 14 v3.2 W1 + 70 v3.2 W2 + 121 v3.2 W3 + 7 v3.2 W4 + 43 Sub-project A + 64 Sub-project E)
 python3 -m unittest discover tests -v
 
 # Validate all state/tasks/evidence files
