@@ -360,6 +360,90 @@ append_decision(project_id, decision, "forge-decisions.json")
 
 Validator (`validate_decisions`) enforces referential integrity of `decided_by`, `dissenting`, and `related_evidence`.
 
+### Phase 7 deliverable format — Cabinet Verdict + 5 artifacts + Decision Log (v3.2 Wave 2)
+
+Every project deliverable in v3.2 format has this structure:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚒ THE FORGE — FINAL DELIVERABLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT: <title>
+CABINET VERDICT: <GO / NO-GO / ITERATE> at <N>% confidence
+  Decider: <exec> (<role>) — <led|majority|unanimous>
+  Dissent: <exec> — <reason>
+  Reversibility: Type 1 | Type 2
+  Decision id: <dec-...>
+
+EVIDENCE SUMMARY [v3.1 — unchanged]
+  <N> queries · <M> sources cited · quality <X>/5 · conflicts <K>
+
+PRE-MORTEM TOP RISKS [v3.2]
+  1. [F=<score>] <failure mode> — owner <agent>, mitigation
+  2. ...
+  5. ...
+
+CABINET ARTIFACTS [v3.2] (5 items, one per exec)
+  ⚡ Strategy Kernel (Flint — Rumelt): <filled 3-part kernel>
+  📋 Product One-Pager (Cade — Cagan): <Problem / User / Outcome / Non-goals / Release>
+  🏗  Technology Strategy Memo (Helix — Fournier): <3-year horizon + build-vs-buy + tech-debt>
+  💰 Unit Economics Model (Prism — Tunguz/Sacks): <LTV/CAC/payback/contribution margin/Rule of 40>
+  📣 Positioning Document (Dune — Dunford): <5 components>
+
+IC DELIVERABLES [existing v3.0/v3.1]
+  <per-agent Phase 4-6 outputs, unchanged>
+
+DECISION LOG [v3.2]
+  • <dec-id>: <title> (Type <N>, review <date>, status open)
+  • ...
+
+SOURCES APPENDIX [v3.1 — unchanged]
+  <tier-grouped Evidence list>
+```
+
+**Rules:**
+
+1. **Cabinet Verdict is mandatory** when Cabinet Framing has fired (i.e., `forge-tasks.cabinet_framing` is non-null). If no Cabinet Framing ran, skip this section (Q&A-level briefs, simple hires, show-office).
+
+2. **All 5 Cabinet Artifacts must render** when Cabinet Framing fired. If an exec didn't produce (e.g., Helix's memo for a pure marketing brief), include the header + "(not applicable for this project)" — the format stays consistent.
+
+3. **Decision Log section** — contains every decision with `project_id == <current>` from `forge-decisions.json`, sorted by `decided_at` descending. Each entry is one line: id, title, reversibility, review_at, status.
+
+4. **At least one Decision Log entry** must exist for every Phase 7 deliverable with a Cabinet Verdict (Standing Rule 11). If only the Verdict itself was logged, that counts as one.
+
+**How the deliverable is assembled:**
+
+```python
+# Pseudocode for operator reference
+cabinet_framing = tasks.get("cabinet_framing")
+pre_mortem = tasks.get("pre_mortem", [])
+
+verdict = build_cabinet_verdict(cabinet_framing, cabinet_debate_outcome)  # from Phase 3
+
+artifacts = {
+    "strategy_kernel":        produce_strategy_kernel(agent-flnt, cabinet_framing),
+    "product_one_pager":      produce_product_one_pager(agent-cade, cabinet_framing),
+    "tech_strategy_memo":     produce_tech_strategy_memo(agent-helx, phase4_outputs),
+    "unit_economics_model":   produce_unit_economics(agent-prsm, evidence),
+    "positioning_document":   produce_positioning(agent-dune, cabinet_framing, evidence),
+}
+
+decisions = get_project_decisions(project_id, "forge-decisions.json")
+evidence_appendix = render_compact(get_project_evidence(project_id, "forge-evidence.json"))
+
+deliverable = render_v32_deliverable(
+    project_title, verdict, pre_mortem, artifacts,
+    ic_deliverables, decisions, evidence_appendix
+)
+```
+
+The `produce_*` helpers are operator prompts in SKILL.md (they instruct Claude, at protocol runtime, how to assemble each artifact from the relevant agent's brain file + the Cabinet Framing output). They are NOT Python functions — Wave 2 does not implement an artifact-rendering engine. Wave 3 may add JSON rendering for dashboard ingestion.
+
+**What the validator enforces on this section:**
+
+- Standing Rule 11: every Cabinet Verdict must have a corresponding Decision Log entry. This is enforced at validate_decisions time via `project_decision_index[project_id]` non-empty when `cabinet_framing` is non-null.
+- Actually — **this rule is NOT implemented in validator.py in Wave 2** (it requires cross-file validation between forge-tasks and forge-decisions). It's documented here as a runtime invariant; Wave 3 may add automated checking.
+
 ---
 
 ## Evidence Pipes
