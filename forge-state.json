@@ -39,6 +39,24 @@
       "name": "Content",
       "color": "#F1C40F",
       "created": "2026-04-06"
+    },
+    {
+      "id": "dept-product",
+      "name": "Product",
+      "color": "#7E57C2",
+      "created": "2026-04-17"
+    },
+    {
+      "id": "dept-legal",
+      "name": "Legal",
+      "color": "#546E7A",
+      "created": "2026-04-17"
+    },
+    {
+      "id": "dept-finance",
+      "name": "Finance",
+      "color": "#26A69A",
+      "created": "2026-04-17"
     }
   ],
   "agents": [
