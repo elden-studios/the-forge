@@ -241,6 +241,22 @@
       "signal_tag": "FACT"
     },
     {
+      "id": "ev-f8a1c9e6",
+      "claim": "SAMA mandates that money exchange centers obtain complete remitter information for all outgoing international transfers and monitor transactions for suspicious activity reportable to the Financial Intelligence Unit under AML/CTF rules.",
+      "source_url": "https://rulebook.sama.gov.sa/en/3-2-domestic-and-international-money-transfers",
+      "source_title": "3-2) Domestic and International Money Transfers | SAMA Rulebook",
+      "source_type": "primary_government",
+      "quality_score": 5,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-nyxx"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "Obtain complete and accurate information about the remitter for outgoing transfers including name, membership number, address/ID, and transfer purpose. Monitor all transactions to detect patterns of unusual activities.",
+      "confidence": 0.93,
+      "signal_tag": "FACT"
+    },
+    {
       "id": "ev-07b3d4c1",
       "claim": "Saudi Arabia's Vision 2030 Financial Sector Development Program set a target of 70% cashless retail payments by 2025; by 2024 the share had reached 79%, with 12.6 billion non-cash transactions processed that year.",
       "source_url": "https://www.sama.gov.sa/en-US/News/Pages/news-1083.aspx",
@@ -333,6 +349,22 @@
       ],
       "queried_via": "WebSearch",
       "excerpt": "My international transaction is paid dated 07-04-2026 time: 20 AM but still not received. / My Barq wallet account, which has been blocked for almost one month without any resolution.",
+      "confidence": 0.88,
+      "signal_tag": "FACT"
+    },
+    {
+      "id": "ev-d4a6f329",
+      "claim": "Barq users sending to Pakistan and Bangladesh report failed refunds after failed transfers, with support escalation cycles lasting weeks and no money returned.",
+      "source_url": "https://barq-finance.pissedconsumer.com/review.html",
+      "source_title": "156 Barq Finance Reviews | barq.com @ PissedConsumer",
+      "source_type": "user_reviews",
+      "quality_score": 2,
+      "retrieved_at": "2026-04-17T12:00:00Z",
+      "retrieved_by": [
+        "agent-echo"
+      ],
+      "queried_via": "WebSearch",
+      "excerpt": "I send money to Pakistan. My brother's account is closed permanently...Please kindly refund my money. / How many emails do I need to send? Please cancel this transaction of mine so the 50 SAR can be returned to me.",
       "confidence": 0.88,
       "signal_tag": "FACT"
     },
@@ -591,12 +623,14 @@
       "ev-c3f5e218",
       "ev-c9d0e1f2",
       "ev-d2a59f31",
+      "ev-d4a6f329",
       "ev-dd456789",
       "ev-e5b7003a",
       "ev-e5f6a7b8",
       "ev-e5f6b203",
       "ev-f6c8114b",
       "ev-f7e6d5c4",
+      "ev-f8a1c9e6",
       "ev-ff678901"
     ]
   }

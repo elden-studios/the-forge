@@ -1,5 +1,5 @@
 EVIDENCE SUMMARY
-  32 queries across 4 agents   |   35 sources cited
+  32 queries across 4 agents   |   37 sources cited
   Avg quality: 3.5/5              |   Conflicts: 0
   ⚠ Thin evidence: 0                |   Cache hits: 0/32
   Elapsed: 0s

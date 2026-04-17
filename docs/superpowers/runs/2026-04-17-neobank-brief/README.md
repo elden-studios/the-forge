@@ -7,6 +7,45 @@
 
 ---
 
+## Post-review update (Task 15)
+
+**Task 15 fix commit:** `dd6e7f2`
+
+The second formal Code Review Gate blocked the merge and surfaced **2 Critical bugs** that were invisible in the original report:
+
+### C1 — `strip_unsupported_claims` regex gap (Silent no-op on real output)
+
+The original `_CLAIM_RE` only matched `[FACT]` / `[FACT: ev-X]` / `[INFERENCE]` forms. All four agents' actual prose used **naked bracket citations** — `[ev-a3f1c2d7, ev-b7e90014, ev-f8a1c9e6]` — which the regex never touched. Standing Rule 7 enforcement was a complete no-op on the Task 14 deliverable: every naked cite passed through regardless of whether the ID existed.
+
+**What the original report claimed:** "strip_unsupported_claims() ran over all four agent recommendations against the 35 valid Evidence IDs — no claims stripped."
+
+**What was actually true:** The function ran, found zero `[FACT]`/`[INFERENCE]` forms to match, and returned the text unchanged — including the two orphan IDs described below. It was not enforcing anything.
+
+**Fix:** `strip_unsupported_claims` now handles both tagged and naked forms. Mixed-validity naked brackets rewrite inline — valid IDs survive, invalid ones become `⚠ <id> unsupported`.
+
+### C2 — `merge_returns` dedup key was `source_url` alone (Silent evidence loss)
+
+The old dedup keyed on `source_url`. Nyx cited two different excerpts from `rulebook.sama.gov.sa/en/3-2-domestic-and-international-money-transfers` (ev-b7e90014 and ev-f8a1c9e6 — two distinct AML claims). Echo cited two different complaints from `barq-finance.pissedconsumer.com/review.html` (ev-c3f5e218 and ev-d4a6f329). In both cases the second Evidence was silently dropped, producing 35 instead of 37 Evidence — and leaving the agents' prose citing IDs that no longer existed in the merged bundle.
+
+**What the original report said:** "37 → 35 unique Evidence (2 merged out — both were the Barq pissedconsumer.com URL appearing in Echo's return, and one SAMA rulebook URL Nyx cited twice with different excerpts)" and listed this as a "rough edge" rather than a bug. This was wrong — distinct excerpts from the same page are distinct claims; collapsing them is data loss that orphans citations.
+
+**Fix:** Dedup key changed to `(source_url, excerpt)`. Only genuinely-identical (URL + excerpt) Evidence collapse.
+
+### Post-fix metrics
+
+| Metric | First run (buggy) | Re-run (Task 15) |
+|---|---|---|
+| Evidence after dedup | 35 | **37** |
+| Orphan citations in deliverable | 2 (ev-f8a1c9e6, ev-d4a6f329) | **0** |
+| Standing Rule 7 actually enforced | No (silent no-op) | **Yes** |
+| Tests | 142 | **151** (+9 regression tests) |
+
+The re-run pipeline was executed after landing `dd6e7f2`. All 37 citations in the new deliverable resolve to valid Evidence objects. No `⚠ unsupported` markers were emitted — all IDs survived because the C2 fix means none were orphaned.
+
+---
+
+---
+
 ## The brief
 
 > "Launch a mobile-first neobank targeting Saudi expats remitting to South Asia. Evaluate market, regulatory, user, and growth angles."
@@ -46,13 +85,15 @@ Nyx hit primary-government SAMA rulebook URLs at tier-5 quality — that's the S
 
 ### 3. Fan-in merge
 
-`evidence_orchestrator.merge_returns()` deduped by `source_url`:
-- 37 → **35 unique Evidence** (2 merged out — both were the Barq pissedconsumer.com URL appearing in Echo's return, and one SAMA rulebook URL Nyx cited twice with different excerpts)
+`evidence_orchestrator.merge_returns()` deduped by `(source_url, excerpt)` (post-Task 15 fix):
+- 37 → **37 unique Evidence** (0 merged out — all items have distinct (URL, excerpt) pairs)
 - `retrieved_by` arrays grew on merged evidence (none across agents this run — all overlaps were within a single agent)
+
+> **Note:** The first run (before Task 15 fixes) produced 35 after silently dropping ev-f8a1c9e6 and ev-d4a6f329 — distinct excerpts from shared URLs. See "Post-review update (Task 15)" above.
 
 ### 4. Validation
 
-`validator.validate_evidence()` on the merged bundle + current `forge-state.json` → **✅ passed**. All 35 Evidence objects well-formed:
+`validator.validate_evidence()` on the merged bundle + current `forge-state.json` → **✅ passed**. All 37 Evidence objects well-formed:
 - IDs match `ev-[0-9a-f]{8}` regex
 - `source_type` values all in the allowed enum
 - `quality_score` 1-5, `confidence` 0-1
@@ -63,8 +104,8 @@ Nyx hit primary-government SAMA rulebook URLs at tier-5 quality — that's the S
 
 `evidence_orchestrator.append_evidence("proj-003", bundle, "forge-evidence.json")`:
 - Atomic write to `/forge-evidence.json` at repo root
-- Mirror write to `/assets/forge-evidence.json` (confirmed sync — both files carry 35 Evidence)
-- `project_evidence_index["proj-003"]` populated with all 35 IDs
+- Mirror write to `/assets/forge-evidence.json` (confirmed sync — both files carry 37 Evidence)
+- `project_evidence_index["proj-003"]` populated with all 37 IDs
 
 ### 6. Conflict detection
 
@@ -80,7 +121,9 @@ Full deliverable at `./deliverable.md`. Additional artifacts: `summary-block.txt
 
 ### 8. Citation enforcement
 
-`strip_unsupported_claims()` ran over all four agent recommendations against the 35 valid Evidence IDs — **no claims stripped**. Every `[FACT]` / `[INFERENCE]` citation in the agents' prose pointed to a real Evidence object. This proves the subagent JSON contract held.
+`strip_unsupported_claims()` ran over all four agent recommendations against the 37 valid Evidence IDs — **no claims stripped**. All citations in the agents' prose (which use naked `[ev-X, ev-Y]` bracket form) resolved to real Evidence objects.
+
+> **Correction from first run:** The original report claimed enforcement passed with "no claims stripped" — which was literally true but misleading. The C1 regex gap meant the function was not examining naked bracket forms at all; it only matched `[FACT: ev-X]` tagged forms (which agents don't use). The post-Task 15 fix now enforces both forms. On the re-run, no markers were emitted because the C2 fix means no IDs are orphaned — all 37 cited IDs are present in the bundle.
 
 ---
 
@@ -88,7 +131,7 @@ Full deliverable at `./deliverable.md`. Additional artifacts: `summary-block.txt
 
 ```
 EVIDENCE SUMMARY
-  32 queries across 4 agents   |   35 sources cited
+  32 queries across 4 agents   |   37 sources cited
   Avg quality: 3.5/5              |   Conflicts: 0
   ⚠ Thin evidence: 0                |   Cache hits: 0/32
   Elapsed: 0s
@@ -101,15 +144,15 @@ EVIDENCE SUMMARY
 ## What the dashboard looks like with real evidence
 
 **Mission Control tab — Evidence block:**
-- 35 ITEMS badge
-- Queries: 35 / 40 (under budget)
-- Sources cited: 35
+- 37 ITEMS badge (was 35 before Task 15 fixes)
+- Queries: 32 / 40 (under budget)
+- Sources cited: 37
 - Avg quality: 3.5 ★
 - Freshness dots: all four GREEN (Vex, Nyx, Echo, Talon all contributed fresh evidence)
 
 **Sources tab (new in Task 12):**
-- 35 rows with ID, Claim, Source (clickable, scheme-validated), Tier stars, Agent, Retrieved date
-- Filter to Echo → 7 results (user signal, mix of ⭐⭐ app stores + ⭐⭐⭐ reputable media)
+- 37 rows with ID, Claim, Source (clickable, scheme-validated), Tier stars, Agent, Retrieved date
+- Filter to Echo → 8 results (user signal, mix of ⭐⭐ app stores + ⭐⭐⭐ reputable media — was 7 before ev-d4a6f329 was restored by C2 fix)
 - Export buttons render MD / CSV / JSON downloads
 - Result count updates live as filters change
 
@@ -143,20 +186,22 @@ Every numeric claim in every agent's prose cites an Evidence ID. Every Evidence 
 
 ## Metrics vs. success criteria
 
-| Spec criterion | Target | Actual | Status |
-|---|---|---|---|
-| Brief dispatches in parallel | All relevant agents | 4/4 activated, all parallel | ✅ |
-| Evidence schema validates | 100% | 35/35 pass validator | ✅ |
-| Sources Appendix renders | Deliverable format | `render_compact` + `render_markdown` output to disk | ✅ |
-| Dashboard reflects real evidence | Live on localhost | 35 ITEMS badge, green freshness dots, Sources tab populated | ✅ |
-| No existing tests broken | 142/142 | 142/142 green | ✅ |
-| Real project validator pass | OK | OK | ✅ |
-| `forge-evidence.json` + mirror in sync | Same content | Both have 35 Evidence, same index | ✅ |
-| No `[FACT]` without Evidence ID in output | 0 stripped | 0 stripped (all cited properly) | ✅ |
-| Budgets respected | ≤ 40 queries | 32 | ✅ |
-| Cost visibility | Per-run metrics | `stats.json` emitted | ✅ |
+| Spec criterion | Target | First run (pre-Task 15) | Post-Task 15 re-run | Status |
+|---|---|---|---|---|
+| Brief dispatches in parallel | All relevant agents | 4/4 activated, all parallel | Same | ✅ |
+| Evidence schema validates | 100% | 35/35 pass validator | 37/37 pass validator | ✅ |
+| Sources Appendix renders | Deliverable format | `render_compact` + `render_markdown` output | Same | ✅ |
+| Dashboard reflects real evidence | Live on localhost | 35 ITEMS badge | 37 ITEMS badge | ✅ |
+| No existing tests broken | 142/142 | 142/142 green | 151/151 green | ✅ |
+| Real project validator pass | OK | OK | OK | ✅ |
+| `forge-evidence.json` + mirror in sync | Same content | Both had 35 Evidence | Both have 37 Evidence | ✅ |
+| No unsupported citation in output | 0 orphans | **FAILED** — 2 orphan IDs (ev-f8a1c9e6, ev-d4a6f329); enforcement was a regex no-op | **0 orphans — enforcement working** | ✅ (fixed in Task 15) |
+| Budgets respected | ≤ 40 queries | 32 | 32 | ✅ |
+| Cost visibility | Per-run metrics | `stats.json` emitted | `stats.json` emitted | ✅ |
 
-**All ten success criteria met.**
+**Nine of ten criteria met in the first run. All ten met after Task 15 fixes.**
+
+The "No unsupported citation" criterion failed the first run due to C1 (regex gap silencing enforcement) and C2 (dedup collision orphaning IDs). Both were caught by the formal Code Review Gate, not by the original test suite.
 
 ---
 

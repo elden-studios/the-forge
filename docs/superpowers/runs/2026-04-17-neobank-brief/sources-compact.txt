@@ -1,10 +1,11 @@
-⭐⭐⭐⭐⭐ Primary Government (8)
+⭐⭐⭐⭐⭐ Primary Government (9)
   [ev-c1d2e3f4] World Bank — Remittance Prices Worldwide Issue 49, Q1 2025 — https://remittanceprices.worldbank.org/sites/default/files/rpw_main_report_and_annex_q125_1_0.pdf
   [ev-a3f1c2d7] Implementing Regulations of Payments and Payment Services Law | SAMA Rulebook — https://rulebook.sama.gov.sa/en/implementing-regulations-payments-and-payment-services-law
   [ev-b7e90014] 3-2) Domestic and International Money Transfers | SAMA Rulebook — https://rulebook.sama.gov.sa/en/3-2-domestic-and-international-money-transfers
   [ev-c1d4887a] Regulatory Sandbox Framework | Saudi Central Bank (SAMA) — https://www.sama.gov.sa/en-US/Regulatory%20Sandbox/Pages/Regulatory-Sandbox-Framework.aspx
   [ev-d2a59f31] Guidelines to Apply for Payment Services Providers License | SAMA Rulebook — https://rulebook.sama.gov.sa/en/guidelines-apply-payment-services-providers-license
   [ev-e5f6b203] Approved Electronic Services for Identity Verification (KYC) | SAMA Rulebook — https://rulebook.sama.gov.sa/en/approved-electronic-services-identity-verification-kyc
+  [ev-f8a1c9e6] 3-2) Domestic and International Money Transfers | SAMA Rulebook — https://rulebook.sama.gov.sa/en/3-2-domestic-and-international-money-transfers
   [ev-07b3d4c1] SAMA: E-Payments Account for 79% of Total Retail Payments in 2024 — https://www.sama.gov.sa/en-US/News/Pages/news-1083.aspx
   [ev-19c4e77b] 2024 Annual Report for the Financial Sector Development Program | Vision 2030 — https://www.vision2030.gov.sa/media/wpsn44ab/fsdp_annual-report-2024_-en.pdf
 ⭐⭐⭐⭐ Primary Company (4)
@@ -33,7 +34,8 @@
   [ev-33ab4cde] Key Ingredients for a Successful Fintech App Growth Strategy — Z2A Digital — https://www.z2adigital.com/blog-content/fintech-app-growth-strategies
   [ev-55cd6ef0] New fintech Barq led by former STC Pay CEO launches in Saudi Arabia — Fintech Futures — https://www.fintechfutures.com/paytech/new-fintech-barq-led-by-former-stc-pay-ceo-launches-in-saudi-arabia
   [ev-77ef8012] Barq TikTok — @thesaudiboom — https://www.tiktok.com/@thesaudiboom/video/7408950616497655041
-⭐⭐ User / Community (3)
+⭐⭐ User / Community (4)
   [ev-b2e4d107] stc pay — App Store (Saudi Arabia) — https://apps.apple.com/sa/app/stc-pay/id1364197140
   [ev-c3f5e218] 156 Barq Finance Reviews | barq.com @ PissedConsumer — https://barq-finance.pissedconsumer.com/review.html
+  [ev-d4a6f329] 156 Barq Finance Reviews | barq.com @ PissedConsumer — https://barq-finance.pissedconsumer.com/review.html
   [ev-07d92250] alinma pay — Apps on Google Play — https://play.google.com/store/apps/details?id=com.alinma.pay.consumer&hl=en_US

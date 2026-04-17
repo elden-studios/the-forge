@@ -3,11 +3,11 @@
   "project_id": "proj-003",
   "elapsed_sec": 0,
   "total_queries": 32,
-  "total_evidence_after_dedup": 35,
+  "total_evidence_after_dedup": 37,
   "total_evidence_before_dedup": 37,
   "cache_hits": 0,
   "conflicts": 0,
-  "avg_quality_real": 3.4857142857142858,
+  "avg_quality_real": 3.4864864864864864,
   "thin_evidence": 0,
   "per_agent": {
     "agent-vexx": {

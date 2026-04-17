@@ -8,7 +8,7 @@
 
 ```
 EVIDENCE SUMMARY
-  32 queries across 4 agents   |   35 sources cited
+  32 queries across 4 agents   |   37 sources cited
   Avg quality: 3.5/5              |   Conflicts: 0
   ⚠ Thin evidence: 0                |   Cache hits: 0/32
   Elapsed: 0s
@@ -35,7 +35,7 @@ _No numerically-divergent claims surfaced by the v1 rule-based detector._
 
 ## Sources Appendix
 
-### ⭐⭐⭐⭐⭐ Primary Government (8)
+### ⭐⭐⭐⭐⭐ Primary Government (9)
 
 - **[ev-c1d2e3f4] World Bank — Remittance Prices Worldwide Issue 49, Q1 2025**
   - URL: https://remittanceprices.worldbank.org/sites/default/files/rpw_main_report_and_annex_q125_1_0.pdf
@@ -66,6 +66,11 @@ _No numerically-divergent claims surfaced by the v1 rule-based detector._
   - URL: https://rulebook.sama.gov.sa/en/approved-electronic-services-identity-verification-kyc
   - Retrieved: 2026-04-17 by agent-nyxx
   - Excerpt: > Utilizing the electronic service approved by the National Information Center enhances the support and effectiveness of the supervisory process; there is no need for the customer to visit the bank to verify their identification when renewing or updating their account.
+
+- **[ev-f8a1c9e6] 3-2) Domestic and International Money Transfers | SAMA Rulebook**
+  - URL: https://rulebook.sama.gov.sa/en/3-2-domestic-and-international-money-transfers
+  - Retrieved: 2026-04-17 by agent-nyxx
+  - Excerpt: > Obtain complete and accurate information about the remitter for outgoing transfers including name, membership number, address/ID, and transfer purpose. Monitor all transactions to detect patterns of unusual activities.
 
 - **[ev-07b3d4c1] SAMA: E-Payments Account for 79% of Total Retail Payments in 2024**
   - URL: https://www.sama.gov.sa/en-US/News/Pages/news-1083.aspx
@@ -201,7 +206,7 @@ _No numerically-divergent claims surfaced by the v1 rule-based detector._
   - Retrieved: 2026-04-17 by agent-taln
   - Excerpt: > Barq provides a financial app that allows global money transfers to over 200 countries and offers virtual and physical Visa cards with zero annual or international fees.
 
-### ⭐⭐ User / Community (3)
+### ⭐⭐ User / Community (4)
 
 - **[ev-b2e4d107] stc pay — App Store (Saudi Arabia)**
   - URL: https://apps.apple.com/sa/app/stc-pay/id1364197140
@@ -212,6 +217,11 @@ _No numerically-divergent claims surfaced by the v1 rule-based detector._
   - URL: https://barq-finance.pissedconsumer.com/review.html
   - Retrieved: 2026-04-17 by agent-echo
   - Excerpt: > My international transaction is paid dated 07-04-2026 time: 20 AM but still not received. / My Barq wallet account, which has been blocked for almost one month without any resolution.
+
+- **[ev-d4a6f329] 156 Barq Finance Reviews | barq.com @ PissedConsumer**
+  - URL: https://barq-finance.pissedconsumer.com/review.html
+  - Retrieved: 2026-04-17 by agent-echo
+  - Excerpt: > I send money to Pakistan. My brother's account is closed permanently...Please kindly refund my money. / How many emails do I need to send? Please cancel this transaction of mine so the 50 SAR can be returned to me.
 
 - **[ev-07d92250] alinma pay — Apps on Google Play**
   - URL: https://play.google.com/store/apps/details?id=com.alinma.pay.consumer&hl=en_US
