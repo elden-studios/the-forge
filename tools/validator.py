@@ -165,6 +165,40 @@ def validate_tasks(tasks, state):
                         f"(expected one of {sorted(ALLOWED_MITIGATION_PHASES)})"
                     )
 
+    # Cabinet Framing (Wave 2 — Phase 1.5)
+    CANONICAL_LENSES = {
+        "strategic_kernel", "product_shape", "build_class",
+        "economic_shape", "market_bet"
+    }
+    cf = tasks.get("cabinet_framing")
+    if cf is not None:
+        if not isinstance(cf, dict):
+            errors.append(f"cabinet_framing must be a dict, got: {type(cf).__name__}")
+        else:
+            fb = cf.get("framing_brief")
+            if not fb or not isinstance(fb, str):
+                errors.append("cabinet_framing.framing_brief missing or not a string")
+            lenses = cf.get("lenses")
+            if lenses is None:
+                errors.append("cabinet_framing.lenses is required")
+            elif not isinstance(lenses, dict):
+                errors.append(
+                    f"cabinet_framing.lenses must be a dict, got: {type(lenses).__name__}"
+                )
+            else:
+                present = set(lenses.keys())
+                missing = CANONICAL_LENSES - present
+                extra = present - CANONICAL_LENSES
+                for m in sorted(missing):
+                    errors.append(f"cabinet_framing.lenses missing required lens: {m}")
+                for e in sorted(extra):
+                    errors.append(f"cabinet_framing.lenses has unknown lens key: {e}")
+                for name, text in lenses.items():
+                    if name in CANONICAL_LENSES and (not text or not isinstance(text, str)):
+                        errors.append(
+                            f"cabinet_framing.lenses.{name} must be a non-empty string"
+                        )
+
     return (len(errors) == 0, errors)
 
 

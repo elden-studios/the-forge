@@ -1026,6 +1026,92 @@ class TestV32PortfolioInvariants(unittest.TestCase):
                          f"IC {ic['name']} reports_to {ic.get('reports_to')} which is not an executive")
 
 
+class TestValidateCabinetFraming(unittest.TestCase):
+    """validate_tasks enforces cabinet_framing schema when present."""
+
+    def _state(self):
+        return {
+            "agents": [
+                {"id": "agent-flnt", "name": "Flint", "status": "active"},
+            ]
+        }
+
+    def _base_tasks(self, cabinet_framing=None):
+        return {
+            "tasks": [],
+            "handoffs": [],
+            "current_phase": 0,
+            "cabinet_framing": cabinet_framing,
+        }
+
+    def test_cabinet_framing_absent_passes(self):
+        from validator import validate_tasks
+        tasks = {"tasks": [], "handoffs": [], "current_phase": 0}
+        ok, errors = validate_tasks(tasks, self._state())
+        self.assertTrue(ok, errors)
+
+    def test_cabinet_framing_valid_structure_passes(self):
+        from validator import validate_tasks
+        cf = {
+            "framing_brief": "1-page synthesis",
+            "lenses": {
+                "strategic_kernel": "Diagnosis...",
+                "product_shape": "User is...",
+                "build_class": "Greenfield",
+                "economic_shape": "Unit econ...",
+                "market_bet": "Position as..."
+            }
+        }
+        ok, errors = validate_tasks(self._base_tasks(cabinet_framing=cf), self._state())
+        self.assertTrue(ok, errors)
+
+    def test_cabinet_framing_missing_lens_fails(self):
+        from validator import validate_tasks
+        cf = {
+            "framing_brief": "x",
+            "lenses": {
+                "strategic_kernel": "x",
+            }
+        }
+        ok, errors = validate_tasks(self._base_tasks(cabinet_framing=cf), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("product_shape" in e for e in errors), errors)
+
+    def test_cabinet_framing_extra_lens_key_fails(self):
+        from validator import validate_tasks
+        cf = {
+            "framing_brief": "x",
+            "lenses": {
+                "strategic_kernel": "x", "product_shape": "x", "build_class": "x",
+                "economic_shape": "x", "market_bet": "x",
+                "seventh_lens": "oops"
+            }
+        }
+        ok, errors = validate_tasks(self._base_tasks(cabinet_framing=cf), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("seventh_lens" in e for e in errors), errors)
+
+    def test_cabinet_framing_missing_framing_brief_fails(self):
+        from validator import validate_tasks
+        cf = {
+            "lenses": {
+                "strategic_kernel": "x", "product_shape": "x",
+                "build_class": "x", "economic_shape": "x", "market_bet": "x"
+            }
+        }
+        ok, errors = validate_tasks(self._base_tasks(cabinet_framing=cf), self._state())
+        self.assertFalse(ok)
+        self.assertTrue(any("framing_brief" in e.lower() for e in errors), errors)
+
+    def test_cabinet_framing_non_dict_fails(self):
+        from validator import validate_tasks
+        ok, errors = validate_tasks(
+            self._base_tasks(cabinet_framing="not a dict"), self._state()
+        )
+        self.assertFalse(ok)
+        self.assertTrue(any("cabinet_framing" in e.lower() for e in errors), errors)
+
+
 class TestValidatePreMortem(unittest.TestCase):
     """validate_tasks enforces pre_mortem schema when present."""
 
