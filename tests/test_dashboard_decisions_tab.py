@@ -22,10 +22,12 @@ class TestDecisionsTabShell(unittest.TestCase):
         self.assertRegex(self.src, r'id="panel-decisions"', "panel div id=panel-decisions missing")
 
     def test_switchtab_array_includes_decisions(self):
+        # Array may grow beyond 'decisions' as new tabs are added (e.g. 'org-tree').
+        # Assert the prefix is present; trailing entries are accepted.
         self.assertRegex(
             self.src,
-            r"\['mc'\s*,\s*'network'\s*,\s*'kanban'\s*,\s*'timeline'\s*,\s*'sources'\s*,\s*'decisions'\]",
-            "switchTab tab-name array must be extended with 'decisions'"
+            r"\['mc'\s*,\s*'network'\s*,\s*'kanban'\s*,\s*'timeline'\s*,\s*'sources'\s*,\s*'decisions'",
+            "switchTab tab-name array must include 'decisions' (after sources)"
         )
 
     def test_switchtab_handler_for_decisions(self):

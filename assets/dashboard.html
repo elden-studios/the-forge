@@ -152,6 +152,28 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 .decisions-table .badge.status-committed{background:#444;color:var(--muted)}
 .decisions-table .badge.status-reversed{background:#4a2a2a;color:var(--red)}
 .decisions-empty{text-align:center;padding:24px;color:var(--muted);font-size:12px;font-style:italic}
+
+/* Org Tree (Sub-project A) */
+.org-tree-container{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto}
+.org-tree-legend{margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+.legend-item{display:flex;align-items:center;gap:6px}
+.legend-tier{width:14px;height:14px;border-radius:3px}
+.legend-tier.t0{background:var(--brand)}
+.legend-tier.t1{background:#60a0ff}
+.legend-tier.t2{background:#888}
+.legend-line{width:24px;height:2px}
+.legend-line.solid{background:var(--muted)}
+.legend-line.rivalry{background:var(--red);background-image:linear-gradient(90deg,var(--red) 50%,transparent 50%);background-size:6px 2px}
+.org-node rect{fill:var(--card);stroke:var(--border);stroke-width:1.5}
+.org-node.tier-0 rect{stroke:var(--brand);stroke-width:2}
+.org-node.tier-1 rect{stroke:#60a0ff;stroke-width:2}
+.org-node.tier-2 rect{stroke:#666}
+.org-node text.name{fill:var(--text);font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace}
+.org-node text.title{fill:var(--muted);font-size:10px;font-family:'JetBrains Mono',monospace}
+.org-node .dept-strip{stroke:none}
+.org-edge{stroke:var(--muted);stroke-width:1.5;fill:none}
+.org-edge.rivalry{stroke:var(--red);stroke-dasharray:4 3;stroke-width:1.2}
+.org-tree-empty{text-align:center;padding:40px;color:var(--muted);font-size:12px;font-style:italic}
 </style>
 </head>
 <body>
@@ -169,6 +191,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
   <div class="tab" onclick="switchTab('timeline')">Timeline</div>
   <div class="tab" id="tab-sources" onclick="switchTab('sources')">Sources</div>
   <div class="tab" id="tab-decisions" onclick="switchTab('decisions')">Decisions</div>
+  <div class="tab" id="tab-org-tree" onclick="switchTab('org-tree')">Org Tree</div>
 </div>
 
 <div class="content">
@@ -318,6 +341,20 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       <tbody id="decisions-tbody"></tbody>
     </table>
   </div>
+
+  <!-- Org Tree (Sub-project A) -->
+  <div class="panel" id="panel-org-tree">
+    <div class="org-tree-container">
+      <svg id="org-tree-svg" width="100%" height="720" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="org-tree-legend">
+      <span class="legend-item"><span class="legend-tier t0"></span> Root (CSO)</span>
+      <span class="legend-item"><span class="legend-tier t1"></span> C-Suite</span>
+      <span class="legend-item"><span class="legend-tier t2"></span> IC</span>
+      <span class="legend-item"><span class="legend-line solid"></span> Reports to</span>
+      <span class="legend-item"><span class="legend-line rivalry"></span> Rivalry</span>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -374,13 +411,14 @@ function getAgentStatus(id) {
 // ═══════════════════════════════════════
 function switchTab(id) {
   document.querySelectorAll('.tab').forEach((t,i) => {
-    t.classList.toggle('active', ['mc','network','kanban','timeline','sources','decisions'][i] === id);
+    t.classList.toggle('active', ['mc','network','kanban','timeline','sources','decisions','org-tree'][i] === id);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
   if (id === 'network') renderNetwork();
   if (id === 'sources') fetchEvidence().then(d => renderSourcesTab(d || { evidence: [] }));
   if (id === 'decisions') fetchDecisions().then(() => renderDecisionsTab(_decisionsDoc));
+  if (id === 'org-tree') renderOrgTree(STATE);
 }
 
 // ═══════════════════════════════════════
@@ -391,6 +429,7 @@ function render() {
   renderMissionControl();
   renderKanban();
   renderTimeline();
+  if (typeof renderOrgTree === 'function') renderOrgTree(STATE);
 }
 
 // ── HEADER (Phase Bar) ──
@@ -1312,6 +1351,214 @@ function exportJson(items) {
   }
   window.ensureDecisionFilterListeners = attach;
 })();
+
+// ═══════════════════════════════════════
+// ═══════════════════════════════════════
+// ORG TREE (Sub-project A) — JS mirror of tools/org_tree.py + SVG renderer
+// ═══════════════════════════════════════
+function getOrgTree(state) {
+  // JS mirror of tools.org_tree.get_org_tree. Same return shape.
+  const agents = (state && state.agents) || [];
+  const byId = {};
+  agents.forEach(a => { byId[a.id] = a; });
+  const cabExecs = (state && state.cabinet && state.cabinet.executives) || [];
+
+  if (agents.length === 0) {
+    return { root: null, orphans: [], rivalry_edges: [] };
+  }
+
+  // Orphans: reports_to points at a missing id
+  const orphans = agents.filter(a =>
+    a.reports_to != null && !byId[a.reports_to]
+  );
+  const orphanIds = new Set(orphans.map(o => o.id));
+
+  // Children map
+  const children = {};
+  for (const a of agents) {
+    if (orphanIds.has(a.id)) continue;
+    const parent = (a.reports_to === undefined) ? null : a.reports_to;
+    if (parent === null) continue;
+    if (!children[parent]) children[parent] = [];
+    children[parent].push(a.id);
+  }
+
+  // Root pick: no reports_to; tiebreak cabinet.executives[0]
+  const rootCandidates = agents.filter(a => a.reports_to == null).map(a => a.id);
+  let rootId = null;
+  if (rootCandidates.length === 1) {
+    rootId = rootCandidates[0];
+  } else if (rootCandidates.length > 1) {
+    const candSet = new Set(rootCandidates);
+    rootId = cabExecs.find(id => candSet.has(id)) || rootCandidates[0];
+  }
+
+  function buildSubtree(agent, tier) {
+    const kids = (children[agent.id] || []).slice().sort();
+    return {
+      id: agent.id,
+      name: agent.name || '',
+      title: agent.title || '',
+      role: agent.role || '',
+      department_id: agent.department_id || '',
+      tier: tier,
+      children: kids.map(cid => buildSubtree(byId[cid], tier + 1))
+    };
+  }
+
+  const root = rootId ? buildSubtree(byId[rootId], 0) : null;
+
+  // Rivalry edges: mutual-only, deduped, scale = cabinet|ic
+  const seen = new Set();
+  const edges = [];
+  for (const a of agents) {
+    const arr = a.rivalries || [];
+    for (const bId of arr) {
+      const b = byId[bId];
+      if (!b) continue;
+      if (!(b.rivalries || []).includes(a.id)) continue;
+      const key = [a.id, bId].sort().join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const [lo, hi] = key.split('|');
+      const scale = (a.role === 'executive' && b.role === 'executive') ? 'cabinet' : 'ic';
+      edges.push({ a: lo, b: hi, scale });
+    }
+  }
+
+  return { root, orphans, rivalry_edges: edges };
+}
+
+function _orgEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function bezierPath(from, to) {
+  const midY = (from.y + to.y) / 2;
+  return `M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`;
+}
+
+function layoutTree(root, containerW, nodes, edges, deptColor) {
+  // Breadth-first collection by tier
+  const tierBuckets = {};
+  function collect(node) {
+    if (!tierBuckets[node.tier]) tierBuckets[node.tier] = [];
+    tierBuckets[node.tier].push(node);
+    for (const c of (node.children || [])) collect(c);
+  }
+  collect(root);
+
+  const yBand = (tier) => 60 + tier * 180;
+
+  // Position tier-0 (root) centered, then for tier N > 0, cluster children
+  // under their parent's x when possible; fall back to even spread.
+  const positioned = {};  // id -> {x, y}
+  const tier0 = tierBuckets[0] || [];
+  tier0.forEach(m => {
+    positioned[m.id] = { x: containerW / 2 - 80, y: yBand(0) };
+  });
+
+  const tiers = Object.keys(tierBuckets).map(Number).sort((a, b) => a - b);
+  for (const t of tiers) {
+    if (t === 0) continue;
+    const members = tierBuckets[t];
+    const N = members.length;
+    if (N === 0) continue;
+    const spacing = Math.max(180, (containerW - 160) / N);
+    members.forEach((m, i) => {
+      positioned[m.id] = {
+        x: 80 + i * spacing,
+        y: yBand(t),
+      };
+    });
+  }
+
+  // Build node records
+  function pushNode(node) {
+    const p = positioned[node.id];
+    nodes.push({
+      id: node.id,
+      tier: node.tier,
+      name: node.name,
+      title: node.title,
+      x: p.x,
+      y: p.y,
+      deptColor: deptColor(node.department_id),
+    });
+    for (const c of (node.children || [])) pushNode(c);
+  }
+  pushNode(root);
+
+  // Build edges from parent->child relationships
+  function walkEdges(node) {
+    const parent = nodes.find(n => n.id === node.id);
+    for (const c of (node.children || [])) {
+      const child = nodes.find(n => n.id === c.id);
+      if (parent && child) {
+        edges.push({
+          from: { x: parent.x + 80, y: parent.y + 60 },
+          to:   { x: child.x + 80,  y: child.y },
+        });
+      }
+      walkEdges(c);
+    }
+  }
+  walkEdges(root);
+}
+
+function renderOrgTree(state) {
+  const svg = document.getElementById('org-tree-svg');
+  if (!svg) return;
+  svg.innerHTML = '';
+  const tree = getOrgTree(state);
+  if (!tree.root) {
+    svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#8A8070" font-family="JetBrains Mono" font-size="12">No org tree — no root found (agent with reports_to=null).</text>';
+    return;
+  }
+  const depts = (state && state.departments) || [];
+  const deptColor = (id) => {
+    const d = depts.find(d => d.id === id);
+    return (d && d.color) || '#888';
+  };
+
+  const containerW = Math.max(1000, (svg.clientWidth || 0));
+  const nodes = [];
+  const edges = [];
+  layoutTree(tree.root, containerW, nodes, edges, deptColor);
+
+  const maxTier = nodes.reduce((m, n) => Math.max(m, n.tier), 0);
+  const svgW = Math.max(containerW, Math.max(...nodes.map(n => n.x + 180)));
+  const svgH = (maxTier + 1) * 180 + 80;
+  svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+  svg.setAttribute('height', svgH);
+
+  // Edges first (behind nodes)
+  let edgeHtml = '<g class="edges">';
+  for (const e of edges) {
+    edgeHtml += `<path class="org-edge" d="${bezierPath(e.from, e.to)}"/>`;
+  }
+  for (const r of tree.rivalry_edges) {
+    const na = nodes.find(n => n.id === r.a);
+    const nb = nodes.find(n => n.id === r.b);
+    if (!na || !nb) continue;
+    if (na.tier !== nb.tier) continue;  // peer rivalries only
+    const [left, right] = na.x <= nb.x ? [na, nb] : [nb, na];
+    edgeHtml += `<path class="org-edge rivalry" d="M ${left.x + 160} ${left.y + 30} L ${right.x} ${right.y + 30}"/>`;
+  }
+  edgeHtml += '</g>';
+
+  // Nodes
+  const nodeHtml = nodes.map(n => `<g class="org-node tier-${n.tier}" transform="translate(${n.x}, ${n.y})">
+    <rect rx="14" width="160" height="60"/>
+    <rect class="dept-strip" width="160" height="4" fill="${_orgEsc(n.deptColor)}"/>
+    <text class="name" x="12" y="28">${_orgEsc(n.name)}</text>
+    <text class="title" x="12" y="46">${_orgEsc(n.title || '')}</text>
+  </g>`).join('');
+
+  svg.innerHTML = edgeHtml + nodeHtml;
+}
 
 // ═══════════════════════════════════════
 // AUTO-REFRESH
