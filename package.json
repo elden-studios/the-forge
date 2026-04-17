@@ -1,7 +1,7 @@
 {
   "name": "the-forge",
-  "version": "1.0.0",
-  "description": "AI-powered virtual company of 9 specialized agents for product strategy, market research, UX design, technical architecture, growth, and content.",
+  "version": "1.1.0",
+  "description": "AI-powered virtual company of 9 specialized agents for product strategy. v3.1 Evidence Pipes: 4 research agents fan out via real WebSearch in parallel, return cited Evidence with quality grading, conflict detection, and a Sources Appendix shipped with every deliverable.",
   "author": "Elden Studios",
   "license": "MIT",
   "repository": {
@@ -16,6 +16,12 @@
     "market-research",
     "saudi-market",
     "brainstorming",
-    "pixel-art"
+    "pixel-art",
+    "evidence-pipes",
+    "citations",
+    "websearch",
+    "parallel-dispatch",
+    "source-grading",
+    "conflict-detection"
   ]
 }
