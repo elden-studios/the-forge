@@ -64,14 +64,17 @@ const PA = {
 // CONSTANTS
 // ═══════════════════════════════════════════════════════
 const ROOM_W=220, ROOM_H=210, HALL_H=52, WALL=8, DOOR_W=32;
-const COLS=3, ROWS=2;
+const COLS=3;
+const ROWS=3;
 const MARGIN=12; // outer margin
 const TOTAL_W = MARGIN*2 + COLS*ROOM_W + (COLS-1)*WALL;
 const BREAK_W=180, BREAK_H=130;
 const ROW0_Y = MARGIN;
-const HALL_Y = ROW0_Y + ROOM_H + WALL;
-const ROW1_Y = HALL_Y + HALL_H + WALL;
-const TOTAL_H = ROW1_Y + ROOM_H + MARGIN + WALL;
+const HALL_Y  = ROW0_Y + ROOM_H + WALL;
+const ROW1_Y  = HALL_Y + HALL_H + WALL;
+const HALL2_Y = ROW1_Y + ROOM_H + WALL;
+const ROW2_Y  = HALL2_Y + HALL_H + WALL;
+const TOTAL_H = ROW2_Y + ROOM_H + MARGIN + WALL;
 const CPX=3, CH_W=16, CH_H=24;
 
 // Wall color
@@ -91,10 +94,11 @@ const FLOORS = {
 };
 
 // Department info (order maps to grid position)
-const DEPT_ORDER = ['dept-strt','dept-rsch','dept-dsgn','dept-grwt','dept-engr','dept-cont'];
+const DEPT_ORDER = ['dept-strt','dept-rsch','dept-dsgn','dept-grwt','dept-engr','dept-cont','dept-product','dept-legal','dept-finance'];
 const DEPT_FLOOR = {
   'dept-strt':'carpet','dept-rsch':'lino','dept-dsgn':'wood',
-  'dept-grwt':'linoG','dept-engr':'concrete','dept-cont':'carpetS'
+  'dept-grwt':'linoG','dept-engr':'concrete','dept-cont':'carpetS',
+  'dept-product':'wood','dept-legal':'tile','dept-finance':'concrete'
 };
 
 // Prop colors
@@ -129,24 +133,29 @@ class Layout {
     this.W = TOTAL_W;
     this.H = TOTAL_H;
 
-    // Room positions (grid: col 0-2, row 0-1)
+    // Room positions (grid: col 0-2, row 0-2)
     this.rooms = {};
     DEPT_ORDER.forEach((did,i)=>{
       const col=i%COLS, row=Math.floor(i/COLS);
       const x = MARGIN + col*(ROOM_W+WALL);
-      const y = row===0 ? ROW0_Y : ROW1_Y;
+      const y = [ROW0_Y, ROW1_Y, ROW2_Y][row];
       this.rooms[did]={x,y,w:ROOM_W,h:ROOM_H,col,row};
     });
 
-    // Hallway
+    // Hallways (two: between row 0/1 and between row 1/2)
     this.hallX = MARGIN;
     this.hallY = HALL_Y;
     this.hallW = COLS*ROOM_W+(COLS-1)*WALL;
     this.hallH = HALL_H;
+    // Second hallway (row 1 ↔ row 2)
+    this.hall2X = MARGIN;
+    this.hall2Y = HALL2_Y;
+    this.hall2W = this.hallW;
+    this.hall2H = HALL_H;
 
-    // Break room (attached to bottom-right)
+    // Break room (attached below bottom row, right column)
     this.breakX = MARGIN + 2*(ROOM_W+WALL);
-    this.breakY = ROW1_Y + ROOM_H + WALL;
+    this.breakY = ROW2_Y + ROOM_H + WALL;
     this.breakW = ROOM_W;
     this.breakH = BREAK_H;
     this.H = Math.max(this.H, this.breakY + this.breakH + MARGIN);
@@ -460,9 +469,13 @@ class Scene {
     const room=this.L.rooms[roomId];if(!room)return null;
     const row=room.row;
     const doorX=room.x+room.w/2;
-    // Row 0 rooms: door is at bottom (into hallway)
-    // Row 1 rooms: door is at top (into hallway)
-    const doorY=row===0 ? HALL_Y+4 : HALL_Y+HALL_H-4;
+    // Row 0 rooms:  door at bottom → enters hallway 1
+    // Row 1 rooms:  door at top    → enters hallway 1 (we pick hall 1 as the canonical exit)
+    // Row 2 rooms:  door at top    → enters hallway 2
+    let doorY;
+    if(row===0) doorY = HALL_Y + 4;               // top hallway, near top edge
+    else if(row===1) doorY = HALL_Y + HALL_H - 4; // top hallway, near bottom edge
+    else doorY = HALL2_Y + HALL_H - 4;            // bottom hallway (row 2 exits here)
     return {x:doorX, y:doorY};
   }
 
@@ -608,12 +621,15 @@ class Scene {
       if (agent) activeDepts.add(agent.department_id);
     });
     const DEPT_GLOW = {
-      'dept-strt': 'rgba(231,76,60,0.06)',
-      'dept-rsch': 'rgba(155,89,182,0.06)',
-      'dept-dsgn': 'rgba(26,188,156,0.06)',
-      'dept-grwt': 'rgba(46,204,113,0.06)',
-      'dept-engr': 'rgba(52,152,219,0.06)',
-      'dept-cont': 'rgba(241,196,15,0.06)'
+      'dept-strt':    'rgba(231,76,60,0.06)',
+      'dept-rsch':    'rgba(155,89,182,0.06)',
+      'dept-dsgn':    'rgba(26,188,156,0.06)',
+      'dept-grwt':    'rgba(46,204,113,0.06)',
+      'dept-engr':    'rgba(52,152,219,0.06)',
+      'dept-cont':    'rgba(241,196,15,0.06)',
+      'dept-product': 'rgba(126,87,194,0.06)',
+      'dept-legal':   'rgba(84,110,122,0.06)',
+      'dept-finance': 'rgba(38,166,154,0.06)'
     };
     activeDepts.forEach(did => {
       const room = L.rooms[did];
@@ -721,8 +737,9 @@ class Scene {
       this.drawFloorPattern(room.x,room.y,room.w,room.h,fl);
     });
 
-    // Hallway floor
+    // Hallway floors (two — between row 0/1 and row 1/2)
     this.drawFloorPattern(L.hallX,L.hallY,L.hallW,L.hallH,FLOORS.tile);
+    this.drawFloorPattern(L.hall2X,L.hall2Y,L.hall2W,L.hall2H,FLOORS.tile);
 
     // Break room floor
     this.drawFloorPattern(L.breakX,L.breakY,L.breakW,L.breakH,FLOORS.kitchen);
@@ -794,9 +811,11 @@ class Scene {
       ctx.fillRect(r.x,r.y,r.w,6); // top wall shadow into room
       ctx.fillRect(r.x,r.y,6,r.h); // left wall shadow into room
     });
-    // Hallway shadows
+    // Hallway shadows (both hallways)
     ctx.fillRect(L.hallX,L.hallY,L.hallW,4);
     ctx.fillRect(L.hallX,L.hallY,4,L.hallH);
+    ctx.fillRect(L.hall2X,L.hall2Y,L.hall2W,4);
+    ctx.fillRect(L.hall2X,L.hall2Y,4,L.hall2H);
   }
 
   // ── WALLS ──
@@ -804,21 +823,25 @@ class Scene {
     const ctx=this.ctx,L=this.L;
     const s=WALL_S;
 
-    // Outer border
+    // Outer border — spans 3 rooms + 2 hallways
+    const outerH = ROOM_H*3 + HALL_H*2 + WALL*6;
     this.drawThickWallH(MARGIN,ROW0_Y-WALL,L.hallW,WALL,s);
-    this.drawThickWallH(MARGIN,ROW1_Y+ROOM_H,L.hallW,WALL,s);
-    this.drawThickWallV(MARGIN-WALL,ROW0_Y-WALL,WALL,ROOM_H*2+HALL_H+WALL*4,s);
-    this.drawThickWallV(MARGIN+L.hallW,ROW0_Y-WALL,WALL,ROOM_H*2+HALL_H+WALL*4,s);
+    this.drawThickWallH(MARGIN,ROW2_Y+ROOM_H,L.hallW,WALL,s);
+    this.drawThickWallV(MARGIN-WALL,ROW0_Y-WALL,WALL,outerH,s);
+    this.drawThickWallV(MARGIN+L.hallW,ROW0_Y-WALL,WALL,outerH,s);
 
-    // Horizontal dividers (between row0/hallway and hallway/row1)
-    this.drawThickWallH(MARGIN,HALL_Y-WALL,L.hallW,WALL,s);
-    this.drawThickWallH(MARGIN,ROW1_Y-WALL,L.hallW,WALL,s);
+    // Horizontal dividers (above/below each hallway)
+    this.drawThickWallH(MARGIN,HALL_Y-WALL,L.hallW,WALL,s);   // row0 ↔ hall1
+    this.drawThickWallH(MARGIN,ROW1_Y-WALL,L.hallW,WALL,s);   // hall1 ↔ row1
+    this.drawThickWallH(MARGIN,HALL2_Y-WALL,L.hallW,WALL,s);  // row1 ↔ hall2
+    this.drawThickWallH(MARGIN,ROW2_Y-WALL,L.hallW,WALL,s);   // hall2 ↔ row2
 
-    // Vertical dividers between rooms
+    // Vertical dividers between rooms (each row gets its own divider run)
     for(let c=1;c<COLS;c++){
       const x=MARGIN+c*(ROOM_W+WALL)-WALL;
       this.drawThickWallV(x,ROW0_Y-WALL,WALL,ROOM_H+WALL,s);
       this.drawThickWallV(x,ROW1_Y-WALL,WALL,ROOM_H+WALL,s);
+      this.drawThickWallV(x,ROW2_Y-WALL,WALL,ROOM_H+WALL,s);
     }
 
     // Break room walls
@@ -847,7 +870,7 @@ class Scene {
   // ── DOORS ──
   drawDoors(){
     const ctx=this.ctx,s=WALL_S;
-    // Doors from row0 rooms into hallway (south wall of row0)
+    // Doors from row0 rooms into hallway 1 (south wall of row0)
     DEPT_ORDER.slice(0,3).forEach((did,i)=>{
       const r=this.L.rooms[did];
       const dx=r.x+r.w/2-DOOR_W/2, dy=this.L.hallY-WALL;
@@ -860,7 +883,7 @@ class Scene {
       ctx.fillRect(dx+DOOR_W-1,dy,3,WALL+3);
       ctx.fillRect(dx-2,dy,DOOR_W+4,2);
     });
-    // Doors from row1 rooms into hallway (north wall of row1)
+    // Doors from row1 rooms into hallway 1 (north wall of row1)
     DEPT_ORDER.slice(3,6).forEach((did,i)=>{
       const r=this.L.rooms[did];
       const dx=r.x+r.w/2-DOOR_W/2, dy=this.L.hallY+this.L.hallH;
@@ -871,10 +894,21 @@ class Scene {
       ctx.fillRect(dx+DOOR_W-1,dy,3,WALL+3);
       ctx.fillRect(dx-2,dy+WALL+1,DOOR_W+4,2);
     });
-    // Break room door (from Content room's south wall)
-    const cr=this.L.rooms['dept-cont'];
-    if(cr){
-      const dx=cr.x+cr.w/2-DOOR_W/2, dy=cr.y+cr.h;
+    // Doors from row2 rooms into hallway 2 (north wall of row2)
+    DEPT_ORDER.slice(6,9).forEach((did,i)=>{
+      const r=this.L.rooms[did];if(!r)return;
+      const dx=r.x+r.w/2-DOOR_W/2, dy=this.L.hall2Y+this.L.hall2H;
+      ctx.fillStyle=FLOORS.tile.base;
+      ctx.fillRect(dx,dy,DOOR_W,WALL+3);
+      ctx.fillStyle='#6B5230';
+      ctx.fillRect(dx-2,dy,3,WALL+3);
+      ctx.fillRect(dx+DOOR_W-1,dy,3,WALL+3);
+      ctx.fillRect(dx-2,dy+WALL+1,DOOR_W+4,2);
+    });
+    // Break room door (from bottom-right row 2 room's south wall — Finance)
+    const br=this.L.rooms['dept-finance'] || this.L.rooms['dept-cont'];
+    if(br){
+      const dx=br.x+br.w/2-DOOR_W/2, dy=br.y+br.h;
       ctx.fillStyle=FLOORS.kitchen.base;
       ctx.fillRect(dx,dy,DOOR_W,WALL+3);
       ctx.fillStyle='#6B5230';
